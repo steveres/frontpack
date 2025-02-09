@@ -127,8 +127,16 @@
 }
 
 .loading-state {
-    background-color: var(--color-grey);
-    color: var(--color-dark-grey);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    background: transparent;  /* Remove the grey background */
+}
+
+.loading-spinner {
+    width: 48px;  /* Adjust size as needed */
+    height: 48px;
 }
 
 .error-state {

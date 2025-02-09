@@ -75,9 +75,16 @@
 
 /* Loading and error states */
 .loading-state {
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     padding: 2rem;
-    color: var(--color-dark-grey);
+    text-align: center;
+}
+
+.loading-spinner {
+    width: 100px;
+    height: 100px;
 }
 
 .error-state {
