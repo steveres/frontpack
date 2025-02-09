@@ -1,0 +1,32 @@
+<!-- components/navigation.html -->
+<header class="header">
+    <nav class="nav" aria-label="Main navigation">
+        <div class="nav__container">
+            <!-- Brand/Logo - acts as home link -->
+            <a href="/" class="nav__brand" aria-label="Front Pack Home">
+                <img src="/frontpack-logo.png" alt="Front Pack" class="nav__logo">
+            </a>
+
+            <!-- Mobile Menu Toggle -->
+            <button class="nav__toggle" 
+                    aria-label="Toggle navigation menu"
+                    aria-expanded="false"
+                    aria-controls="primary-navigation">
+                <span class="nav__toggle-icon"></span>
+            </button>
+
+            <!-- Navigation Menu -->
+            <ul class="nav__menu" id="primary-navigation">
+                <li class="nav__item">
+                    <a href="/routes.html" class="nav__link" id="nav-routes">Routes</a>
+                </li>
+                <li class="nav__item nav__item--auth">
+                    <a href="/login.html" class="nav__link" 
+                       id="auth-link" 
+                       data-login-text="Login"
+                       data-logout-text="Logout">Login</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+</header>

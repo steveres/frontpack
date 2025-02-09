@@ -1,0 +1,25 @@
+{
+  "name": "frontpack-website",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "http-server src -p 3000 -c-1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/steveres/frontpack-website.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/steveres/frontpack-website/issues"
+  },
+  "homepage": "https://github.com/steveres/frontpack-website#readme",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

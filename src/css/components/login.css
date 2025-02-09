@@ -1,0 +1,118 @@
+/* src/css/components/login.css */
+
+.login-container {
+    max-width: 400px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: var(--color-white);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-md);
+}
+
+.login-title {
+    font-family: var(--font-primary);
+    font-size: var(--font-size-h2);
+    color: var(--color-dark-grey);
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-weight: bold;
+    color: var(--color-dark-grey);
+}
+
+.form-group input {
+    padding: 0.75rem;
+    border: 1px solid var(--color-grey);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-base);
+    transition: border-color var(--transition-fast);
+}
+
+.form-group input:focus {
+    border-color: var(--color-light-blue);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(44, 172, 227, 0.2);
+}
+
+.error-message {
+    display: none;
+    padding: 0.75rem;
+    background-color: #fee2e2;
+    border: 1px solid #ef4444;
+    color: #991b1b;
+    border-radius: var(--border-radius-sm);
+    margin-bottom: 1rem;
+}
+
+.error-message.visible {
+    display: block;
+}
+
+.login-button {
+    position: relative;
+    padding: 0.75rem 1.5rem;
+    background-color: var(--color-dark-blue);
+    color: var(--color-white);
+    border-radius: var(--border-radius-sm);
+    font-weight: bold;
+    transition: background-color var(--transition-fast);
+}
+
+.login-button:hover {
+    background-color: var(--color-light-blue);
+}
+
+.login-button:disabled {
+    background-color: var(--color-grey);
+    cursor: not-allowed;
+}
+
+/* Loading spinner */
+.button-loader {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--color-white);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.login-button.loading .button-text {
+    visibility: hidden;
+}
+
+.login-button.loading .button-loader {
+    display: block;
+}
+
+/* Form validation styles */
+.form-group input:invalid {
+    border-color: #ef4444;
+}
+
+.form-group input:invalid:focus {
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}

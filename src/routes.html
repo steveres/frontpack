@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Routes - Front Pack</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png">
+    
+    <!-- CSS imports -->
+    <link rel="stylesheet" href="/css/base/reset.css">
+    <link rel="stylesheet" href="/css/base/variables.css">
+    <link rel="stylesheet" href="/css/components/navigation.css">
+    <link rel="stylesheet" href="/css/components/routes-list.css">
+    
+    <!-- JavaScript imports -->
+    <script src="/js/components/navigation.js" defer></script>
+    <script src="/js/utils/auth-helpers.js" defer></script>
+    <script src="/js/api/routes-api.js" defer></script>
+    <script src="/js/components/routes-list.js" defer></script>
+</head>
+<body>
+    <!-- Navigation placeholder -->
+    <div id="navigation-placeholder"></div>
+
+    <!-- Main content -->
+    <main class="main-content">
+        <div class="routes-container">
+            <!-- Filter controls -->
+            <div class="routes-controls">
+                <select id="tag-filter" class="tag-filter">
+                    <option value="">Loading tags...</option>
+                </select>
+            </div>
+
+            <!-- Search input (hidden for now) -->
+            <input type="text" id="search" class="hidden">
+            
+            <!-- Routes list -->
+            <div id="routes-list" class="routes-list">
+                <!-- Loading state placeholder -->
+                <div id="loading-state" class="loading-state">
+                    Loading routes...
+                </div>
+                <!-- Error state placeholder -->
+                <div id="error-state" class="error-state hidden">
+                    Error loading routes. Please try again.
+                </div>
+                <!-- Routes will be inserted here -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Load and inject the navigation
+        fetch('/components/navigation.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('navigation-placeholder').innerHTML = html;
+                if (window.initNavigation) {
+                    window.initNavigation();
+                }
+            })
+            .catch(error => console.error('Error loading navigation:', error));
+    </script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+/* css/components/routes-list.css */
+
+.routes-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.routes-list {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+}
+
+/* Route card styles */
+.route-card {
+    background: var(--color-white);
+    border: 1px solid var(--color-grey);
+    border-radius: var(--border-radius-md);
+    padding: 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.route-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.route-card__title {
+    font-size: 1.125rem;
+    font-weight: bold;
+    color: var(--color-dark-grey);
+    margin-bottom: 0.5rem;
+}
+
+.route-card__description {
+    font-size: 0.875rem;
+    color: var(--color-dark-grey);
+    /* Mobile: single line with ellipsis */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Loading state */
+.loading-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-dark-grey);
+}
+
+/* Error state */
+.error-state {
+    text-align: center;
+    padding: 2rem;
+    color: #ef4444;
+}
+
+.hidden {
+    display: none;
+}
+
+.routes-controls {
+    margin-bottom: 1.5rem;
+}
+
+.tag-filter {
+    padding: 0.5rem;
+    border: 1px solid var(--color-grey);
+    border-radius: var(--border-radius-sm);
+    font-size: 1rem;
+    width: 100%;
+    max-width: 300px;
+    background-color: white;
+}
+
+.tag-filter:focus {
+    outline: none;
+    border-color: var(--color-light-blue);
+    box-shadow: 0 0 0 2px rgba(44, 172, 227, 0.2);
+}
+
+/* Desktop styles */
+@media (min-width: 768px) {
+    .routes-list {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .route-card {
+        display: grid;
+        grid-template-columns: 100px 1fr;
+        gap: 1rem;
+        padding: 1.5rem;
+    }
+
+    .route-card__image {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: var(--border-radius-sm);
+    }
+
+    .route-card__description {
+        /* Desktop: show full description */
+        white-space: normal;
+        overflow: visible;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .tag-filter {
+        width: auto;
+    }
+}

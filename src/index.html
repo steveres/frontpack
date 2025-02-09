@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <title>Front Pack - Bicycle Routes</title>
+    
+    <!-- CSS imports in correct order -->
+    <link rel="stylesheet" href="/css/base/reset.css">
+    <link rel="stylesheet" href="/css/base/variables.css">
+    <link rel="stylesheet" href="/css/components/navigation.css">
+    
+    <!-- JavaScript imports -->
+    <script src="/js/components/navigation.js" defer></script>
+    <script src="/js/utils/auth-helpers.js" defer></script>
+</head>
+<body>
+    <!-- Navigation placeholder -->
+    <div id="navigation-placeholder"></div>
+
+    <!-- Main content with proper spacing for fixed header -->
+    <main class="main-content">
+        <h1>Welcome to Front Pack</h1>
+        <p>Discover the best bicycle routes in your area.</p>
+    </main>
+
+    <script>
+        // Load and inject the navigation
+        fetch('/components/navigation.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('navigation-placeholder').innerHTML = html;
+                // Initialize navigation after injection
+                if (window.initNavigation) {
+                    window.initNavigation();
+                }
+            })
+            .catch(error => console.error('Error loading navigation:', error));
+    </script>
+</body>
+</html>
