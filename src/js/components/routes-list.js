@@ -69,7 +69,7 @@ class RoutesList {
 
     async fetchRoutes(tag) {
         try {
-            let data = await RoutesAPI.getRoutes(tag);
+            let data = await RoutesAPI.getTours(tag);
             this.routes = data.results;
         } catch (error) {
             throw error;
@@ -86,20 +86,23 @@ class RoutesList {
     }
 
     createRouteCard(route) {
-        const imageHTML = window.innerWidth >= 768 ? 
-            `<img src="${route.mapPreviewURL}" alt="${route.name}" class="route-card__image">` : '';
+        const imageHTML = window.innerWidth >= 768 
+            ? `<img src="${route.mapPreviewURL}" alt="${route.name}" class="route-card__image">` 
+            : '';
         
         return `
             <div class="route-card">
                 ${imageHTML}
                 <div class="route-card__content">
-                    <h2 class="route-card__title">${route.name}</h2>
-                    <p class="route-card__description">${route.descr}</p>
+                    <h2 class="route-card__title">
+                        <a href="/route.html?routeId=${route.tourID}" class="route-card__link">${route.name}</a>
+                    </h2>
+                    <p class="route-card__description">${route.descr || ''}</p>
                 </div>
             </div>
         `;
     }
-
+    
     showLoading() {
         this.loadingState.classList.remove('hidden');
         this.errorState.classList.add('hidden');
