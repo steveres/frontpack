@@ -1,58 +1,43 @@
-// src/js/utils/auth-helpers.js
+// js/utils/auth-helpers.js
 
 class AuthHelper {
     constructor() {
-        this.API_URL = 'https://api2.thefrontpack.com';
         this.TOKEN_KEY = 'authToken';
     }
 
-    // Check if user is logged in
     isLoggedIn() {
         return this.getToken() !== null;
     }
 
-    // Get token from localStorage
     getToken() {
         return localStorage.getItem(this.TOKEN_KEY);
     }
 
-    // Save token to localStorage
     setToken(token) {
         localStorage.setItem(this.TOKEN_KEY, token);
         this.notifyAuthChange();
     }
 
-    // Remove token from localStorage
     removeToken() {
         localStorage.removeItem(this.TOKEN_KEY);
+        AuthAPI.clearUserInfo(); // Clear user info on logout
         this.notifyAuthChange();
     }
 
-    // Notify navigation of auth state change
     notifyAuthChange() {
         if (window.navigationInstance) {
             window.navigationInstance.updateAuthState();
         }
     }
 
-    // Handle login
     async login(email, password) {
         try {
-            const response = await fetch(`${this.API_URL}/authenticate/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password })
-            });
+            // First, authenticate
+            const authResponse = await AuthAPI.login(email, password);
+            this.setToken(authResponse.token);
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Login failed');
-            }
-
-            const data = await response.json();
-            this.setToken(data.token);
+            // Then, get user info
+            await AuthAPI.getUserInfo(email);
             return true;
 
         } catch (error) {
@@ -61,33 +46,21 @@ class AuthHelper {
         }
     }
 
-    // Handle logout
     async logout() {
         try {
-            // Call logout endpoint if API requires it
-            // const response = await fetch(`${this.API_URL}/auth/logout`, {
-            //     method: 'POST',
-            //     headers: {
-            //         'Authorization': `Bearer ${this.getToken()}`
-            //     }
-            // });
-
             this.removeToken();
             return true;
-
         } catch (error) {
             console.error('Logout error:', error);
             throw error;
         }
     }
 
-    // Get authorization header
     getAuthHeader() {
         const token = this.getToken();
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     }
 
-    // Check if token is expired
     isTokenExpired() {
         const token = this.getToken();
         if (!token) return true;
@@ -100,7 +73,27 @@ class AuthHelper {
             return true;
         }
     }
+
+    getUserName() {
+        return localStorage.getItem(AuthAPI.USER_NAME_KEY);
+    }
+
+    getUserID() {
+        return localStorage.getItem(AuthAPI.USER_ID_KEY);
+    }
+
+    setUserName(name) {
+        localStorage.setItem(AuthAPI.USER_NAME_KEY, name);
+    }
+
+    setUserID(userID) {
+        localStorage.setItem(AuthAPI.USER_ID_KEY, userID);
+    }
+
+    clearUserInfo() {
+        localStorage.removeItem(AuthAPI.USER_NAME_KEY);
+        localStorage.removeItem(AuthAPI.USER_ID_KEY);
+    }
 }
 
-// Create and export a single instance
-window.authHelper = new AuthHelper(); // Make available globally
+window.authHelper = new AuthHelper();
