@@ -70,6 +70,47 @@ class RoutesAPI {
         }
     }
 
+    static async getMyTours() {
+        try {
+            const body = JSON.stringify({ 
+                pageSize: 200, 
+                "includeGroupTypePersonal": false,
+                "includeGroupTypeLocal": true,
+                "includeGroupTypeTour": false,
+                "includeGroupTypeEvent": false,
+                "expandLinkedTrips": true,
+                "owner_UserID": window.authHelper.getUserID(),
+                "tourDetail": 0
+             });
+        
+            console.log(body);
+            const response = await fetch(`${this.API_URL}/Tours/Search`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...window.authHelper.getAuthHeader()
+                },
+                body: body
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                throw new Error('Failed to fetch tours');
+            }
+
+            const data = await response.json();
+            return data;
+
+        } catch (error) {
+            console.error('Error fetching tours:', error);
+            throw error;
+        }
+    }
+
+
     static async getTags() {
         try {
             const response = await fetch(`${this.API_URL}/Tours/tags`, {

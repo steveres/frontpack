@@ -28,7 +28,7 @@
     <!-- Main content -->
     <main class="main-content">
         <div class="route-edit">
-            <form id="tour-edit-form" class="route-edit-form">
+            <form id="route-edit-form" class="route-edit-form">
                 <!-- Tabs navigation -->
                 <div class="route-edit-tabs">
                     <button type="button" class="tab-button active" data-tab="info">Info</button>
@@ -61,11 +61,10 @@
 
                 <!-- Itinerary tab -->
                 <div class="tab-content" id="itinerary-tab">
-                    <div class="form-group file-upload-group">
-                        <label for="route-file">GPX or KML File</label>
+                    <div class="form-group">
                         <div class="file-upload-container">
                             <input type="file" id="route-file" name="routeFile" accept=".gpx,.kml" class="form-file">
-                            <img id="route-preview" src="/images/placeholder.png" alt="Route preview" class="preview-image">
+                            <img id="route-preview" alt="Route preview" class="preview-image hidden">
                         </div>
                     </div>
                     <div class="form-group">
@@ -87,21 +86,21 @@
                         <label for="logo-file">Logo Image</label>
                         <div class="file-upload-container">
                             <input type="file" id="logo-file" name="logoFile" accept=".png,.jpg,.gif" class="form-file">
-                            <img id="logo-preview" src="/images/placeholder.png" alt="Logo preview" class="preview-image">
+                            <img id="logo-preview" class="preview-image hidden" alt="Logo preview">
                         </div>
                     </div>
                     <div class="form-group file-upload-group">
                         <label for="cover-file">Cover Image</label>
                         <div class="file-upload-container">
                             <input type="file" id="cover-file" name="coverFile" accept=".png,.jpg,.gif" class="form-file">
-                            <img id="cover-preview" src="/images/placeholder.png" alt="Cover preview" class="preview-image">
+                            <img id="cover-preview" class="preview-image hidden" alt="Cover preview">
                         </div>
                     </div>
                     <div class="form-group file-upload-group">
                         <label for="catalog-file">Catalog Image</label>
                         <div class="file-upload-container">
                             <input type="file" id="catalog-file" name="catalogFile" accept=".png,.jpg,.gif" class="form-file">
-                            <img id="catalog-preview" src="/images/placeholder.png" alt="Catalog preview" class="preview-image">
+                            <img id="catalog-preview" class="preview-image hidden" alt="Catalog preview">
                         </div>
                     </div>
                 </div>

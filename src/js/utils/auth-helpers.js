@@ -80,7 +80,7 @@ class AuthHelper {
 
     getUserID() {
         try {
-            return localStorage.getItem(AuthAPI.USER_ID_KEY);
+            return parseInt(localStorage.getItem(AuthAPI.USER_ID_KEY), 10);
         } catch (error) {
             console.error('Error getting user ID:', error);
             return null;

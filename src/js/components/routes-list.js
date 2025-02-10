@@ -16,7 +16,6 @@ class RoutesList {
 
     async initialize() {
         try {
-
             // Show/hide add route button based on user login status
             this.showHideAddRouteButton();
 
@@ -75,7 +74,6 @@ class RoutesList {
         try {
             let data = await RoutesAPI.getTours(tag);
             this.routes = data.results;
-
         } catch (error) {
             throw error;
         }
@@ -93,6 +91,7 @@ class RoutesList {
     createRouteCard(route) {
         // Check if current user is the owner
         const isOwner = route.owner_UserID == window.authHelper.getUserID();
+        console.log('isOwner:', route.owner_UserID, window.authHelper.getUserID(), isOwner);
         const editIconHTML = isOwner & window.authHelper.isLoggedIn()
             ? `<img src="/images/edit-icon.svg" 
                    alt="Edit" 
@@ -102,9 +101,9 @@ class RoutesList {
         
         return `
             <div class="route-card">
+                ${editIconHTML}
                 <img src="${route.mapPreviewURL}" alt="${route.name}" class="route-card__image">
                 <div class="route-card__content">
-                    ${editIconHTML}
                     <h2 class="route-card__title">
                         <a href="/route.html?routeId=${route.tourID}" class="route-card__link">${route.name}</a>
                     </h2>
