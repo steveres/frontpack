@@ -17,6 +17,7 @@
     <!-- JavaScript imports -->
     <script src="/js/components/navigation.js" defer></script>
     <script src="/js/utils/auth-helpers.js" defer></script>
+    <script src="/js/api/auth-api.js" defer></script>
     <script src="/js/api/routes-api.js" defer></script>
     <script src="/js/components/routes-list.js" defer></script>
 </head>
@@ -32,6 +33,9 @@
                 <select id="tag-filter" class="tag-filter">
                     <option value="">Loading tags...</option>
                 </select>
+                <div id="add-route-button">
+                    <img src="/images/add-icon.svg" alt="Add" class="add-icon" onclick="window.location.href='/Edit.html'">
+                </div>
             </div>
 
             <!-- Search input (hidden for now) -->

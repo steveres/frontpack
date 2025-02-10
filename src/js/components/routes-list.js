@@ -16,10 +16,14 @@ class RoutesList {
 
     async initialize() {
         try {
-            // First load tags with default 'usbrs'
+
+            // Show/hide add route button based on user login status
+            this.showHideAddRouteButton();
+
+            // Load tags with default 'usbrs'
             await this.loadTags('usbrs');
             
-            // Then load routes
+            // Load routes
             this.showLoading();
             await this.fetchRoutes('usbrs');
             this.hideLoading();
@@ -71,6 +75,7 @@ class RoutesList {
         try {
             let data = await RoutesAPI.getTours(tag);
             this.routes = data.results;
+
         } catch (error) {
             throw error;
         }
@@ -79,21 +84,27 @@ class RoutesList {
     render() {
         // Clear existing routes
         this.container.innerHTML = '';
-        
+
         // Create route cards
         const routesHTML = this.routes.map(route => this.createRouteCard(route)).join('');
         this.container.innerHTML = routesHTML;
     }
 
     createRouteCard(route) {
-        const imageHTML = window.innerWidth >= 768 
-            ? `<img src="${route.mapPreviewURL}" alt="${route.name}" class="route-card__image">` 
+        // Check if current user is the owner
+        const isOwner = route.owner_UserID == window.authHelper.getUserID();
+        const editIconHTML = isOwner & window.authHelper.isLoggedIn()
+            ? `<img src="/images/edit-icon.svg" 
+                   alt="Edit" 
+                   class="route-card__edit-icon" 
+                   onclick="window.location.href='/edit.html?routeId=${route.tourID}'">`
             : '';
         
         return `
             <div class="route-card">
-                ${imageHTML}
+                <img src="${route.mapPreviewURL}" alt="${route.name}" class="route-card__image">
                 <div class="route-card__content">
+                    ${editIconHTML}
                     <h2 class="route-card__title">
                         <a href="/route.html?routeId=${route.tourID}" class="route-card__link">${route.name}</a>
                     </h2>
@@ -102,7 +113,21 @@ class RoutesList {
             </div>
         `;
     }
-    
+
+    showHideAddRouteButton() {
+        try {
+            const addRouteButton = document.getElementById('add-route-button');
+            console.log('isLoggedIn:', window.authHelper.isLoggedIn());
+            if (window.authHelper.isLoggedIn()) {
+                addRouteButton.classList.remove('hidden');
+            } else {
+                addRouteButton.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Error showing/hiding add route button:', error);
+        }
+    }
+
     showLoading() {
         this.loadingState.classList.remove('hidden');
         this.errorState.classList.add('hidden');

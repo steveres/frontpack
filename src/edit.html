@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Tour - Front Pack</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png">
+    
+    <!-- CSS imports -->
+    <link rel="stylesheet" href="/css/base/reset.css">
+    <link rel="stylesheet" href="/css/base/variables.css">
+    <link rel="stylesheet" href="/css/components/navigation.css">
+    <link rel="stylesheet" href="/css/components/route-edit.css">
+    
+    <!-- JavaScript imports -->
+    <script src="/js/components/navigation.js" defer></script>
+    <script src="/js/utils/auth-helpers.js" defer></script>
+    <script src="/js/api/auth-api.js" defer></script>
+    <script src="/js/api/routes-api.js" defer></script>
+    <script src="/js/components/route-edit.js" defer></script>
+</head>
+<body>
+    <!-- Navigation placeholder -->
+    <div id="navigation-placeholder"></div>
+
+    <!-- Main content -->
+    <main class="main-content">
+        <div class="route-edit">
+            <form id="tour-edit-form" class="route-edit-form">
+                <!-- Tabs navigation -->
+                <div class="route-edit-tabs">
+                    <button type="button" class="tab-button active" data-tab="info">Info</button>
+                    <button type="button" class="tab-button" data-tab="itinerary">Itinerary</button>
+                    <button type="button" class="tab-button" data-tab="branding">Branding</button>
+                    <button type="button" class="tab-button" data-tab="tags">Tags</button>
+                </div>
+
+                <!-- Info tab -->
+                <div class="tab-content active" id="info-tab">
+                    <div class="form-group">
+                        <label for="tour-name">Name</label>
+                        <input type="text" id="tour-name" name="name" class="form-input" required minlength="10" 
+                            oninvalid="this.setCustomValidity('Name must be at least 10 characters long')"
+                            oninput="this.setCustomValidity('')">
+                        <div class="error-message" id="name-error"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="tour-description">Description</label>
+                        <textarea id="tour-description" name="description" class="form-textarea" rows="5"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="tour-privacy">Privacy</label>
+                        <select id="tour-privacy" name="privacy" class="form-select">
+                            <option value="public">Public</option>
+                            <option value="private">Private</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Itinerary tab -->
+                <div class="tab-content" id="itinerary-tab">
+                    <div class="form-group file-upload-group">
+                        <label for="route-file">GPX or KML File</label>
+                        <div class="file-upload-container">
+                            <input type="file" id="route-file" name="routeFile" accept=".gpx,.kml" class="form-file">
+                            <img id="route-preview" src="/images/placeholder.png" alt="Route preview" class="preview-image">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="section-header">
+                            <div class="header-with-button">
+                                <label>Route Sections</label>
+                                <button type="button" id="add-section" class="add-button">+</button>
+                            </div>
+                        </div>
+                        <div id="route-sections" class="route-sections">
+                            <!-- Route sections will be added here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Branding tab -->
+                <div class="tab-content" id="branding-tab">
+                    <div class="form-group file-upload-group">
+                        <label for="logo-file">Logo Image</label>
+                        <div class="file-upload-container">
+                            <input type="file" id="logo-file" name="logoFile" accept=".png,.jpg,.gif" class="form-file">
+                            <img id="logo-preview" src="/images/placeholder.png" alt="Logo preview" class="preview-image">
+                        </div>
+                    </div>
+                    <div class="form-group file-upload-group">
+                        <label for="cover-file">Cover Image</label>
+                        <div class="file-upload-container">
+                            <input type="file" id="cover-file" name="coverFile" accept=".png,.jpg,.gif" class="form-file">
+                            <img id="cover-preview" src="/images/placeholder.png" alt="Cover preview" class="preview-image">
+                        </div>
+                    </div>
+                    <div class="form-group file-upload-group">
+                        <label for="catalog-file">Catalog Image</label>
+                        <div class="file-upload-container">
+                            <input type="file" id="catalog-file" name="catalogFile" accept=".png,.jpg,.gif" class="form-file">
+                            <img id="catalog-preview" src="/images/placeholder.png" alt="Catalog preview" class="preview-image">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tags tab -->
+                <div class="tab-content" id="tags-tab">
+                    <div class="form-group">
+                        <div class="section-header">
+                            <div class="header-with-button">
+                                <label>Tags</label>
+                                <button type="button" id="add-tag" class="add-button">+</button>
+                            </div>
+                        </div>
+                        <div id="tags-container" class="tags-container">
+                            <!-- Tags will be added here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form controls -->
+                <div class="form-controls">
+                    <button type="submit" class="save-button">Save</button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        // Load and inject the navigation
+        fetch('/components/navigation.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('navigation-placeholder').innerHTML = html;
+                if (window.initNavigation) {
+                    window.initNavigation();
+                }
+            })
+            .catch(error => console.error('Error loading navigation:', error));
+    </script>
+</body>
+</html>

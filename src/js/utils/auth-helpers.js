@@ -79,7 +79,12 @@ class AuthHelper {
     }
 
     getUserID() {
-        return localStorage.getItem(AuthAPI.USER_ID_KEY);
+        try {
+            return localStorage.getItem(AuthAPI.USER_ID_KEY);
+        } catch (error) {
+            console.error('Error getting user ID:', error);
+            return null;
+        }
     }
 
     setUserName(name) {
