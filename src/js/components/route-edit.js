@@ -9,6 +9,8 @@ class RouteEdit {
         // Bind methods
         this.switchTab = this.switchTab.bind(this);
         this.loadData = this.loadData.bind(this);
+        this.addRouteSection = this.addRouteSection.bind(this);
+        this.addTag = this.addTag.bind(this);
         
         this.initialize();
     }
@@ -20,6 +22,10 @@ class RouteEdit {
                 window.location.href = '/login.html';
                 return;
             }
+
+            // Add event listeners for add buttons
+            document.getElementById('add-section').addEventListener('click', this.addRouteSection);
+            document.getElementById('add-tag').addEventListener('click', this.addTag);
 
             // Initialize tab switching
             this.tabs.forEach(tab => {
@@ -82,6 +88,49 @@ class RouteEdit {
         document.getElementById('tour-privacy').value = this.tour.visibility === 1 ? 'private' : 'public';
     }
 
+    addRouteSection(selectedTourId = null) {
+        const routeSectionsContainer = document.getElementById('route-sections');
+        const sectionCount = routeSectionsContainer.children.length;
+        
+        const sectionDiv = document.createElement('div');
+        sectionDiv.className = `form-group route-section `;
+        
+        // Create container for select and delete button
+        const container = document.createElement('div');
+        container.className = 'route-section-container';
+
+        // Create select element
+        const select = document.createElement('select');
+        select.className = `form-select `;
+        select.id = `route-section-${sectionCount}`;
+        select.name = `route-section-${sectionCount}`;
+
+        // Add options from available tours
+        if (this.availableTours) {
+            this.availableTours.forEach(tour => {
+                const option = document.createElement('option');
+                option.value = tour.tourID;
+                option.textContent = tour.name;
+                if (selectedTourId && tour.tourID === selectedTourId) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+
+        // Create delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'delete-button';
+        deleteButton.innerHTML = '×';
+        deleteButton.onclick = () => sectionDiv.remove();
+
+        container.appendChild(select);
+        container.appendChild(deleteButton);
+        sectionDiv.appendChild(container);
+        routeSectionsContainer.appendChild(sectionDiv);
+    }
+
     populateItineraryTab() {
         // Route preview image
         const routePreview = document.getElementById('route-preview');
@@ -92,34 +141,61 @@ class RouteEdit {
             routePreview.classList.add('hidden');
         }
 
-        // Route sections
+        // Clear existing sections
         const routeSectionsContainer = document.getElementById('route-sections');
-        routeSectionsContainer.innerHTML = ''; // Clear existing sections
+        routeSectionsContainer.innerHTML = '';
 
+        // Add existing route sections
         if (this.tour.childTours && this.tour.childTours.length > 0) {
-            this.tour.childTours.forEach((childTour, index) => {
-                const sectionDiv = document.createElement('div');
-                sectionDiv.className = 'form-group';
-                
-                // Create select element
-                const select = document.createElement('select');
-                select.className = 'form-select';
-                select.id = `route-section-${index}`;
-                select.name = `route-section-${index}`;
+            this.tour.childTours.forEach(childTour => {
+                this.addRouteSection(childTour.tourID);
+            });
+        }
+    }
 
-                // Add options from available tours
-                if (this.availableTours) {
-                    this.availableTours.forEach(tour => {
-                        const option = document.createElement('option');
-                        option.value = tour.tourID;
-                        option.textContent = tour.name;
-                        option.selected = tour.tourID === childTour.tourID;
-                        select.appendChild(option);
-                    });
-                }
+    addTag(tagValue = '') {
+        const tagsContainer = document.getElementById('tags-container');
+        const tagCount = tagsContainer.children.length;
+        
+        const tagDiv = document.createElement('div');
+        tagDiv.className = 'form-group tag-item';
+        
+        // Create container for input and delete button
+        const container = document.createElement('div');
+        container.className = 'tag-container';
 
-                sectionDiv.appendChild(select);
-                routeSectionsContainer.appendChild(sectionDiv);
+        // Create input for tag
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-input';
+        input.id = `tag-${tagCount}`;
+        input.name = `tag-${tagCount}`;
+        input.value = (typeof tagValue === 'object' && tagValue !== null) 
+            ? ''
+            : tagValue;
+        
+        // Create delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'delete-button';
+        deleteButton.innerHTML = '×';
+        deleteButton.onclick = () => tagDiv.remove();
+
+        container.appendChild(input);
+        container.appendChild(deleteButton);
+        tagDiv.appendChild(container);
+        tagsContainer.appendChild(tagDiv);
+    }
+
+    populateTagsTab() {
+        // Clear existing tags
+        const tagsContainer = document.getElementById('tags-container');
+        tagsContainer.innerHTML = '';
+
+        // Add existing tags
+        if (this.tour.tags && this.tour.tags.length > 0) {
+            this.tour.tags.forEach(tag => {
+                this.addTag(this.tagToText(tag));
             });
         }
     }
@@ -153,28 +229,6 @@ class RouteEdit {
         }
     }
 
-    populateTagsTab() {
-        const tagsContainer = document.getElementById('tags-container');
-        tagsContainer.innerHTML = ''; // Clear existing tags
-
-        if (this.tour.tags && this.tour.tags.length > 0) {
-            this.tour.tags.forEach((tag, index) => {
-                const tagDiv = document.createElement('div');
-                tagDiv.className = 'form-group';
-                
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.className = 'form-input';
-                input.id = `tag-${index}`;
-                input.name = `tag-${index}`;
-                input.value = this.tagToText (tag);
-
-                tagDiv.appendChild(input);
-                tagsContainer.appendChild(tagDiv);
-            });
-        }
-    }
-
     switchTab(tabName) {
         try {
             // Remove active class from all tabs and contents
@@ -202,11 +256,10 @@ class RouteEdit {
         }
     }
 
-    tagToText (tag) {
+    tagToText(tag) {
         return (tag)
             ? tag.name === 'tag' ? tag.value : `${tag.name} = ${tag.value}`
             : '';
-        
     }
 }
 

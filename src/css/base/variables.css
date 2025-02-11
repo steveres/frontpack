@@ -10,6 +10,7 @@
   --color-light-blue: rgb(44, 172, 227);  /* #2CACE3 */
   --color-pale-blue: rgb(149, 210, 243);  /* #95D2F3 */
   --color-white: rgb(255, 255, 255);      /* #FFFFFF */
+  --color-error: rgb(220, 38, 38);        /* #dc2626 */
 
   /* Typography */
   --font-primary: "Helvetica Neue", Helvetica, Arial, sans-serif;
