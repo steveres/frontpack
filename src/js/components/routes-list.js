@@ -91,7 +91,7 @@ class RoutesList {
     createRouteCard(route) {
         // Check if current user is the owner
         const isOwner = route.owner_UserID == window.authHelper.getUserID();
-        console.log('isOwner:', route.owner_UserID, window.authHelper.getUserID(), isOwner);
+        //console.log('isOwner:', route.owner_UserID, window.authHelper.getUserID(), isOwner);
         const editIconHTML = isOwner & window.authHelper.isLoggedIn()
             ? `<img src="/images/edit-icon.svg" 
                    alt="Edit" 
@@ -116,7 +116,7 @@ class RoutesList {
     showHideAddRouteButton() {
         try {
             const addRouteButton = document.getElementById('add-route-button');
-            console.log('isLoggedIn:', window.authHelper.isLoggedIn());
+            //console.log('isLoggedIn:', window.authHelper.isLoggedIn());
             if (window.authHelper.isLoggedIn()) {
                 addRouteButton.classList.remove('hidden');
             } else {

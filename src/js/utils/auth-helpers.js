@@ -49,6 +49,7 @@ class AuthHelper {
     async logout() {
         try {
             this.removeToken();
+            this.clearUserInfo();
             return true;
         } catch (error) {
             console.error('Logout error:', error);

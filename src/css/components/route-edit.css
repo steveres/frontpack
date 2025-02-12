@@ -218,13 +218,14 @@
     padding-top: 2rem;
     border-top: 1px solid var(--color-grey);
     display: flex;
-    justify-content: flex-end;
+    gap: 1rem;  /* Adds space between buttons */
+    justify-content: space-between;  /* Save on left, Delete on right */
 }
 
-.save-button {
+/* Common button styles */
+.save-button,
+.delete-button-large {
     padding: 0.75rem 2rem;
-    background: var(--color-light-blue);
-    color: white;
     border: none;
     border-radius: var(--border-radius-sm);
     font-size: 1rem;
@@ -232,10 +233,27 @@
     transition: background-color 0.2s ease;
 }
 
-.save-button:hover {
-    background: var(--color-blue);
+/* Save button specific styles */
+.save-button {
+    background: var(--color-light-blue);
+    color: white;
 }
 
+.save-button:hover {
+    background: var(--color-dark-blue);
+}
+
+/* Delete button specific styles */
+.delete-button-large {
+    background: white;
+    color: var(--color-error);
+    border: 2px solid var(--color-error);
+}
+
+.delete-button-large:hover {
+    background: var(--color-error);
+    color: white;
+}
 /* Error states */
 .form-input.error,
 .form-textarea.error,

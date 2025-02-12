@@ -83,7 +83,7 @@ class RoutesAPI {
                 "tourDetail": 0
              });
         
-            console.log(body);
+            //console.log(body);
             const response = await fetch(`${this.API_URL}/Tours/Search`, {
                 method: 'POST',
                 headers: {
@@ -134,4 +134,78 @@ class RoutesAPI {
             throw error;
         }
     }
+
+    static async postTour(tour, method) {
+        try {
+
+            let response = await this.postTour_internal(tour, method);
+
+            // hack for file upload timing bug in API :(
+            // if (response.status === 400) {
+            //     console.warn('Retrying postTour after 100ms delay');
+            //     console.log('postTour failed with 400 status.', JSON.stringify(tour));
+            //     await new Promise(resolve => setTimeout(resolve, 100));
+            //     response = await this.postTour_internal(tour, method);
+            // }
+
+            if (!response.ok) {
+                // Get the error message from the response if possible
+                let errorMessage;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || response.statusText;
+                } catch {
+                    errorMessage = response.statusText;
+                }
+                
+                return {
+                    message: `Server error: ${errorMessage}`,
+                    tourId: null,
+                    success: false
+                };
+            }
+
+            if (method === 'PUT') {
+                return {
+                    message: 'Route saved',
+                    tourId: tour.tourID,
+                    success: true
+                };
+            } else {
+                const responseBody = await response.json();
+                return {
+                    message: 'Route created',
+                    tourId: responseBody.tourID,
+                    success: true
+                };
+            }
+
+        } catch (error) {
+            console.error('Error in postTour:', error);
+            return {
+                message: error.message,
+                tourId: null,
+                success: false
+            };
+        }
+    }    
+    static async postTour_internal(tour, method) {
+        const body = JSON.stringify(tour);
+        console.log('Sending tour data:', {
+            url: `${this.API_URL}/Tours`,
+            method: method,
+            tourId: tour.tourID,
+            bodyLength: body.length
+        });
+
+        return await fetch(`${this.API_URL}/Tours`, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                ...window.authHelper.getAuthHeader()
+            },
+            body: body
+        });
+    }
+
 }

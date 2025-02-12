@@ -11,6 +11,8 @@ class RouteEdit {
         this.loadData = this.loadData.bind(this);
         this.addRouteSection = this.addRouteSection.bind(this);
         this.addTag = this.addTag.bind(this);
+
+        this.saveData = this.saveData.bind(this);
         
         this.initialize();
     }
@@ -26,6 +28,9 @@ class RouteEdit {
             // Add event listeners for add buttons
             document.getElementById('add-section').addEventListener('click', this.addRouteSection);
             document.getElementById('add-tag').addEventListener('click', this.addTag);
+            document.querySelector('.save-button').addEventListener('click', this.saveData);
+            document.querySelector('.delete-button-large').addEventListener('click', this.handleDelete);
+
 
             // Initialize tab switching
             this.tabs.forEach(tab => {
@@ -54,21 +59,21 @@ class RouteEdit {
     async loadData() {
         try {
             // Load the tour data
-            console.log('Loading tour data for ID:', this.routeId);
+            //console.log('Loading tour data for ID:', this.routeId);
             const tourData = await RoutesAPI.getTour(this.routeId, false);
 
             // Load available tours for route sections
-            console.log('Loading available tours for route sections');
+            //console.log('Loading available tours for route sections');
             const myTours = await RoutesAPI.getMyTours();
 
             // Store the data for later use
             this.tour = tourData.tour;
             this.availableTours = myTours.results;
-            console.log('Tour data loaded:', this.tour);
-            console.log('Available Tours loaded:', this.availableTours);
+            //console.log('Tour data loaded:', this.tour);
+            //console.log('Available Tours loaded:', this.availableTours);
 
             // Populate form fields
-            console.log('Populating form fields:', this.tour);
+            //console.log('Populating form fields:', this.tour);
             this.populateInfoTab();
             this.populateItineraryTab();
             this.populateBrandingTab();
@@ -203,8 +208,8 @@ class RouteEdit {
     populateBrandingTab() {
         // Logo preview
         const logoPreview = document.getElementById('logo-preview');
-        if (this.tour.logo) {
-            logoPreview.src = this.tour.logo;
+        if (this.tour.logoURL) {
+            logoPreview.src = this.tour.logoURL;
             logoPreview.classList.remove('hidden');
         } else {
             logoPreview.classList.add('hidden');
@@ -261,9 +266,114 @@ class RouteEdit {
             ? tag.name === 'tag' ? tag.value : `${tag.name} = ${tag.value}`
             : '';
     }
+
+    async saveData() {
+        console.log('Starting save operation');
+        const saveButton = document.querySelector('.save-button');
+        saveButton.disabled = true;
+        saveButton.textContent = 'Saving...';
+        
+        try {
+            // Initialize tour object
+            let tour = this.routeId ? { ...this.tour } : {
+                owner_UserID: window.authHelper.getUserID(),
+                createdDate: new Date().toISOString(),
+                visibility: 0
+            };
+    
+            // Log initial tour state
+            console.log('Initial tour state:', { 
+                isNew: !this.routeId,
+                tourId: tour.tourID,
+                userId: tour.owner_UserID 
+            });
+    
+            // Basic info
+            tour.name = document.getElementById('tour-name').value;
+            tour.descr = document.getElementById('tour-description').value;
+            tour.visibility = document.getElementById('tour-privacy').value === 'private' ? 1 : 0;
+    
+            // Handle file uploads one at a time to prevent any race conditions
+            const routeFile = document.getElementById('route-file').files[0];
+            if (routeFile) {
+                console.log('Processing route file:', routeFile.name);
+                tour.routeXML = await window.fileHelper.readFileAsText(routeFile);
+                console.log('Route file processed, length:', tour.routeXML.length);
+            }
+    
+            const logoFile = document.getElementById('logo-file').files[0];
+            if (logoFile) {
+                console.log('Processing logo file:', logoFile.name);
+                tour.logo = await window.fileHelper.readFileAsBinary(logoFile);
+                console.log('Logo file processed, length:', tour.logo.length);
+            }
+    
+            const coverFile = document.getElementById('cover-file').files[0];
+            if (coverFile) {
+                console.log('Processing cover file:', coverFile.name);
+                tour.coverPic = await window.fileHelper.readFileAsBinary(coverFile);
+                console.log('Cover file processed, length:', tour.coverPic.length);
+            }
+    
+            const catalogFile = document.getElementById('catalog-file').files[0];
+            if (catalogFile) {
+                console.log('Processing catalog file:', catalogFile.name);
+                tour.catalogPic = await window.fileHelper.readFileAsBinary(catalogFile);
+                console.log('Catalog file processed, length:', tour.catalogPic.length);
+            }
+    
+            // Handle route sections
+            const routeSections = document.querySelectorAll('.route-section select');
+            tour.childTours = Array.from(routeSections).map(select => ({
+                tourID: parseInt(select.value)
+            }));
+            console.log('Route sections processed:', tour.childTours);
+    
+            // Handle tags
+            const tagInputs = document.querySelectorAll('.tag-item input');
+            tour.tags = Array.from(tagInputs)
+                .map(input => input.value.trim())
+                .filter(tag => tag !== '')
+                .map(tag => {
+                    const [name, value] = tag.includes('=') 
+                        ? tag.split('=').map(part => part.trim())
+                        : ['tag', tag];
+                    return { name, value };
+                });
+            console.log('Tags processed:', tour.tags);
+    
+            // Save the tour
+            const method = this.routeId ? 'PUT' : 'POST';
+            console.log(`Saving tour with method ${method}`);
+            
+            const result = await RoutesAPI.postTour(tour, method);
+    
+            if (result.success) {
+                console.log('Save successful:', result);
+                window.location.href = `/edit.html?routeId=${result.tourId}`;
+            } else {
+                throw new Error(result.message || 'Failed to save route');
+            }
+    
+        } catch (error) {
+            console.error('Error saving tour:', error);
+            alert(`Failed to save route: ${error.message}`);
+        } finally {
+            saveButton.disabled = false;
+            saveButton.textContent = 'Save';
+        }
+    }
+
+    async handleDelete() {
+        if (confirm('Are you sure you want to delete this route? This cannot be undone.')) {
+            // Add your delete logic here
+            console.log('Delete route:', this.routeId);
+        }
+    }
 }
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new RouteEdit();
+    //new RouteEdit();
+    window.routeEdit = new RouteEdit();
 });
