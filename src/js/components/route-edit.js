@@ -13,6 +13,7 @@ class RouteEdit {
         this.addTag = this.addTag.bind(this);
 
         this.saveData = this.saveData.bind(this);
+        this.handleDelete = this.handleDelete.bind(this);
         
         this.initialize();
     }
@@ -69,7 +70,7 @@ class RouteEdit {
             // Store the data for later use
             this.tour = tourData.tour;
             this.availableTours = myTours.results;
-            //console.log('Tour data loaded:', this.tour);
+            console.log('Tour data loaded:', this.tour);
             //console.log('Available Tours loaded:', this.availableTours);
 
             // Populate form fields
@@ -365,15 +366,19 @@ class RouteEdit {
     }
 
     async handleDelete() {
-        if (confirm('Are you sure you want to delete this route? This cannot be undone.')) {
-            // Add your delete logic here
-            console.log('Delete route:', this.routeId);
+        if (confirm('Are you sure you want to delete this Route? This action cannot be undone')) {
+            console.log('Deleting route:', this);
+            const result = await RoutesAPI.deleteTour(this.tour.tourID);
+            if (result.success) {
+                alert(`Deleteted route: ${this.tour.name}`); 
+            } else {
+                alert(`Error deleteing route: ${result.message}`); 
+            }
         }
     }
 }
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    //new RouteEdit();
     window.routeEdit = new RouteEdit();
 });

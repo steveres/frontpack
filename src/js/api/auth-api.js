@@ -2,6 +2,7 @@
 
 class AuthAPI {
     static API_URL = 'https://api2.thefrontpack.com';
+    //static API_URL = 'https://localhost:44367';
     static USER_NAME_KEY = 'userName';
     static USER_ID_KEY = 'userID';
 

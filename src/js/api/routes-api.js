@@ -2,6 +2,7 @@
 
 class RoutesAPI {
     static API_URL = 'https://api2.thefrontpack.com';
+    //static API_URL = 'https://localhost:44367';
 
     static filterByTag(tag) {
         document.getElementById('search').value = '';
@@ -208,4 +209,47 @@ class RoutesAPI {
         });
     }
 
+    static async deleteTour(tourID) {
+
+        try {
+            const url = `${this.API_URL}/Tours/${tourID}`;
+            const method = 'DELETE';
+    
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...window.authHelper.getAuthHeader()
+                },
+            });
+    
+            if (!response.ok) {
+                // Get the error message from the response if possible
+                let errorMessage;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || response.statusText;
+                } catch {
+                    errorMessage = response.statusText;
+                }
+                
+                return {
+                    message: `Server error: ${errorMessage}`,
+                    success: false
+                };
+            }
+
+            return {
+                message: 'Route deleted',
+                success: true
+            };
+
+        } catch (error) {
+            console.error('Error in postTour:', error);
+            return {
+                message: error.message,
+                success: false
+            };
+        }
+    }    
 }
