@@ -10,19 +10,29 @@
     <link rel="stylesheet" href="/css/base/reset.css">
     <link rel="stylesheet" href="/css/base/variables.css">
     <link rel="stylesheet" href="/css/components/navigation.css">
+    <link rel="stylesheet" href="/css/components/index.css">
     
     <!-- JavaScript imports -->
     <script src="/js/components/navigation.js" defer></script>
     <script src="/js/utils/auth-helpers.js" defer></script>
+    <script src="/js/components/index.js" defer></script>
 </head>
 <body>
     <!-- Navigation placeholder -->
     <div id="navigation-placeholder"></div>
 
-    <!-- Main content with proper spacing for fixed header -->
-    <main class="main-content">
-        <h1>Welcome to Front Pack</h1>
-        <p>Discover the best bicycle routes in your area.</p>
+    <!-- Main content -->
+    <main class="home-container">
+        <div class="home-content">
+            <h1>Welcome to FrontPack.</h1>
+            <p>
+                We've been helping cyclists ride big rides since 2019, delivering Adventure Cycling’s iconic maps to mobile phones though our co-branded mobile apps. Between then and 2024, cyclists navigated over 25,000,000 miles with our technology! Proceeds from digital map purchases helped fund the R&D to keep local information accurate and current, so cyclists can travel with confidence. As other cycling apps grew, we migrated the routes to RideWithGPS for wider distribution and support, available now for purchase through Adventure Cycling’s online store.            </p>
+                <!-- Image placeholders - replace src with actual images -->
+                <img src="/api/placeholder/400/300" alt="Cycling route 1">
+                <img src="/api/placeholder/400/300" alt="Cycling route 2">
+                <img src="/api/placeholder/400/300" alt="Cycling route 3">
+            </div>
+        </div>
     </main>
 
     <script>
@@ -31,7 +41,6 @@
             .then(response => response.text())
             .then(html => {
                 document.getElementById('navigation-placeholder').innerHTML = html;
-                // Initialize navigation after injection
                 if (window.initNavigation) {
                     window.initNavigation();
                 }
