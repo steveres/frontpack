@@ -9,6 +9,7 @@ class HomeBackground {
         ];
         this.currentIndex = 0;
         this.elements = [];
+        this.interval = null;
         
         this.initialize();
     }
@@ -16,6 +17,10 @@ class HomeBackground {
     initialize() {
         // Create background elements
         const container = document.querySelector('.home-container');
+        if (!container) {
+            console.error('Home container not found');
+            return;
+        }
         
         // Create two background elements for smooth transitions
         for (let i = 0; i < 2; i++) {
@@ -34,13 +39,18 @@ class HomeBackground {
     }
 
     startRotation() {
-        setInterval(() => {
+        // Clear any existing interval
+        if (this.interval) {
+            clearInterval(this.interval);
+        }
+
+        // Start new rotation interval
+        this.interval = setInterval(() => {
             this.rotate();
         }, 5000); // Rotate every 5 seconds
     }
 
     rotate() {
-        // Calculate indices
         const currentElement = this.elements[0];
         const nextElement = this.elements[1];
         
@@ -55,9 +65,20 @@ class HomeBackground {
         // Swap elements in array
         this.elements.reverse();
     }
+
+    // Cleanup method
+    destroy() {
+        if (this.interval) {
+            clearInterval(this.interval);
+        }
+        this.elements.forEach(el => el.remove());
+    }
 }
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new HomeBackground();
+    const homeBackground = new HomeBackground();
+    
+    // Store instance for potential cleanup
+    window.homeBackground = homeBackground;
 });
