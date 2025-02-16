@@ -20,7 +20,9 @@ class RouteEdit {
 
     async initialize() {
         try {
-            
+            // First load navigation
+            await Navigation.loadNavigation();
+
             // Add event listeners for add buttons
             document.getElementById('add-section').addEventListener('click', this.addRouteSection);
             document.getElementById('add-tag').addEventListener('click', this.addTag);
@@ -271,7 +273,7 @@ class RouteEdit {
         try {
             // Initialize tour object
             let tour = this.routeId ? { ...this.tour } : {
-                owner_UserID: window.navHelper.getUserID(),
+                owner_UserID: window.navigationInstance.getUserID(),
                 createdDate: new Date().toISOString(),
                 visibility: 0
             };

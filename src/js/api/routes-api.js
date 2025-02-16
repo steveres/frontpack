@@ -1,8 +1,8 @@
 // js/api/routes-api.js
 
 class RoutesAPI {
-    //static API_URL = 'https://api2.thefrontpack.com';
-    static API_URL = 'https://localhost:44367';
+    static API_URL = 'https://api2.thefrontpack.com';
+    //static API_URL = 'https://localhost:44367';
 
     static filterByTag(tag) {
         document.getElementById('search').value = '';
@@ -83,7 +83,7 @@ class RoutesAPI {
                 "includeGroupTypeTour": false,
                 "includeGroupTypeEvent": false,
                 "expandLinkedTrips": true,
-                "owner_UserID": window.navHelper.getUserID(),
+                "owner_UserID": window.navigationInstance.getUserID(),
                 "tourDetail": 0
              });
         

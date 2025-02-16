@@ -16,6 +16,9 @@ class RoutesList {
 
     async initialize() {
         try {
+            // First load navigation
+            await Navigation.loadNavigation();
+
             // Show/hide add route button based on user login status
             this.showHideAddRouteButton();
 
@@ -90,9 +93,9 @@ class RoutesList {
 
     createRouteCard(route) {
         // Check if current user is the owner
-        const isOwner = route.owner_UserID == window.navHelper.getUserID();
-        //console.log('isOwner:', route.owner_UserID, window.navHelper.getUserID(), isOwner);
-        const editIconHTML = isOwner & window.navHelper.isLoggedIn()
+        const isOwner = route.owner_UserID == window.navigationInstance.getUserID();
+        //console.log('isOwner:', route.owner_UserID, window.navigationInstance.getUserID(), isOwner);
+        const editIconHTML = isOwner & window.navigationInstance.isLoggedIn()
             ? `<img src="/images/edit-icon.svg" 
                    alt="Edit" 
                    class="route-card__edit-icon" 
@@ -116,8 +119,8 @@ class RoutesList {
     showHideAddRouteButton() {
         try {
             const addRouteButton = document.getElementById('add-route-button');
-            //console.log('isLoggedIn:', window.navHelper.isLoggedIn());
-            if (window.navHelper.isLoggedIn()) {
+            //console.log('isLoggedIn:', window.navigationInstance.isLoggedIn());
+            if (window.navigationInstance.isLoggedIn()) {
                 addRouteButton.classList.remove('hidden');
             } else {
                 addRouteButton.classList.add('hidden');

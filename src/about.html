@@ -15,7 +15,6 @@
     <!-- JavaScript imports -->
     <script src="/js/components/navigation.js" defer></script>
     <script src="/js/api/auth-api.js" defer></script>
-    <script src="/js/utils/nav-helpers.js" defer></script>
     <script src="/js/components/about.js" defer></script>
 </head>
 <body>
@@ -32,17 +31,5 @@
         </div>
     </main>
 
-    <script>
-        // Load and inject the navigation
-        fetch('/components/navigation.html')
-            .then(response => response.text())
-            .then(html => {
-                document.getElementById('navigation-placeholder').innerHTML = html;
-                if (window.initNavigation) {
-                    window.initNavigation();
-                }
-            })
-            .catch(error => console.error('Error loading navigation:', error));
-    </script>
 </body>
 </html>

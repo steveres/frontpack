@@ -9,13 +9,10 @@ class LoginForm {
         this.init();
     }
 
-    init() {
-        // Check if already logged in
-        console.log('Checking if already logged in: ', window.navHelper.isLoggedIn());
-        if (window.navHelper && window.navHelper.isLoggedIn()) {
-            window.location.href = '/routes.html';
-            return;
-        }
+    async init() {
+
+        // First load navigation
+        await Navigation.loadNavigation();
 
         this.form.addEventListener('submit', this.handleSubmit.bind(this));
     }
@@ -63,11 +60,11 @@ class LoginForm {
         try {
             this.setLoading(true);
             
-            if (!window.navHelper) {
+            if (!window.navigationInstance) {
                 throw new Error('Authentication service not available');
             }
 
-            await window.navHelper.login(email, password);
+            await window.navigationInstance.login(email, password);
             
             // Redirect to routes page on success
             window.location.href = '/routes.html';

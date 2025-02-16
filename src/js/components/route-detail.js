@@ -17,6 +17,9 @@ class RouteDetail {
 
     async initialize() {
         try {
+            // First load navigation
+            await Navigation.loadNavigation();
+            
             const params = new URLSearchParams(window.location.search);
             const routeId = params.get('routeId');
             

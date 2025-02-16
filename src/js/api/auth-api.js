@@ -1,8 +1,8 @@
 // js/api/auth-apis.js
 
 class AuthAPI {
-    //static API_URL = 'https://api2.thefrontpack.com';
-    static API_URL = 'https://localhost:44367';
+    static API_URL = 'https://api2.thefrontpack.com';
+    //static API_URL = 'https://localhost:44367';
     static USER_NAME_KEY = 'userName';
     static USER_ID_KEY = 'userID';
 
@@ -30,7 +30,7 @@ class AuthAPI {
 
     static async getUserInfo(email) {
         try {
-            
+            console.log('Fetching user info for:', email);
             const response = await fetch(`${this.API_URL}/Profiles/email/${email}`, {
                 credentials: 'include',
                 headers: {

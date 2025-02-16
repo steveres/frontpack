@@ -6,7 +6,11 @@ class AboutPage {
         this.initialize();
     }
 
-    initialize() {
+    async initialize() {
+
+        // First load navigation
+        await Navigation.loadNavigation();
+
         // Create background elements
         const container = document.querySelector('.home-container');
         if (!container) {

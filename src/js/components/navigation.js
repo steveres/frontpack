@@ -8,15 +8,13 @@ class Navigation {
         this.menu = document.querySelector('.nav__menu');
         this.authLink = document.querySelector('#auth-link');
         
-        // Bind methods
-        this.toggleMenu = this.toggleMenu.bind(this);
-        this.closeMenu = this.closeMenu.bind(this);
-        this.handleAuthState = this.handleAuthState.bind(this);
-        this.handleClickOutside = this.handleClickOutside.bind(this);
-        this.handleLogout = this.handleLogout.bind(this);
-        
+        // Bind all methods
+        this.bindMethods();
+        console.log('navigation constructor binded all methods' );
+
         // Initialize
         this.init();
+        console.log('navigation constructor complete' );
     }
 
     init() {
@@ -29,15 +27,25 @@ class Navigation {
         this.handleAuthState();
 
         // Add click handler for auth link
-        this.authLink.addEventListener('click', (e) => {
-            console.log('navigation isLoggedIn:', window.navHelper.isLoggedIn());
-            if (window.navHelper.isLoggedIn()) {
+        this.authLink.addEventListener('click', async (e) => {
+            console.log('navigation isLoggedIn:', window.navigationInstance.isLoggedIn());
+            if (window.navigationInstance.isLoggedIn()) {
                 e.preventDefault();
-                this.handleLogout();
+                await this.handleLogout();
             }
         });
     }
 
+    bindMethods() {
+        const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(this));
+        methods.forEach(method => {
+            if (typeof this[method] === 'function' && method !== 'constructor') {
+                this[method] = this[method].bind(this);
+            }
+        });
+    }
+
+    // Menu functions
     toggleMenu() {
         const isOpen = this.nav.classList.toggle('nav--open');
         this.toggle.setAttribute('aria-expanded', isOpen);
@@ -61,9 +69,10 @@ class Navigation {
         }
     }
 
+    // state management functions
     handleAuthState() {
         console.log('navigation handleAuthState');
-        const isLoggedIn = window.navHelper.isLoggedIn();
+        const isLoggedIn = this.isLoggedIn();
         
         // Update auth link text
         this.authLink.textContent = isLoggedIn 
@@ -71,27 +80,90 @@ class Navigation {
         : this.authLink.dataset.loginText;
 
         // Update href
-        //this.authLink.href = isLoggedIn ? '#' : '/login.html';
+        this.authLink.href = isLoggedIn ? '#' : '/login.html';
     }
 
-    handleLogout() {
+    async handleLogout() {
 
-        console.log('navigation handleLogout');
-        // Clear storage
-        window.navHelper.logout();
-        
-        // Update UI
-        this.handleAuthState();
-        console.log('navigation updated state');
-        
-        // Redirect to home page
-        //window.location.href = '/';
+        try {
+
+            await AuthAPI.logout();
+
+            this.clearUserInfo();
+    
+            // Update UI
+            this.handleAuthState();
+            
+            // Redirect to home page
+            window.location.href = '/';
+
+        } catch (error) {
+            console.error('Logout error:', error);
+            throw error;
+        }
     }
 
-    // Public method to update auth state from outside
-    updateAuthState() {
-        this.handleAuthState();
+    isLoggedIn() {
+        return this.getUserID() !== null & this.getUserName() !== null;
     }
+
+    async login(email, password) {
+        try {
+            // First, authenticate
+            const authResponse = await AuthAPI.login(email, password);
+
+            // Then, get user info
+            await AuthAPI.getUserInfo(email);
+
+        } catch (error) {
+            console.error('Login error:', error);
+            throw error;
+        }
+    }
+
+
+    // Local storage management for user info
+    getUserName() {
+        return localStorage.getItem(AuthAPI.USER_NAME_KEY);
+    }
+
+    getUserID() {
+        try {
+            return parseInt(localStorage.getItem(AuthAPI.USER_ID_KEY), 10);
+        } catch (error) {
+            console.error('Error getting user ID:', error);
+            return null;
+        }
+    }
+
+    setUserName(name) {
+        localStorage.setItem(AuthAPI.USER_NAME_KEY, name);
+    }
+
+    setUserID(userID) {
+        localStorage.setItem(AuthAPI.USER_ID_KEY, userID);
+    }
+
+    clearUserInfo() {
+        localStorage.removeItem(AuthAPI.USER_NAME_KEY);
+        localStorage.removeItem(AuthAPI.USER_ID_KEY);
+    }
+
+    static async loadNavigation() {
+        try {
+            const response = await fetch('/components/navigation.html');
+            const html = await response.text();
+            document.getElementById('navigation-placeholder').innerHTML = html;
+            
+            // Initialize navigation and return the instance
+            window.initNavigation();
+            return window.navigationInstance;
+        } catch (error) {
+            console.error('Error loading navigation:', error);
+            throw error;
+        }
+    }
+
 }
 
 // Initialize navigation when DOM is loaded
