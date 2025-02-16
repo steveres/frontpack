@@ -6,7 +6,7 @@
     <title>Routes - Front Pack</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="icon" type="image/png" href="/images//favicon.png">
     
     <!-- CSS imports -->
     <link rel="stylesheet" href="/css/base/reset.css">
@@ -16,8 +16,8 @@
     
     <!-- JavaScript imports -->
     <script src="/js/components/navigation.js" defer></script>
-    <script src="/js/utils/auth-helpers.js" defer></script>
     <script src="/js/api/auth-api.js" defer></script>
+    <script src="/js/utils/nav-helpers.js" defer></script>
     <script src="/js/api/routes-api.js" defer></script>
     <script src="/js/components/routes-list.js" defer></script>
 </head>
@@ -31,7 +31,7 @@
             <!-- Filter controls -->
             <div class="routes-controls">
                 <select id="tag-filter" class="tag-filter">
-                    <option value="">Loading tags...</option>
+                    <option value="">Loading catalog...</option>
                 </select>
                 <div id="add-route-button">
                     <img src="/images/add-icon.svg" alt="Add" class="add-icon" onclick="window.location.href='/edit.html'">

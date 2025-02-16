@@ -11,7 +11,8 @@ class LoginForm {
 
     init() {
         // Check if already logged in
-        if (window.authHelper && window.authHelper.isLoggedIn()) {
+        console.log('Checking if already logged in: ', window.navHelper.isLoggedIn());
+        if (window.navHelper && window.navHelper.isLoggedIn()) {
             window.location.href = '/routes.html';
             return;
         }
@@ -62,11 +63,11 @@ class LoginForm {
         try {
             this.setLoading(true);
             
-            if (!window.authHelper) {
+            if (!window.navHelper) {
                 throw new Error('Authentication service not available');
             }
 
-            await window.authHelper.login(email, password);
+            await window.navHelper.login(email, password);
             
             // Redirect to routes page on success
             window.location.href = '/routes.html';

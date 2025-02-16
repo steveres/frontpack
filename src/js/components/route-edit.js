@@ -20,18 +20,12 @@ class RouteEdit {
 
     async initialize() {
         try {
-            // Check authentication
-            if (!window.authHelper.isLoggedIn()) {
-                window.location.href = '/login.html';
-                return;
-            }
-
+            
             // Add event listeners for add buttons
             document.getElementById('add-section').addEventListener('click', this.addRouteSection);
             document.getElementById('add-tag').addEventListener('click', this.addTag);
             document.querySelector('.save-button').addEventListener('click', this.saveData);
             document.querySelector('.delete-button-large').addEventListener('click', this.handleDelete);
-
 
             // Initialize tab switching
             this.tabs.forEach(tab => {
@@ -277,7 +271,7 @@ class RouteEdit {
         try {
             // Initialize tour object
             let tour = this.routeId ? { ...this.tour } : {
-                owner_UserID: window.authHelper.getUserID(),
+                owner_UserID: window.navHelper.getUserID(),
                 createdDate: new Date().toISOString(),
                 visibility: 0
             };

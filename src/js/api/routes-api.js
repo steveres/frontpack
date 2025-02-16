@@ -1,8 +1,8 @@
 // js/api/routes-api.js
 
 class RoutesAPI {
-    static API_URL = 'https://api2.thefrontpack.com';
-    //static API_URL = 'https://localhost:44367';
+    //static API_URL = 'https://api2.thefrontpack.com';
+    static API_URL = 'https://localhost:44367';
 
     static filterByTag(tag) {
         document.getElementById('search').value = '';
@@ -20,9 +20,9 @@ class RoutesAPI {
         try {
             const response = await fetch(`${this.API_URL}/Tours/Search`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
-                    'Content-Type': 'application/json',
-                    ...window.authHelper.getAuthHeader()
+                    'Content-Type': 'application/json'
                 },
                 body: this.filterByTag(tag)
             });
@@ -36,6 +36,7 @@ class RoutesAPI {
             }
 
             const data = await response.json();
+            console.log('Fetched tours:', data);
             return data;
 
         } catch (error) {
@@ -49,10 +50,12 @@ class RoutesAPI {
             let url = `${this.API_URL}/Tours/${tourID}?IncludeRoute=${includeRoute}`;
             const response = await fetch(url, 
                 {
+                    credentials: 'include',
                     headers: {
-                        ...window.authHelper.getAuthHeader()
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
                     }
-                }
             );
 
             if (!response.ok) {
@@ -80,16 +83,16 @@ class RoutesAPI {
                 "includeGroupTypeTour": false,
                 "includeGroupTypeEvent": false,
                 "expandLinkedTrips": true,
-                "owner_UserID": window.authHelper.getUserID(),
+                "owner_UserID": window.navHelper.getUserID(),
                 "tourDetail": 0
              });
         
-            //console.log(body);
             const response = await fetch(`${this.API_URL}/Tours/Search`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
-                    'Content-Type': 'application/json',
-                    ...window.authHelper.getAuthHeader()
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: body
             });
@@ -115,11 +118,10 @@ class RoutesAPI {
     static async getTags() {
         try {
             const response = await fetch(`${this.API_URL}/Tours/tags`, {
-                headers: {
-                    ...window.authHelper.getAuthHeader()
-                }
+                credentials: 'include',
             });
 
+            console.log('Fetched tags (response):', response);
             if (!response.ok) {
                 if (response.status === 401) {
                     window.location.href = '/login.html';
@@ -128,7 +130,9 @@ class RoutesAPI {
                 throw new Error('Failed to fetch tags');
             }
 
-            return await response.json();
+            const data = await response.json();
+            console.log('Fetched tags (data):', data);
+            return data;
 
         } catch (error) {
             console.error('Error fetching tags:', error);
@@ -140,14 +144,6 @@ class RoutesAPI {
         try {
 
             let response = await this.postTour_internal(tour, method);
-
-            // hack for file upload timing bug in API :(
-            // if (response.status === 400) {
-            //     console.warn('Retrying postTour after 100ms delay');
-            //     console.log('postTour failed with 400 status.', JSON.stringify(tour));
-            //     await new Promise(resolve => setTimeout(resolve, 100));
-            //     response = await this.postTour_internal(tour, method);
-            // }
 
             if (!response.ok) {
                 // Get the error message from the response if possible
@@ -201,9 +197,10 @@ class RoutesAPI {
 
         return await fetch(`${this.API_URL}/Tours`, {
             method: method,
+            credentials: 'include',
             headers: {
-                'Content-Type': 'application/json',
-                ...window.authHelper.getAuthHeader()
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: body
         });
@@ -217,9 +214,10 @@ class RoutesAPI {
     
             const response = await fetch(url, {
                 method: method,
+                credentials: 'include',
                 headers: {
-                    'Content-Type': 'application/json',
-                    ...window.authHelper.getAuthHeader()
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
                 },
             });
     

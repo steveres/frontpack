@@ -53,8 +53,8 @@ class RoutesList {
             // Set selection to provided tag
             this.tagFilter.value = tag;
         } catch (error) {
-            console.error('Error loading tags:', error);
-            this.tagFilter.innerHTML = '<option value="">Error loading tags</option>';
+            console.error('Error loading catalog:', error);
+            this.tagFilter.innerHTML = '<option value="">Error loading catalog</option>';
         }
     }
 
@@ -90,9 +90,9 @@ class RoutesList {
 
     createRouteCard(route) {
         // Check if current user is the owner
-        const isOwner = route.owner_UserID == window.authHelper.getUserID();
-        //console.log('isOwner:', route.owner_UserID, window.authHelper.getUserID(), isOwner);
-        const editIconHTML = isOwner & window.authHelper.isLoggedIn()
+        const isOwner = route.owner_UserID == window.navHelper.getUserID();
+        //console.log('isOwner:', route.owner_UserID, window.navHelper.getUserID(), isOwner);
+        const editIconHTML = isOwner & window.navHelper.isLoggedIn()
             ? `<img src="/images/edit-icon.svg" 
                    alt="Edit" 
                    class="route-card__edit-icon" 
@@ -116,8 +116,8 @@ class RoutesList {
     showHideAddRouteButton() {
         try {
             const addRouteButton = document.getElementById('add-route-button');
-            //console.log('isLoggedIn:', window.authHelper.isLoggedIn());
-            if (window.authHelper.isLoggedIn()) {
+            //console.log('isLoggedIn:', window.navHelper.isLoggedIn());
+            if (window.navHelper.isLoggedIn()) {
                 addRouteButton.classList.remove('hidden');
             } else {
                 addRouteButton.classList.add('hidden');

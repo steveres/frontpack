@@ -1,40 +1,19 @@
-// js/utils/auth-helpers.js
+// js/utils/nav-helpers.js
 
-class AuthHelper {
+class NavHelper {
+
     constructor() {
-        this.TOKEN_KEY = 'authToken';
     }
 
     isLoggedIn() {
-        return this.getToken() !== null;
-    }
-
-    getToken() {
-        return localStorage.getItem(this.TOKEN_KEY);
-    }
-
-    setToken(token) {
-        localStorage.setItem(this.TOKEN_KEY, token);
-        this.notifyAuthChange();
-    }
-
-    removeToken() {
-        localStorage.removeItem(this.TOKEN_KEY);
-        AuthAPI.clearUserInfo(); // Clear user info on logout
-        this.notifyAuthChange();
-    }
-
-    notifyAuthChange() {
-        if (window.navigationInstance) {
-            window.navigationInstance.updateAuthState();
-        }
+        return this.getUserID() !== null & this.getUserName() !== null;
     }
 
     async login(email, password) {
         try {
             // First, authenticate
             const authResponse = await AuthAPI.login(email, password);
-            this.setToken(authResponse.token);
+            console.log('Auth response:', authResponse);
 
             // Then, get user info
             await AuthAPI.getUserInfo(email);
@@ -48,30 +27,15 @@ class AuthHelper {
 
     async logout() {
         try {
-            this.removeToken();
+            console.log('auth-helper Logging out...');
+            await AuthAPI.logout();
+            console.log('auth-helper Waiting delay...');
+            await new Promise(resolve => setTimeout(resolve, 3000));
             this.clearUserInfo();
-            return true;
+            console.log('auth-helper Cleared User info...');
         } catch (error) {
             console.error('Logout error:', error);
             throw error;
-        }
-    }
-
-    getAuthHeader() {
-        const token = this.getToken();
-        return token ? { 'Authorization': `Bearer ${token}` } : {};
-    }
-
-    isTokenExpired() {
-        const token = this.getToken();
-        if (!token) return true;
-
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            return payload.exp * 1000 < Date.now();
-        } catch (error) {
-            console.error('Token validation error:', error);
-            return true;
         }
     }
 
@@ -102,4 +66,4 @@ class AuthHelper {
     }
 }
 
-window.authHelper = new AuthHelper();
+window.navHelper = new NavHelper();

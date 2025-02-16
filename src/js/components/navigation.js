@@ -13,6 +13,7 @@ class Navigation {
         this.closeMenu = this.closeMenu.bind(this);
         this.handleAuthState = this.handleAuthState.bind(this);
         this.handleClickOutside = this.handleClickOutside.bind(this);
+        this.handleLogout = this.handleLogout.bind(this);
         
         // Initialize
         this.init();
@@ -29,7 +30,8 @@ class Navigation {
 
         // Add click handler for auth link
         this.authLink.addEventListener('click', (e) => {
-            if (this.isLoggedIn()) {
+            console.log('navigation isLoggedIn:', window.navHelper.isLoggedIn());
+            if (window.navHelper.isLoggedIn()) {
                 e.preventDefault();
                 this.handleLogout();
             }
@@ -59,31 +61,31 @@ class Navigation {
         }
     }
 
-    isLoggedIn() {
-        return localStorage.getItem('authToken') !== null;
-    }
-
     handleAuthState() {
-        const isLoggedIn = this.isLoggedIn();
+        console.log('navigation handleAuthState');
+        const isLoggedIn = window.navHelper.isLoggedIn();
         
         // Update auth link text
-        this.authLink.textContent = isLoggedIn ? 
-            this.authLink.dataset.logoutText : 
-            this.authLink.dataset.loginText;
+        this.authLink.textContent = isLoggedIn 
+        ? this.authLink.dataset.logoutText
+        : this.authLink.dataset.loginText;
 
         // Update href
-        this.authLink.href = isLoggedIn ? '#' : '/login.html';
+        //this.authLink.href = isLoggedIn ? '#' : '/login.html';
     }
 
     handleLogout() {
-        // Clear auth token
-        localStorage.removeItem('authToken');
+
+        console.log('navigation handleLogout');
+        // Clear storage
+        window.navHelper.logout();
         
         // Update UI
         this.handleAuthState();
+        console.log('navigation updated state');
         
         // Redirect to home page
-        window.location.href = '/';
+        //window.location.href = '/';
     }
 
     // Public method to update auth state from outside
