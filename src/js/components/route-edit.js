@@ -5,15 +5,19 @@ class RouteEdit {
         this.tabs = document.querySelectorAll('.tab-button');
         this.tabContents = document.querySelectorAll('.tab-content');
         this.routeId = new URLSearchParams(window.location.search).get('routeId');
+        this.saveButton = document.querySelector('.save-button');
+        this.deleteButton = document.querySelector('.delete-button-large');
+        this.statusMessageTimeout = null;
         
         // Bind methods
         this.switchTab = this.switchTab.bind(this);
         this.loadData = this.loadData.bind(this);
         this.addRouteSection = this.addRouteSection.bind(this);
         this.addTag = this.addTag.bind(this);
-
         this.saveData = this.saveData.bind(this);
         this.handleDelete = this.handleDelete.bind(this);
+        this.showStatusMessage = this.showStatusMessage.bind(this);
+        this.setPermanentlyDisabled = this.setPermanentlyDisabled.bind(this);
         
         this.initialize();
     }
@@ -22,6 +26,8 @@ class RouteEdit {
         try {
             // First load navigation
             await Navigation.loadNavigation();
+
+            this.setLoadingState(true);
 
             // Add event listeners for add buttons
             document.getElementById('add-section').addEventListener('click', this.addRouteSection);
@@ -45,32 +51,65 @@ class RouteEdit {
 
             // Load data if editing existing route
             if (this.routeId) {
-                await this.loadData();
+                await this.loadData(this.routeId);
             }
 
         } catch (error) {
             console.error('Error initializing route edit:', error);
+            this.showStatusMessage('Error initializing page', true);
+            
+        } finally {
+            this.setLoadingState(false);
         }
     }
 
-    async loadData() {
+    setLoadingState(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        this.saveButton.disabled = isLoading;
+        this.deleteButton.disabled = isLoading;
+        
+        if (isLoading) {
+            loadingOverlay.classList.remove('hidden');
+        } else {
+            loadingOverlay.classList.add('hidden');
+        }
+    }
+
+    showStatusMessage(message, isError = false) {
+        const statusMessage = document.getElementById('status-message');
+        statusMessage.textContent = message;
+        statusMessage.classList.remove('hidden', 'error');
+        
+        if (isError) {
+            statusMessage.classList.add('error');
+        } else {
+            // Clear any existing timeout
+            if (this.statusMessageTimeout) {
+                clearTimeout(this.statusMessageTimeout);
+            }
+            
+            // Set new timeout to hide the message
+            this.statusMessageTimeout = setTimeout(() => {
+                statusMessage.classList.add('hidden');
+            }, 5000);
+        }
+    }
+
+    async loadData(id) {
         try {
+
             // Load the tour data
-            //console.log('Loading tour data for ID:', this.routeId);
-            const tourData = await RoutesAPI.getTour(this.routeId, false);
+            const tourData = await RoutesAPI.getTour(id, false);
 
             // Load available tours for route sections
-            //console.log('Loading available tours for route sections');
             const myTours = await RoutesAPI.getMyTours();
 
             // Store the data for later use
             this.tour = tourData.tour;
             this.availableTours = myTours.results;
             console.log('Tour data loaded:', this.tour);
-            //console.log('Available Tours loaded:', this.availableTours);
 
             // Populate form fields
-            //console.log('Populating form fields:', this.tour);
             this.populateInfoTab();
             this.populateItineraryTab();
             this.populateBrandingTab();
@@ -79,7 +118,7 @@ class RouteEdit {
 
         } catch (error) {
             console.error('Error loading route data:', error);
-            alert('Error loading route data. Please try again.');
+            this.showStatusMessage('Error loading route data', true);
         }
     }
 
@@ -95,7 +134,7 @@ class RouteEdit {
         const sectionCount = routeSectionsContainer.children.length;
         
         const sectionDiv = document.createElement('div');
-        sectionDiv.className = `form-group route-section `;
+        sectionDiv.className = 'form-group route-section';
         
         // Create container for select and delete button
         const container = document.createElement('div');
@@ -103,7 +142,7 @@ class RouteEdit {
 
         // Create select element
         const select = document.createElement('select');
-        select.className = `form-select `;
+        select.className = 'form-select';
         select.id = `route-section-${sectionCount}`;
         select.name = `route-section-${sectionCount}`;
 
@@ -269,6 +308,7 @@ class RouteEdit {
         const saveButton = document.querySelector('.save-button');
         saveButton.disabled = true;
         saveButton.textContent = 'Saving...';
+        this.setLoadingState(true);
         
         try {
             // Initialize tour object
@@ -346,29 +386,55 @@ class RouteEdit {
             const result = await RoutesAPI.postTour(tour, method);
     
             if (result.success) {
-                console.log('Save successful:', result);
-                window.location.href = `/edit.html?routeId=${result.tourId}`;
+                console.log('Save successful:', method, result);
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save';
+                this.setLoadingState(false);
+                this.showStatusMessage('Route saved successfully');
+                if (method === 'POST') {
+                    this.routeId = result.tourId;
+                }
+                await this.loadData(this.routeId);
             } else {
                 throw new Error(result.message || 'Failed to save route');
             }
     
         } catch (error) {
             console.error('Error saving tour:', error);
-            alert(`Failed to save route: ${error.message}`);
-        } finally {
             saveButton.disabled = false;
             saveButton.textContent = 'Save';
+            this.setLoadingState(false);
+            this.showStatusMessage(`Failed to save route: ${error.message}`, true);
         }
+    }
+
+    setPermanentlyDisabled() {
+        this.saveButton.disabled = true;
+        this.deleteButton.disabled = true;
+        this.saveButton.classList.add('permanently-disabled');
+        this.deleteButton.classList.add('permanently-disabled');
+        
+        // Remove event listeners
+        this.saveButton.removeEventListener('click', this.saveData);
+        this.deleteButton.removeEventListener('click', this.handleDelete);
     }
 
     async handleDelete() {
         if (confirm('Are you sure you want to delete this Route? This action cannot be undone')) {
-            console.log('Deleting route:', this);
-            const result = await RoutesAPI.deleteTour(this.tour.tourID);
-            if (result.success) {
-                alert(`Deleteted route: ${this.tour.name}`); 
-            } else {
-                alert(`Error deleteing route: ${result.message}`); 
+            this.setLoadingState(true);
+            try {
+                console.log('Deleting route:', this);
+                const result = await RoutesAPI.deleteTour(this.tour.tourID);
+                if (result.success) {
+                    this.showStatusMessage(`Route "${this.tour.name}" deleted successfully`);
+                    this.setPermanentlyDisabled()
+                    setTimeout( async () => {
+                    }, 1000);
+                } else {
+                    this.showStatusMessage(`Error deleting route: ${result.message}`, true);
+                }
+            } finally {
+                this.setLoadingState(false);
             }
         }
     }

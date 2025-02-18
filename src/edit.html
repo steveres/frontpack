@@ -28,7 +28,14 @@
     <!-- Main content -->
     <main class="main-content">
         <div class="route-edit">
+
             <form id="route-edit-form" class="route-edit-form" novalidate>
+                <div id="loading-overlay" class="loading-overlay hidden">
+                    <div class="loading-container">
+                        <img src="/images/spinningtire.gif" alt="Loading..." class="loading-spinner">
+                    </div>
+                </div>
+
                 <!-- Tabs navigation -->
                 <div class="route-edit-tabs">
                     <button type="button" class="tab-button active" data-tab="info">Info</button>
@@ -44,7 +51,7 @@
                         <input type="text" id="tour-name" name="name" class="form-input" required minlength="10" 
                             oninvalid="this.setCustomValidity('Name must be at least 10 characters long')"
                             oninput="this.setCustomValidity('')">
-                        <div class="error-message" id="name-error"></div>
+                        <div class="error-message" id="name-error"></div>`
                     </div>
                     <div class="form-group">
                         <label for="tour-description">Description</label>
@@ -123,6 +130,7 @@
                 <!-- Form controls -->
                 <div class="form-controls">
                     <button type="button" class="save-button">Save</button>
+                    <div id="status-message" class="status-message hidden"></div>
                     <button type="button" class="delete-button-large">Delete</button>
                 </div>
             </form>

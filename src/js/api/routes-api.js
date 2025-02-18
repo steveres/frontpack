@@ -36,7 +36,7 @@ class RoutesAPI {
             }
 
             const data = await response.json();
-            console.log('Fetched tours:', data);
+            //console.log('Fetched tours:', data);
             return data;
 
         } catch (error) {
@@ -131,7 +131,7 @@ class RoutesAPI {
             }
 
             const data = await response.json();
-            console.log('Fetched tags (data):', data);
+            //console.log('Fetched tags (data):', data);
             return data;
 
         } catch (error) {
@@ -186,6 +186,7 @@ class RoutesAPI {
             };
         }
     }    
+    
     static async postTour_internal(tour, method) {
         const body = JSON.stringify(tour);
         console.log('Sending tour data:', {
