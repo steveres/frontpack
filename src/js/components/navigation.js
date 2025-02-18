@@ -7,6 +7,10 @@ class Navigation {
         this.toggle = document.querySelector('.nav__toggle');
         this.menu = document.querySelector('.nav__menu');
         this.authLink = document.querySelector('#auth-link');
+        this.dropdown = document.querySelector('.nav__dropdown');
+        this.dropdownMenu = document.querySelector('#auth-dropdown');
+        this.logoutLink = document.querySelector('#logout-link');
+        this.authLinkText = document.querySelector('.nav__link-text');
         
         // Bind all methods
         this.bindMethods();
@@ -27,13 +31,23 @@ class Navigation {
         this.handleAuthState();
 
         // Add click handler for auth link
-        this.authLink.addEventListener('click', async (e) => {
-            console.log('navigation isLoggedIn:', window.navigationInstance.isLoggedIn());
-            if (window.navigationInstance.isLoggedIn()) {
+        this.authLink.removeEventListener('click', this.handleAuthLinkClick);
+        
+        // Add new click handlers
+        this.authLink.addEventListener('click', (e) => {
+            if (this.isLoggedIn()) {
                 e.preventDefault();
-                await this.handleLogout();
+                this.toggleDropdown();
             }
         });
+
+        // Handle logout separately
+        this.logoutLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await this.handleLogout();
+        });
+
+        document.addEventListener('click', this.handleClickOutsideDropdown);
     }
 
     bindMethods() {
@@ -45,6 +59,7 @@ class Navigation {
         });
     }
 
+
     // Menu functions
     toggleMenu() {
         const isOpen = this.nav.classList.toggle('nav--open');
@@ -54,11 +69,6 @@ class Navigation {
         document.body.style.overflow = isOpen ? 'hidden' : '';
     }
 
-    closeMenu() {
-        this.nav.classList.remove('nav--open');
-        this.toggle.setAttribute('aria-expanded', false);
-        document.body.style.overflow = '';
-    }
 
     handleClickOutside(event) {
         // Close menu if clicking outside when it's open
@@ -69,40 +79,71 @@ class Navigation {
         }
     }
 
-    // state management functions
+    handleAuthLinkClick(e) {
+        if (this.isLoggedIn()) {
+            e.preventDefault();
+            this.toggleDropdown();
+        }
+    }
+
+    toggleDropdown() {
+        const isOpen = this.dropdownMenu.classList.toggle('active');
+        this.authLink.setAttribute('aria-expanded', isOpen);
+    }
+
+    closeDropdown() {
+        this.dropdownMenu.classList.remove('active');
+        this.authLink.setAttribute('aria-expanded', false);
+    }
+
+    handleClickOutsideDropdown(event) {
+        if (this.isLoggedIn() && 
+            !this.dropdown.contains(event.target)) {
+            this.closeDropdown();
+        }
+    }
+
     handleAuthState() {
-        console.log('navigation handleAuthState');
         const isLoggedIn = this.isLoggedIn();
         
-        // Update auth link text
-        this.authLink.textContent = isLoggedIn 
-        ? this.authLink.dataset.logoutText
-        : this.authLink.dataset.loginText;
+        if (isLoggedIn) {
+            const userName = this.getUserName();
+            this.authLinkText.textContent = userName;
+            this.authLink.setAttribute('aria-expanded', false);
+            this.authLink.setAttribute('aria-haspopup', true);
+            this.dropdownMenu.style.display = '';
+        } else {
+            this.authLinkText.textContent = this.authLink.dataset.loginText;
+            this.authLink.removeAttribute('aria-expanded');
+            this.authLink.removeAttribute('aria-haspopup');
+            this.dropdownMenu.style.display = 'none';
+        }
 
         // Update href
         this.authLink.href = isLoggedIn ? '#' : '/login.html';
     }
 
+    closeMenu() {
+        this.nav.classList.remove('nav--open');
+        this.toggle.setAttribute('aria-expanded', false);
+        document.body.style.overflow = '';
+        this.closeDropdown(); // Also close dropdown when closing menu
+    }
+
+   
     async handleLogout() {
-
         try {
-
             await AuthAPI.logout();
-
             this.clearUserInfo();
-    
-            // Update UI
+            this.closeDropdown();
             this.handleAuthState();
-            
-            // Redirect to home page
             window.location.href = '/';
-
         } catch (error) {
             console.error('Logout error:', error);
             throw error;
         }
     }
-
+    
     isLoggedIn() {
         return this.getUserID() !== null & this.getUserName() !== null;
     }

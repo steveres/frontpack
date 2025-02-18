@@ -21,10 +21,21 @@
                     <a href="/routes.html" class="nav__link" id="nav-routes">Routes</a>
                 </li>
                 <li class="nav__item nav__item--auth">
-                    <a href="/login.html" class="nav__link" 
-                       id="auth-link" 
-                       data-login-text="Login"
-                       data-logout-text="Logout"></a>
+                    <div class="nav__dropdown">
+                        <a href="/login.html" class="nav__link nav__link--with-caret" 
+                           id="auth-link" 
+                           data-login-text="Login"
+                           data-logout-text="Logout"
+                           aria-haspopup="true"
+                           aria-expanded="false">
+                           <span class="nav__link-text"></span>
+                           <span class="nav__caret"></span>
+                        </a>
+                        <ul class="nav__dropdown-menu" id="auth-dropdown">
+                            <li><a href="/profile" class="nav__dropdown-item">Profile</a></li>
+                            <li><a href="#" class="nav__dropdown-item" id="logout-link">Logout</a></li>
+                        </ul>
+                    </div>
                 </li>
             </ul>
         </div>
