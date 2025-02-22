@@ -1,10 +1,8 @@
-// src/js/components/verify-email.js
-
+// verify-email.js
 class EmailVerification {
     constructor() {
         this.messageContainer = document.getElementById('message-container');
         this.messageText = document.getElementById('message-text');
-        this.countdown = document.getElementById('countdown');
         this.init();
     }
 
@@ -37,30 +35,12 @@ class EmailVerification {
         this.messageText.textContent = message;
     }
 
-    async startCountdown() {
-        let secondsLeft = 10;
-        
-        const updateCountdown = () => {
-            this.countdown.textContent = ` Redirecting in ${secondsLeft} seconds`;
-            secondsLeft--;
-
-            if (secondsLeft < 0) {
-                window.location.href = '/';
-            } else {
-                setTimeout(updateCountdown, 1000);
-            }
-        };
-
-        updateCountdown();
-    }
-
     async verifyEmail(email, code) {
         try {
             const isVerified = await AuthAPI.verifyEmail(email, code);
             
             if (isVerified) {
-                this.showSuccess('Thank you for verifying your email. You\'re ready to ride.');
-                this.startCountdown();
+                this.showSuccess('All set. Click the Login link at the top right of this page to log in and begin exploring.');
             } else {
                 this.showError('The code you entered on the URL does not match our confirmation information. Please register again.');
             }
