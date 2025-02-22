@@ -116,3 +116,25 @@
 .form-group input:invalid:focus {
     box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
 }
+
+.login-button.loading .button-loader {
+    display: block;
+}
+
+.signup-text {
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    color: var(--color-dark-grey);
+}
+
+.signup-text a {
+    color: var(--color-dark-blue);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.signup-text a:hover {
+    color: var(--color-light-blue);
+    text-decoration: underline;
+}

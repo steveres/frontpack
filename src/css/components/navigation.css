@@ -290,6 +290,19 @@
 
 /* Mobile adjustments */
 @media (max-width: 768px) {
+  .nav__link--with-caret {
+      justify-content: center;
+  }
+
+  .nav__link {
+      justify-content: center;
+  }
+
+  .nav__item {
+      display: flex;
+      justify-content: center;
+  }
+
   .nav__dropdown-menu {
       position: static;
       box-shadow: none;
@@ -301,5 +314,7 @@
   
   .nav__dropdown-item {
       text-align: center;
+      justify-content: center;
+      display: flex;
   }
 }

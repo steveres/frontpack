@@ -28,6 +28,53 @@ class AuthAPI {
         }
     }
 
+    static async register(name, email, password, profileType = 0) {
+        try {
+            const response = await fetch(`${this.API_URL}/Authenticate/register`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    name,
+                    email, 
+                    password,
+                    profileType
+                })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                const reason = error.detail ? ': ' + error.detail : ''
+                throw new Error(error.message || `Registration failed ${reason}`);
+            }
+
+        } catch (error) {
+            console.error('Registration error:', error);
+            throw error;
+        }
+    }
+
+    static async verifyEmail(email, code) {
+        try {
+            const response = await fetch(`${this.API_URL}/authenticate/confirm`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email, code })
+            });
+            console.log('Email verification response:', response);
+            return response.status === 200;
+    
+        } catch (error) {
+            console.error('Email verification error:', error);
+            return false;
+        }
+    }
+
     static async getUserInfo(email) {
         try {
             console.log('Fetching user info for:', email);
@@ -59,6 +106,7 @@ class AuthAPI {
 
             const response = await fetch(`${this.API_URL}/authenticate/logout`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                 },
