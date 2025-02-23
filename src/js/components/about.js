@@ -1,34 +1,45 @@
-// js/components/about.js
-
 class AboutPage {
     constructor() {
-        
         this.initialize();
+        this.setupScrollAnimation();
     }
 
     async initialize() {
-
-        // First load navigation
         await Navigation.loadNavigation();
-
-        // Create background elements
+        
         const container = document.querySelector('.about-container');
         if (!container) {
-            console.error('Home container not found');
+            console.error('About container not found');
             return;
         }
-        
     }
 
-    // Cleanup method
+    setupScrollAnimation() {
+        const sections = document.querySelectorAll('.story-section');
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.animation = `fadeInUp 0.6s ease forwards ${entry.target.dataset.delay || '0s'}`;
+                }
+            });
+        }, {
+            threshold: 0.2,
+            rootMargin: '0px 0px -100px 0px'
+        });
+
+        sections.forEach((section, index) => {
+            section.dataset.delay = `${index * 0.2}s`;
+            observer.observe(section);
+        });
+    }
+
     destroy() {
+        // Cleanup if needed
     }
 }
 
-// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     const aboutPage = new AboutPage();
-    
-    // Store instance for potential cleanup
     window.aboutPage = aboutPage;
 });
