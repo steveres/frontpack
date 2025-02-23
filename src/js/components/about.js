@@ -12,7 +12,7 @@ class AboutPage {
         await Navigation.loadNavigation();
 
         // Create background elements
-        const container = document.querySelector('.home-container');
+        const container = document.querySelector('.about-container');
         if (!container) {
             console.error('Home container not found');
             return;

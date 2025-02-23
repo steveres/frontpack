@@ -1,62 +1,88 @@
 /* css/components/about.css */
 
-.home-container {
+.about-container {
     position: relative;
     min-height: calc(100vh - var(--header-height));
     display: flex;
     justify-content: center;
-    background-color: var(--color-pale-blue); 
+    /* background-color: var(--color-pale-blue);  */
     align-items: flex-start;
-    padding-top: 10vh; /* Position content above center */
-    margin-top: var(--header-height); /* Account for fixed header */
+    padding-top: 10vh;
+    margin-top: var(--header-height);
+    overflow-x: hidden;
 }
 
-.home-background {
+.about-background {
     position: fixed;
     top: var(--header-height);
     left: 0;
     right: 0;
     bottom: 0;
     background-size: cover;
+    opacity: 50%;
     background-position: center;
     background-repeat: no-repeat;
-    opacity: 0;
-    transition: opacity var(--transition-normal);
+    background-image: url('/images/aca-route-network-2020.png');
     z-index: -1;
 }
 
-.home-content {
+.about-content {
     background-color: var(--color-white);
     border-radius: var(--border-radius-lg);
     padding: var(--spacing-xl);
     box-shadow: var(--shadow-lg);
     width: 100%;
-    max-width: 1000px; /* Increased max-width for better image display */
+    max-width: 1000px;
     margin: var(--spacing-xl);
+    position: relative;
+    z-index: 1;
 }
 
-.home-content h1 {
+.about-content h1 {
     font-size: var(--font-size-h2);
     color: var(--color-dark-grey);
     margin-bottom: var(--spacing-lg);
 }
 
-.home-content p {
+.about-content p {
     color: var(--color-dark-grey);
     margin-bottom: var(--spacing-lg);
     line-height: 1.6;
 }
 
-.home-content a {
+.about-content a {
     color: var(--color-light-blue);
     text-decoration: underline;
 }
 
-
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    .home-images {
-        flex-direction: column;
+    .about-container {
+        padding-top: 5vh;
     }
 
+    .about-content {
+        margin: var(--spacing-md);
+        padding: var(--spacing-lg);
+    }
+
+    .about-background {
+        background-attachment: scroll;
+    }
+}
+
+/* Small screen adjustments */
+@media (max-width: 480px) {
+    .about-container {
+        padding-top: 2vh;
+    }
+
+    .about-content {
+        margin: var(--spacing-sm);
+        padding: var(--spacing-md);
+    }
+
+    .about-content h1 {
+        font-size: var(--font-size-h3);
+    }
 }
