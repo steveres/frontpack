@@ -9,6 +9,7 @@
     <!-- CSS imports -->
     <link rel="stylesheet" href="/css/base/reset.css">
     <link rel="stylesheet" href="/css/base/variables.css">
+    <link rel="stylesheet" href="/css/base/shared.css">
     <link rel="stylesheet" href="/css/components/navigation.css">
     <link rel="stylesheet" href="/css/components/login.css">
     
@@ -23,7 +24,7 @@
 
     <!-- Main content -->
     <main class="main-content">
-        <div class="login-container">
+        <div class="login-container content-container">
 
             <p class="signup-text">
                 Don't have an account? <a href="/register.html">Sign up for FREE</a>
@@ -32,8 +33,8 @@
             <h1 class="login-title">Login</h1>
             
             <!-- Error message container -->
-            <div id="error-message" class="error-message" role="alert" aria-live="polite"></div>
-            
+            <div id="error-message" class="message error-message" role="alert" aria-live="polite"></div>
+
             <form id="login-form" class="login-form">
                 <div class="form-group">
                     <label for="email">Email</label>
@@ -55,7 +56,7 @@
                            aria-required="true">
                 </div>
 
-                <button type="submit" class="login-button">
+                <button type="submit" class="button button-primary">
                     <span class="button-text">Login</span>
                     <span class="button-loader"></span>
                 </button>

@@ -9,6 +9,7 @@
     <!-- CSS imports -->
     <link rel="stylesheet" href="/css/base/reset.css">
     <link rel="stylesheet" href="/css/base/variables.css">
+    <link rel="stylesheet" href="/css/base/shared.css">
     <link rel="stylesheet" href="/css/components/navigation.css">
     <link rel="stylesheet" href="/css/components/register.css">
     
@@ -23,7 +24,7 @@
 
     <!-- Main content -->
     <main class="main-content">
-        <div class="register-container">
+        <div class="register-container content-container">
             <div class="header-container">
                 <button type="button" id="back-button" class="back-button hidden">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -34,9 +35,9 @@
             </div>
             
             <!-- Message containers -->
-            <div id="error-message" class="error-message" role="alert" aria-live="polite"></div>
-            <div id="success-message" class="success-message" role="alert" aria-live="polite"></div>            
-            
+            <div id="error-message" class="message error-message" role="alert" aria-live="polite"></div>
+            <div id="success-message" class="message success-message" role="alert" aria-live="polite"></div>
+                      
             <div id="register-options" class="register-options">
                 <button type="button" class="social-button google-button">
                     <svg class="social-icon" viewBox="0 0 24 24">
@@ -92,10 +93,10 @@
                            aria-required="true">
                 </div>
 
-                <button type="submit" class="register-button">
+                <button type="submit" class="button button-primary">
                     <span class="button-text">Create a Free Account</span>
                     <span class="button-loader"></span>
-                </button>
+                  </button>
             </form>
 
             <p class="terms-text">

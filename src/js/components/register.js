@@ -18,11 +18,11 @@ class RegisterForm {
         await Navigation.loadNavigation();
 
         // Add event listeners
-        this.emailSignupButton.addEventListener('click', this.showEmailForm.bind(this));
-        this.backButton.addEventListener('click', this.showOptionsForm.bind(this));
+        this.emailSignupButton.addEventListener('click', () => this.showEmailForm());
+        this.backButton.addEventListener('click', () => this.showOptionsForm());
         this.form.addEventListener('submit', this.handleSubmit.bind(this));
 
-        // Add event listeners for social login buttons (to be implemented)
+        // Add event listeners for social login buttons
         const googleButton = document.querySelector('.google-button');
         const appleButton = document.querySelector('.apple-button');
         
@@ -37,19 +37,19 @@ class RegisterForm {
 
     showEmailForm() {
         this.registerOptions.style.display = 'none';
-        this.form.classList.remove('hidden');
+        this.form.classList.add('visible');
         this.backButton.classList.remove('hidden');
         this.hideMessages();
     }
 
     showOptionsForm() {
         this.registerOptions.style.display = 'flex';
-        this.form.classList.add('hidden');
+        this.form.classList.remove('visible');
         this.backButton.classList.add('hidden');
         this.hideMessages();
         this.form.reset(); 
     }
-
+    
     showError(message) {
         this.errorMessage.textContent = message;
         this.errorMessage.classList.add('visible');

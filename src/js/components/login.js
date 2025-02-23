@@ -36,7 +36,7 @@ class LoginForm {
             this.submitButton.classList.remove('loading');
         }
     }
-
+    
     async handleSubmit(event) {
         event.preventDefault();
         this.hideError();
