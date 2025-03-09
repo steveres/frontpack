@@ -135,10 +135,15 @@ class RoutesList {
                    onclick="window.location.href='/edit.html?routeId=${route.tourID}'">`
             : '';
         
+        let imgSrc = route.mapPreviewURL;
+        if (this.tagFilter.value !== 'usbrs') { 
+            imgSrc = route.logoURL ?? route.mapPreviewURL;
+        }
+
         return `
             <div class="route-card">
                 ${editIconHTML}
-                <img src="${route.mapPreviewURL}" alt="${route.name}" class="route-card__image">
+                <img src="${imgSrc}" alt="${route.name}" class="route-card__image">
                 <div class="route-card__content">
                     <h2 class="route-card__title">
                         <a href="/route.html?routeId=${route.tourID}" class="route-card__link">${route.name}</a>

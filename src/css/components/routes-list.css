@@ -172,7 +172,6 @@
 
     .route-card__image {
         display: block; /* Show image on desktop */
-        width: 100px;
         height: 100px;
         object-fit: cover;
         border-radius: var(--border-radius-sm);
