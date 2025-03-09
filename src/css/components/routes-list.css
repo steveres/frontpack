@@ -14,17 +14,33 @@
     justify-content: space-between;
 }
 
+.filters-container {
+    display: flex;
+    gap: 1rem;
+    flex-grow: 1;
+    max-width: 700px;
+}
+
 .tag-filter {
     padding: 0.5rem;
     border: 1px solid var(--color-grey);
     border-radius: var(--border-radius-sm);
     font-size: 1rem;
-    width: 100%;
-    max-width: 300px;
     background-color: white;
+    min-width: 200px;
 }
 
-.tag-filter:focus {
+.search-filter {
+    padding: 0.5rem;
+    border: 1px solid var(--color-grey);
+    border-radius: var(--border-radius-sm);
+    font-size: 1rem;
+    background-color: white;
+    flex-grow: 1;
+}
+
+.tag-filter:focus,
+.search-filter:focus {
     outline: none;
     border-color: var(--color-light-blue);
     box-shadow: 0 0 0 2px rgba(44, 172, 227, 0.2);
@@ -117,6 +133,13 @@
     color: #ef4444;
 }
 
+.no-results {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-dark-grey);
+    font-style: italic;
+}
+
 .hidden {
     display: none;
 }
@@ -159,10 +182,6 @@
         -webkit-line-clamp: 3; /* Allow 3 lines on desktop */
     }
 
-    .tag-filter {
-        width: auto;
-    }
-
     /* Update the add icon styles */
     .add-icon {
         width: 24px;
@@ -180,6 +199,17 @@
 
 /* Mobile styles */
 @media (max-width: 767px) {
+    .filters-container {
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+    }
+    
+    .tag-filter, 
+    .search-filter {
+        width: 100%;
+    }
+    
     .add-icon {
         display: none; /* Hide add icon on mobile */
     }

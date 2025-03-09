@@ -29,16 +29,16 @@
         <div class="routes-container">
             <!-- Filter controls -->
             <div class="routes-controls">
-                <select id="tag-filter" class="tag-filter">
-                    <option value="">Loading catalog...</option>
-                </select>
+                <div class="filters-container">
+                    <select id="tag-filter" class="tag-filter">
+                        <option value="">Loading catalog...</option>
+                    </select>
+                    <input type="text" id="search-filter" class="search-filter" placeholder="Search routes...">
+                </div>
                 <div id="add-route-button">
                     <img src="/images/add-icon.svg" alt="Add" class="add-icon" onclick="window.location.href='/edit.html'">
                 </div>
             </div>
-
-            <!-- Search input (hidden for now) -->
-            <input type="text" id="search" class="hidden">
             
             <!-- Routes list -->
             <div id="routes-list" class="routes-list">

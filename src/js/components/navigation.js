@@ -14,11 +14,9 @@ class Navigation {
         
         // Bind all methods
         this.bindMethods();
-        console.log('navigation constructor binded all methods' );
 
         // Initialize
         this.init();
-        console.log('navigation constructor complete' );
     }
 
     init() {
@@ -137,7 +135,7 @@ class Navigation {
             this.clearUserInfo();
             this.closeDropdown();
             this.handleAuthState();
-            window.location.href = '/';
+            //window.location.href = '/';
         } catch (error) {
             console.error('Logout error:', error);
             throw error;

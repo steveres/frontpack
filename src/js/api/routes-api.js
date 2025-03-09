@@ -4,18 +4,6 @@ class RoutesAPI {
     static API_URL = 'https://api2.thefrontpack.com';
     //static API_URL = 'https://localhost:44367';
 
-    static filterByTag(tag) {
-        document.getElementById('search').value = '';
-        return JSON.stringify({
-            pageSize: 50,
-            tags: tag,
-            "includeGroupTypePersonal": true,
-            "includeGroupTypeLocal": true,
-            "includeGroupTypeTour": true,
-            "includeGroupTypeEvent": true
-        });
-    }
-
     static async getTours(tag = 'usbrs') {
         try {
             const response = await fetch(`${this.API_URL}/Tours/Search`, {
@@ -24,7 +12,15 @@ class RoutesAPI {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: this.filterByTag(tag)
+                body: 
+                    JSON.stringify({
+                        pageSize: 100,
+                        tags: tag,
+                        "includeGroupTypePersonal": true,
+                        "includeGroupTypeLocal": true,
+                        "includeGroupTypeTour": true,
+                        "includeGroupTypeEvent": true
+                    })
             });
 
             if (!response.ok) {
@@ -121,7 +117,7 @@ class RoutesAPI {
                 credentials: 'include',
             });
 
-            console.log('Fetched tags (response):', response);
+            //console.log('Fetched tags (response):', response);
             if (!response.ok) {
                 if (response.status === 401) {
                     window.location.href = '/login.html';

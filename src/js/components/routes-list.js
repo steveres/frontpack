@@ -6,10 +6,14 @@ class RoutesList {
         this.loadingState = document.getElementById('loading-state');
         this.errorState = document.getElementById('error-state');
         this.tagFilter = document.getElementById('tag-filter');
+        this.searchFilter = document.getElementById('search-filter');
         this.routes = [];
+        this.filteredRoutes = [];
+        this.currentTag = 'usbrs';
         
         // Bind methods
         this.handleTagChange = this.handleTagChange.bind(this);
+        this.handleSearchInput = this.handleSearchInput.bind(this);
         
         this.initialize();
     }
@@ -28,11 +32,13 @@ class RoutesList {
             // Load routes
             this.showLoading();
             await this.fetchRoutes('usbrs');
+            this.filteredRoutes = [...this.routes]; // Initialize filtered routes with all routes
             this.hideLoading();
             this.render();
             
-            // Add event listener for tag changes
+            // Add event listeners for filtering
             this.tagFilter.addEventListener('change', this.handleTagChange);
+            this.searchFilter.addEventListener('input', this.handleSearchInput);
         } catch (error) {
             this.showError();
         }
@@ -63,9 +69,11 @@ class RoutesList {
 
     async handleTagChange(event) {
         const selectedTag = event.target.value;
+        this.currentTag = selectedTag;
         try {
             this.showLoading();
             await this.fetchRoutes(selectedTag);
+            this.filteredRoutes = [...this.routes];
             this.hideLoading();
             this.render();
         } catch (error) {
@@ -73,10 +81,30 @@ class RoutesList {
         }
     }
 
+    handleSearchInput(event) {
+        const searchTerm = event.target.value.toLowerCase().trim();
+        
+        if (searchTerm === '') {
+            // If search is empty, show all routes for current tag
+            this.filteredRoutes = [...this.routes];
+        } else {
+            // Filter routes by name and description
+            this.filteredRoutes = this.routes.filter(route => {
+                const name = (route.name || '').toLowerCase();
+                const description = (route.descr || '').toLowerCase();
+                return name.includes(searchTerm) || description.includes(searchTerm);
+            });
+        }
+        
+        this.render();
+    }
+
     async fetchRoutes(tag) {
         try {
+            this.searchFilter.value = '';
             let data = await RoutesAPI.getTours(tag);
             this.routes = data.results;
+            this.filteredRoutes = [...this.routes];
         } catch (error) {
             throw error;
         }
@@ -86,15 +114,20 @@ class RoutesList {
         // Clear existing routes
         this.container.innerHTML = '';
 
+        // Show message if no routes match filters
+        if (this.filteredRoutes.length === 0) {
+            this.container.innerHTML = '<div class="no-results">No routes found matching your filters</div>';
+            return;
+        }
+
         // Create route cards
-        const routesHTML = this.routes.map(route => this.createRouteCard(route)).join('');
+        const routesHTML = this.filteredRoutes.map(route => this.createRouteCard(route)).join('');
         this.container.innerHTML = routesHTML;
     }
 
     createRouteCard(route) {
         // Check if current user is the owner
         const isOwner = route.owner_UserID == window.navigationInstance.getUserID();
-        //console.log('isOwner:', route.owner_UserID, window.navigationInstance.getUserID(), isOwner);
         const editIconHTML = isOwner & window.navigationInstance.isLoggedIn()
             ? `<img src="/images/edit-icon.svg" 
                    alt="Edit" 
@@ -119,7 +152,6 @@ class RoutesList {
     showHideAddRouteButton() {
         try {
             const addRouteButton = document.getElementById('add-route-button');
-            //console.log('isLoggedIn:', window.navigationInstance.isLoggedIn());
             if (window.navigationInstance.isLoggedIn()) {
                 addRouteButton.classList.remove('hidden');
             } else {
