@@ -41,6 +41,39 @@ class RoutesAPI {
         }
     }
 
+    static async getToursByIds(tourIds) {
+        try {
+            const body = JSON.stringify({
+                pageSize: 100,
+                tourIDs: tourIds
+            })
+            console.log('Fetching tours in getToursByIds with body:', body);
+
+            const response = await fetch(`${this.API_URL}/Tours/Search`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: body
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch tours');
+            }
+
+            const data = await response.json();
+            console.log('Fetched tours in getToursByIds:', data);
+            return data;
+
+        } catch (error) {
+            console.error('Error fetching tours:', error);
+            throw error;
+        }
+    }
+
+
+
     static async getTour(tourID, includeRoute) {
         try {
             let url = `${this.API_URL}/Tours/${tourID}?IncludeRoute=${includeRoute}`;

@@ -8,10 +8,12 @@ class RouteDetail {
         this.mapContainer = document.getElementById('map');
         this.map = null;
         this.tour = null;
+        this.childTourSummaries = null;
         this.currentChildRoute = null;
         this.currentPolylines = [];
 
         this.handleChildRouteClick = this.handleChildRouteClick.bind(this);
+        this.handleToggleDescription = this.handleToggleDescription.bind(this);
         this.initialize();
     }
 
@@ -31,9 +33,11 @@ class RouteDetail {
             await this.loadRouteData(routeId);
             this.setLayoutType();
             this.initializeMap();
-            this.renderInfo();
             
             if (this.isMultiRoute()) {
+                await this.loadChildTourSummaries();
+                this.renderInfo();
+
                 this.currentChildRoute = this.tour.childTours[0];
                 this.selectFirstCard();
 
@@ -43,6 +47,8 @@ class RouteDetail {
                     this.showChildRouteError(0, 'Failed to load route data');
                 }
             } else {
+                this.renderInfo();
+
                 if (this.tour.route && this.tour.route.tracks) {
                     this.drawTrack(this.tour.route.tracks);
                 }
@@ -58,6 +64,17 @@ class RouteDetail {
         try {
             const response = await RoutesAPI.getTour(routeId, true);
             this.tour = response.tour;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async loadChildTourSummaries() {
+        try {
+            const tourIds = this.tour.childTours.map(child => child.tourID);
+            const response = await RoutesAPI.getToursByIds(tourIds);
+            this.childTourSummaries = response.results;
+            console.log('Loaded child tour summaries:', this.childTourSummaries);
         } catch (error) {
             throw error;
         }
@@ -113,8 +130,8 @@ class RouteDetail {
     }
 
     renderChildRoutes() {
-        const { childTours } = this.tour;
-        
+        const childTours = this.childTourSummaries;
+        console.log('childTours:', childTours);
         return `
             <div class="route-info__child-routes">
                 <h2 class="child-routes__title">Routes</h2>
@@ -123,10 +140,21 @@ class RouteDetail {
                         <li class="child-route__item">
                             <a href="#" class="child-route__link${index === 0 ? ' active' : ''}" data-route-index="${index}">
                                 <div class="child-route__content">
-                                    <div class="child-route__name">${childTour.name}</div>
-                                    <div class="child-route__distance">
-                                        ${this.metersToMiles(childTour.distance)} miles
+                                    <div class="child-route__header">
+                                        <div class="child-route__name">${childTour.name}</div>
                                     </div>
+                                    <div class="child-route__metrics">
+                                        <div class="child-route__metrics-left">
+                                            ${childTour.logoURL ? `<img src="${childTour.logoURL}" alt="${childTour.name} logo" class="child-route__logo">` : ''}
+                                            <div class="child-route__distance">
+                                                ${this.metersToMiles(childTour.distance)} miles
+                                            </div>
+                                        </div>
+                                        <button type="button" class="child-route__toggle" data-route-index="${index}">
+                                            &#9660;
+                                        </button>
+                                    </div>
+                                    <div class="child-route__descr" data-route-index="${index}">${childTour.descr || 'No description available.'}</div>
                                 </div>
                             </a>
                         </li>
@@ -178,6 +206,12 @@ class RouteDetail {
     }
 
     async handleChildRouteClick(event) {
+        // Prevent route loading if the click was on the toggle button
+        if (event.target.classList.contains('child-route__toggle')) {
+            event.preventDefault();
+            return;
+        }
+        
         event.preventDefault();
         const routeIndex = parseInt(event.currentTarget.dataset.routeIndex);
         const selectedTourID = this.tour.childTours[routeIndex].tourID;
@@ -194,10 +228,34 @@ class RouteDetail {
         }
     }
 
+    handleToggleDescription(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const routeIndex = parseInt(event.target.dataset.routeIndex);
+        const descElement = this.infoContainer.querySelector(`.child-route__descr[data-route-index="${routeIndex}"]`);
+        const toggleBtn = event.target;
+        
+        if (descElement.classList.contains('expanded')) {
+            descElement.classList.remove('expanded');
+            toggleBtn.classList.remove('expanded');
+            toggleBtn.innerHTML = '&#9660;'; // Down arrow
+        } else {
+            descElement.classList.add('expanded');
+            toggleBtn.classList.add('expanded');
+            toggleBtn.innerHTML = '&#9650;'; // Up arrow
+        }
+    }
+
     addChildRouteListeners() {
         const links = this.infoContainer.querySelectorAll('.child-route__link');
         links.forEach(link => {
             link.addEventListener('click', this.handleChildRouteClick);
+        });
+
+        const toggleButtons = this.infoContainer.querySelectorAll('.child-route__toggle');
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', this.handleToggleDescription);
         });
     }
 
