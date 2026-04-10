@@ -140,6 +140,11 @@
     color: var(--color-dark-grey);
 }
 
+.story-text a {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
 .story-image {
     flex: 1;
     position: relative;
