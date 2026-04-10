@@ -283,6 +283,18 @@
   color: var(--nav-hover);
 }
 
+/* Disabled nav link */
+.nav__link--disabled {
+  color: var(--nav-border);
+  pointer-events: none;
+  cursor: default;
+}
+
+.nav__link--disabled:hover,
+.nav__link--disabled:focus {
+  color: var(--nav-border);
+}
+
 /* Hide caret when not logged in */
 .nav__link:not([aria-expanded]) .nav__caret {
   display: none;
