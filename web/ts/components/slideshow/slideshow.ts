@@ -6,7 +6,7 @@ import type { SlideshowContents } from '../../media/media-types.js';
 import { clamp, query } from '../../utils/dom.js';
 import { DEFAULTS, loadSettings, saveSettings } from '../../utils/settings.js';
 import { MapView } from './map-view.js';
-import { MusicPlayer } from './music-player.js';
+import { canPlaySound, MusicPlayer } from './music-player.js';
 import { PhotoZoom } from './photo-zoom.js';
 import { Player } from './player.js';
 import { Timeline } from './timeline.js';
@@ -92,8 +92,30 @@ export function mountSlideshow(root: HTMLElement, options: SlideshowOptions = {}
   playBtn.onclick = () => player.toggle();
   query(root, '.controls__prev').onclick = () => player.previous();
   query(root, '.controls__next').onclick = () => player.next();
+
+  // Phones won't play sound until the viewer taps the page. Rather than starting without music, the show
+  // waits on its first photo behind a big play button; that tap starts the photos, map and music together.
+  const startBtn = query<HTMLButtonElement>(root, '.slideshow__start');
+  let waiting = false;
+  const setWaiting = (wait: boolean) => {
+    waiting = wait;
+    startBtn.hidden = !wait;
+    root.classList.toggle('slideshow--waiting', wait);
+  };
+  const begin = () => {
+    if (!waiting) return;
+    setWaiting(false);
+    player.setPlaying(true); // unmutes the music...
+    music.startOnTap();      // ...and plays it, inside the tap
+  };
+  startBtn.onclick = begin;
+
   document.addEventListener('keydown', e => {
     if (!active || e.target instanceof HTMLInputElement) return;
+    if (waiting) {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); begin(); }
+      return;
+    }
     if (e.key === 'ArrowLeft') player.previous();
     else if (e.key === 'ArrowRight') player.next();
     else if (e.key === ' ' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); player.toggle(); }
@@ -146,17 +168,28 @@ export function mountSlideshow(root: HTMLElement, options: SlideshowOptions = {}
   root.addEventListener('pointerleave', () => { pointerOnOverlay = false; });
   document.addEventListener('keydown', wake);
 
+  let plays = 0; // bumping this abandons a start still checking for sound
   const handle: SlideshowHandle = {
     play({ items, tracks }) {
       active = true;
       muteBtn.hidden = tracks.length === 0;
-      music.start(tracks);
       timeline.setItems(items);
-      player.start(items);
-      wake();
+      const play = ++plays;
+      const start = (wait: boolean) => {
+        if (play !== plays) return;
+        setWaiting(wait);
+        music.start(tracks); // loads the first track now, so it's ready for the tap
+        player.start(items, !wait);
+        wake();
+      };
+      // Without music (or with it muted) there's nothing to wait for.
+      if (!tracks.length || settings.muted) start(false);
+      else void canPlaySound().then(ok => start(!ok));
     },
     stop() {
       active = false;
+      plays++;
+      setWaiting(false);
       player.stop();
       music.stop();
       wake();

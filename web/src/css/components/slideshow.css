@@ -77,6 +77,30 @@
 /* Buttons inside the slideshow */
 .slideshow button { font: inherit; color: var(--color-paper); background: transparent; border: 1px solid rgba(233, 228, 216, .35); border-radius: 6px; padding: 10px 16px; cursor: pointer; }
 .slideshow button:hover { border-color: var(--color-paper); }
+
+/* Tap to play (phones: sound needs a tap). The whole photo is the button; the first photo shows,
+   dimmed, behind a frosted disc. The controls and timeline wait until it's pressed. */
+.slideshow .slideshow__start { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  padding: 0; border: 0; border-radius: 0; background: radial-gradient(circle at center, rgba(0, 0, 0, .15), rgba(0, 0, 0, .5)); -webkit-tap-highlight-color: transparent; }
+.slideshow .slideshow__start[hidden] { display: none; }
+.slideshow__start-disc { display: grid; place-items: center; width: clamp(92px, 22vmin, 132px); aspect-ratio: 1; border-radius: 50%;
+  background: rgba(20, 24, 29, .5); border: 1.5px solid rgba(233, 228, 216, .55); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .45), 0 0 0 0 rgba(242, 184, 75, .5); animation: start-pulse 2.4s ease-out infinite; transition: transform .2s ease, background .2s ease; }
+.slideshow__start-disc svg { width: 46%; height: 46%; fill: var(--color-lamp); filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .35)); }
+.slideshow__start-label { padding: 6px 14px; border-radius: 999px; background: rgba(20, 24, 29, .55); color: var(--color-paper); font-size: 15px; letter-spacing: .04em; }
+.slideshow__start:hover .slideshow__start-disc,
+.slideshow__start:focus-visible .slideshow__start-disc { transform: scale(1.06); background: rgba(20, 24, 29, .65); }
+.slideshow__start:active .slideshow__start-disc { transform: scale(.96); }
+.slideshow__start:focus-visible { outline: none; }
+.slideshow__start:focus-visible .slideshow__start-disc { border-color: var(--color-lamp); }
+@keyframes start-pulse {
+  0%   { box-shadow: 0 10px 40px rgba(0, 0, 0, .45), 0 0 0 0 rgba(242, 184, 75, .45); }
+  70%  { box-shadow: 0 10px 40px rgba(0, 0, 0, .45), 0 0 0 22px rgba(242, 184, 75, 0); }
+  100% { box-shadow: 0 10px 40px rgba(0, 0, 0, .45), 0 0 0 0 rgba(242, 184, 75, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .slideshow__start-disc { animation: none; } }
+.slideshow--waiting .controls,
+.slideshow--waiting .timeline { visibility: hidden; }
 .slideshow .button--primary { background: var(--color-lamp); border-color: var(--color-lamp); color: var(--color-ink); font-weight: 600; }
 .slideshow button:focus-visible,
 .slideshow input:focus-visible { outline: 2px solid var(--color-lamp); outline-offset: 2px; }

@@ -29,6 +29,12 @@
             <div class="slideshow__layer"></div>
             <div class="slideshow__layer"></div>
 
+            <!-- Phones: sound needs a tap, so the show waits for this one -->
+            <button class="slideshow__start" aria-label="Play slideshow" hidden>
+                <span class="slideshow__start-disc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5v13l10.5-6.5z"/></svg></span>
+                <span class="slideshow__start-label">Tap to play</span>
+            </button>
+
             <div class="timeline" hidden>
                 <div class="timeline__rail" role="slider" tabindex="0" aria-orientation="vertical" aria-label="Position in slideshow">
                     <div class="timeline__thumb"></div>

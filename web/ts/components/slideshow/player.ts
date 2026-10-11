@@ -30,6 +30,7 @@ export class Player {
   private generation = 0;            // bumping this abandons any navigation still loading
   private playing = true;
   private ended = false;             // stopped on the last slide (Repeat off); Play starts again from the top
+  private waiting = false;           // started paused, waiting for the first Play: the first photo stays still until then
   private scrubbing = false;         // timeline is being dragged: no map updates, no auto-advance
   private timer: number | undefined; // pending auto-advance
   private shownAt = 0;               // when the current image's display time started
@@ -40,11 +41,13 @@ export class Player {
 
   constructor(private layers: HTMLElement[], private map: MapView, private settings: Settings) {}
 
-  start(items: MediaItem[]): void {
+  /** Starts from the first slide; with `playing` false it shows that slide, still, until setPlaying(true). */
+  start(items: MediaItem[], playing = true): void {
     this.items = items;
     this.locs = [];
     this.ended = false;
-    this.setPlaying(true);
+    this.waiting = !playing;
+    this.setPlaying(playing);
     this.restart();
   }
 
@@ -57,6 +60,7 @@ export class Player {
   stop(): void {
     this.generation++;
     this.ended = false;
+    this.waiting = false;
     clearTimeout(this.timer);
     this.scrubbing = false;
     this.items = [];
@@ -85,6 +89,10 @@ export class Player {
     }
     this.playing = playing;
     this.onState(playing);
+    if (playing && this.waiting) { // the first Play: the photo held still until now starts moving
+      this.waiting = false;
+      this.animate(this.front);
+    }
     if (playing) {
       this.shownAt = performance.now();
       this.schedule();
@@ -214,7 +222,7 @@ export class Player {
    */
   private animate(i: number): void {
     const img = this.layers[i].querySelector<HTMLImageElement>('img.slideshow__photo');
-    if (!img || !this.settings.motion || this.scrubbing) return;
+    if (!img || !this.settings.motion || this.scrubbing || this.waiting) return;
     this.motions[i]?.cancel();
     this.motions[i] = startKenBurns(img, this.layers[i], this.motionMs());
   }

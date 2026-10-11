@@ -3,6 +3,31 @@
 import type { Track } from '../../media/media-types.js';
 import { sleep } from '../../utils/dom.js';
 
+/** A twentieth of a second of silence (8 kHz, 8-bit mono WAV), for checking whether sound may play. */
+const SILENCE = (() => {
+  const samples = 400, bytes = new Uint8Array(44 + samples);
+  const view = new DataView(bytes.buffer);
+  const text = (at: number, s: string) => { for (let i = 0; i < s.length; i++) bytes[at + i] = s.charCodeAt(i); };
+  text(0, 'RIFF'); view.setUint32(4, 36 + samples, true); text(8, 'WAVEfmt ');
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);   // PCM, mono
+  view.setUint32(24, 8000, true); view.setUint32(28, 8000, true); view.setUint16(32, 1, true); view.setUint16(34, 8, true);
+  text(36, 'data'); view.setUint32(40, samples, true);
+  bytes.fill(128, 44); // 8-bit silence
+  return 'data:audio/wav;base64,' + btoa(String.fromCharCode(...bytes));
+})();
+
+/**
+ * Whether the browser will play sound right now, without a tap first. Desktop browsers usually
+ * will once the viewer has clicked on the site; phones won't until the viewer taps the page itself.
+ */
+export function canPlaySound(): Promise<boolean> {
+  const probe = new Audio(SILENCE);
+  return Promise.race([
+    probe.play().then(() => true, () => false),
+    sleep(1000).then(() => false), // no answer: assume not
+  ]).finally(() => probe.pause());
+}
+
 export class MusicPlayer {
   private audio = new Audio();
   private tracks: Track[] = [];
@@ -15,7 +40,7 @@ export class MusicPlayer {
   private faded = false;     // faded out at the end of the slideshow; resume() starts again
 
   constructor() {
-    this.audio.onended = () => void this.playRandom();
+    this.audio.onended = () => { if (this.url) void this.playRandom(); }; // (not the silence startOnTap plays)
     this.audio.onerror = () => { if (this.url) void this.trackFailed(); };
   }
 
@@ -51,6 +76,18 @@ export class MusicPlayer {
       this.audio.pause();
       this.faded = true;
     }, 50);
+  }
+
+  /**
+   * Call from the tap that starts the slideshow: plays the current track from its beginning. iOS only
+   * lets an element play sound if play() was called during a tap, so if the track is still loading,
+   * a moment of silence plays now and the track can follow when it arrives.
+   */
+  startOnTap(): void {
+    if (!this.tracks.length) return;
+    if (this.url) this.audio.currentTime = 0;
+    else this.audio.src = SILENCE;
+    void this.audio.play().catch(() => undefined);
   }
 
   /** After a fade-out (or during one): full volume again, with a new track if it had stopped. */
