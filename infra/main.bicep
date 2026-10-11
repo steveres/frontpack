@@ -46,6 +46,10 @@ param useSqlFreeLimit bool = true
 @allowed(['serverless', 'basic'])
 param sqlTier string = 'serverless'
 
+@description('Object id and name of an Entra group to make the SQL server admin (put the API identity and the people who need SSMS access in it). Empty: the API identity alone is admin.')
+param sqlAdminGroupObjectId string = ''
+param sqlAdminGroupName string = ''
+
 @description('API instances kept running when idle. 0: scales to zero (slow first request after idle); 1: always warm, about US$10/month.')
 @minValue(0)
 @maxValue(3)
@@ -164,7 +168,11 @@ resource blobContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
 }
 
 // ───────────── Azure SQL ─────────────
-// Entra-only authentication; the API's identity is the server admin (it runs the migrations).
+// Entra-only authentication. The admin is a group holding the API's identity (it runs the migrations)
+// and the people who manage the data in SSMS; without a group, the API's identity alone.
+var sqlAdmin = empty(sqlAdminGroupObjectId)
+  ? { principalType: 'Application', login: identity.name, sid: identity.properties.clientId }
+  : { principalType: 'Group', login: sqlAdminGroupName, sid: sqlAdminGroupObjectId }
 
 resource sqlServer 'Microsoft.Sql/servers@2023-08-01-preview' = {
   name: names.sqlServer
@@ -175,9 +183,9 @@ resource sqlServer 'Microsoft.Sql/servers@2023-08-01-preview' = {
     administrators: {
       administratorType: 'ActiveDirectory'
       azureADOnlyAuthentication: true
-      principalType: 'Application'
-      login: identity.name
-      sid: identity.properties.clientId
+      principalType: sqlAdmin.principalType
+      login: sqlAdmin.login
+      sid: sqlAdmin.sid
       tenantId: subscription().tenantId
     }
   }
