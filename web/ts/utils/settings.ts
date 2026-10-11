@@ -14,7 +14,7 @@ export interface Settings {
 
 const SETTINGS_KEY = 'slideshow.settings.v2'; // bumped so the new default duration applies
 const prefersReducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-export const DEFAULTS: Settings = { duration: 2, showMap: true, muted: false, motion: !prefersReducedMotion, fill: true, repeat: true };
+export const DEFAULTS: Settings = { duration: 2, showMap: true, muted: false, motion: !prefersReducedMotion, fill: false, repeat: false };
 
 export function loadSettings(): Settings {
   try {
