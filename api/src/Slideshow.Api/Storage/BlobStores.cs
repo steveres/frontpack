@@ -1,4 +1,4 @@
-using Azure.Identity;
+using Azure.Core;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Options;
@@ -31,17 +31,17 @@ public sealed class AzureBlobStore : IBlobStore
 {
     private readonly BlobContainerClient _container;
 
-    public AzureBlobStore(IOptions<StorageOptions> options)
+    /// <param name="credential">Signs in to Azure (not used with a connection string, i.e. Azurite).</param>
+    public AzureBlobStore(IOptions<StorageOptions> options, TokenCredential credential)
     {
         var o = options.Value;
         var service = !string.IsNullOrEmpty(o.ConnectionString)
             ? new BlobServiceClient(o.ConnectionString)
-            : new BlobServiceClient(new Uri(o.BlobServiceUri ?? throw new InvalidOperationException("Storage:BlobServiceUri is not set.")),
-                new DefaultAzureCredential());
+            : new BlobServiceClient(new Uri(o.BlobServiceUri ?? throw new InvalidOperationException("Storage:BlobServiceUri is not set.")), credential);
         _container = service.GetBlobContainerClient(o.ContainerName);
     }
 
-    /// <summary>Creates the container if missing (private access only).</summary>
+    /// <summary>Creates the container if missing, private (the local emulator; in Azure, main.bicep creates it).</summary>
     public Task EnsureContainerAsync(CancellationToken ct) => _container.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: ct);
 
     public async Task UploadAsync(string name, Stream content, string contentType, CancellationToken ct) =>

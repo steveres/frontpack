@@ -63,7 +63,7 @@ if (-not $SkipApi) {
   $env:DOTNET_CONTAINER_REGISTRY_UNAME = '00000000-0000-0000-0000-000000000000'
   $env:DOTNET_CONTAINER_REGISTRY_PWORD = Invoke-Az acr login --name $registry --expose-token --query accessToken --output tsv
   try {
-    Invoke-Native 'dotnet' @('publish', (Join-Path $root 'api\src\Slideshow.Api'), '-c', 'Release', '-t:PublishContainer',
+    Invoke-Native 'dotnet' @('publish', (Join-Path $root 'api\src\Slideshow.Api'), '-c', 'Release', '-r', 'linux-x64', '-t:PublishContainer',
       "-p:ContainerRegistry=$loginServer", "-p:ContainerImageTag=$tag") | Write-Host
   } finally {
     Remove-Item Env:DOTNET_CONTAINER_REGISTRY_PWORD -ErrorAction SilentlyContinue

@@ -10,6 +10,6 @@ param graphClientId = ''          // set once the Graph app is set up; empty = s
 param allowedOrigins = []
 param webLocation = 'eastus2'      // Static Web Apps region (not offered in eastus)
 
-// Start-up speed (October 2026: warm for a few weeks, then revert): 0 = free but slow after idle;
-// 1 = no waiting, about US$10/month.
+// Start-up speed: 0 = free, but the first request after ~5 idle minutes waits about 20 s (measured
+// October 2026, nearly all of it Azure preparing an instance); 1 = always instant, about US$10/month.
 param apiMinReplicas = 1

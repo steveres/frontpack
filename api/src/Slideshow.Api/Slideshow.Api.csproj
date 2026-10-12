@@ -7,6 +7,8 @@
     <!-- Container image: dotnet publish /t:PublishContainer (no Docker needed); runs as non-root on port 8080 -->
     <ContainerRepository>slideshow-api</ContainerRepository>
     <ContainerFamily>noble-chiseled-extra</ContainerFamily>
+    <!-- Precompiled code: the API starts faster after scaling up from zero (publish only) -->
+    <PublishReadyToRun>true</PublishReadyToRun>
     <UserSecretsId>70d54e14-b376-478c-bd97-cac8e675e9dd</UserSecretsId>
   </PropertyGroup>
 

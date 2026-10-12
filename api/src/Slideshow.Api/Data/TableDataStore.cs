@@ -1,7 +1,7 @@
 using System.Globalization;
 using Azure;
+using Azure.Core;
 using Azure.Data.Tables;
-using Azure.Identity;
 using Microsoft.Extensions.Options;
 
 namespace Slideshow.Api.Data;
@@ -15,20 +15,20 @@ public sealed class TableDataStore : IDataStore
     private const string UserRow = "user", ShareRow = "share";
     private readonly TableClient _users, _albums, _media, _shares;
 
-    public TableDataStore(IOptions<TablesOptions> options)
+    /// <param name="credential">Signs in to Azure (not used with a connection string, i.e. Azurite).</param>
+    public TableDataStore(IOptions<TablesOptions> options, TokenCredential credential)
     {
         var o = options.Value;
         var service = !string.IsNullOrEmpty(o.ConnectionString)
             ? new TableServiceClient(o.ConnectionString)
-            : new TableServiceClient(new Uri(o.ServiceUri ?? throw new InvalidOperationException("Tables:ServiceUri is not set.")),
-                new DefaultAzureCredential());
+            : new TableServiceClient(new Uri(o.ServiceUri ?? throw new InvalidOperationException("Tables:ServiceUri is not set.")), credential);
         _users = service.GetTableClient("Users");
         _albums = service.GetTableClient("Albums");
         _media = service.GetTableClient("Media");
         _shares = service.GetTableClient("Shares");
     }
 
-    /// <summary>Creates the tables if missing.</summary>
+    /// <summary>Creates the tables if missing (the local emulator; in Azure, main.bicep creates them).</summary>
     public async Task EnsureTablesAsync(CancellationToken ct)
     {
         foreach (var table in new[] { _users, _albums, _media, _shares }) await table.CreateIfNotExistsAsync(ct);

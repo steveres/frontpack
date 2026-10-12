@@ -142,6 +142,17 @@ resource mediaContainer 'Microsoft.Storage/storageAccounts/blobServices/containe
   properties: { publicAccess: 'None' }
 }
 
+// Album details. Created here so the API doesn't have to check for them every time it starts.
+resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-05-01' = {
+  parent: storage
+  name: 'default'
+}
+
+resource tables 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' = [for name in ['Users', 'Albums', 'Media', 'Shares']: {
+  parent: tableService
+  name: name
+}]
+
 resource blobContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storage.id, identity.id, roles.blobDataContributor)
   scope: storage
@@ -193,7 +204,7 @@ var extraCorsEnv = [for (origin, i) in allowedOrigins: { name: 'Cors__AllowedOri
 var corsEnv = concat([{ name: 'Cors__AllowedOrigins__0', value: webOrigin }], extraCorsEnv)
 
 var appEnv = concat([
-  { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId } // DefaultAzureCredential → this identity
+  { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId } // the managed identity the API signs in to storage as
   { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', secretRef: 'appinsights' }
   { name: 'Tables__Provider', value: 'AzureTable' }
   { name: 'Tables__ServiceUri', value: storage.properties.primaryEndpoints.table }
@@ -220,7 +231,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (!empty(containerImag
     type: 'UserAssigned'
     userAssignedIdentities: { '${identity.id}': {} }
   }
-  dependsOn: [acrPull, blobContributor, tableContributor]
+  dependsOn: [acrPull, blobContributor, tableContributor, tables]
   properties: {
     managedEnvironmentId: environment.id
     configuration: {
@@ -242,9 +253,10 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (!empty(containerImag
           env: appEnv
           probes: [
             { type: 'Liveness', httpGet: { path: '/healthz', port: 8080 }, periodSeconds: 30 }
-            { type: 'Readiness', httpGet: { path: '/healthz', port: 8080 }, periodSeconds: 10 }
-            // First start runs migrations and may wait for a paused database to resume.
-            { type: 'Startup', httpGet: { path: '/healthz', port: 8080 }, periodSeconds: 10, failureThreshold: 18 }
+            { type: 'Readiness', httpGet: { path: '/healthz', port: 8080 }, periodSeconds: 5 }
+            // Checked every second, so a request waiting on a cold start is let through as soon as the
+            // app answers (the app needs a few seconds; up to a minute is allowed).
+            { type: 'Startup', httpGet: { path: '/healthz', port: 8080 }, periodSeconds: 1, failureThreshold: 60 }
           ]
         }
       ]

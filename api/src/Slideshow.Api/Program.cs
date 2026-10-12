@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using System.Threading.RateLimiting;
+using Azure.Core;
+using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
@@ -19,6 +21,12 @@ services.AddOptions<StorageOptions>().BindConfiguration("Storage");
 services.AddOptions<GraphOptions>().BindConfiguration("Graph");
 services.AddOptions<LimitsOptions>().BindConfiguration("Limits");
 services.AddOptions<CorsOptions>().BindConfiguration("Cors");
+
+// Signing in to Table and Blob Storage in Azure: the API's managed identity, straight away (no credential
+// chain), and one credential for both so they share one storage token. AZURE_CLIENT_ID picks the identity.
+services.AddSingleton<TokenCredential>(_ => builder.Configuration["AZURE_CLIENT_ID"] is { Length: > 0 } clientId
+    ? new ManagedIdentityCredential(ManagedIdentityId.FromUserAssignedClientId(clientId))
+    : new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
 
 // Users, albums and media details: Azure Table Storage in the cloud, memory (saved to a file) locally and in tests.
 services.AddSingleton<IDataStore>(sp =>
@@ -108,10 +116,16 @@ app.MapGroup("/api/v1/shared").AllowAnonymous().MapShared(); // share links: no 
 
 app.Run();
 
+// In Azure the tables and the media container come from main.bicep, so starting up makes no storage
+// calls. The local emulator (Azurite, reached by connection string) starts empty: create them there.
 static async Task InitializeStorageAsync(IServiceProvider services)
 {
-    if (services.GetRequiredService<IDataStore>() is TableDataStore tables) await tables.EnsureTablesAsync(default);
-    if (services.GetRequiredService<IBlobStore>() is AzureBlobStore azure) await azure.EnsureContainerAsync(default);
+    if (services.GetRequiredService<IDataStore>() is TableDataStore tables
+        && !string.IsNullOrEmpty(services.GetRequiredService<IOptions<TablesOptions>>().Value.ConnectionString))
+        await tables.EnsureTablesAsync(default);
+    if (services.GetRequiredService<IBlobStore>() is AzureBlobStore azure
+        && !string.IsNullOrEmpty(services.GetRequiredService<IOptions<StorageOptions>>().Value.ConnectionString))
+        await azure.EnsureContainerAsync(default);
 }
 
 public partial class Program; // for WebApplicationFactory in tests
