@@ -9,6 +9,8 @@ public sealed class User
     public DateTime CreatedAt { get; set; }
     /// <summary>Tokens issued before this (UTC) are rejected: set by logout.</summary>
     public DateTime? TokensValidAfter { get; set; }
+
+    internal User Clone() => (User)MemberwiseClone();
 }
 
 public sealed class Album
@@ -22,14 +24,17 @@ public sealed class Album
     /// <summary>Bumped on every add/delete of media; compared with CompiledVersion to detect staleness.</summary>
     public int ContentVersion { get; set; }
     public int? CompiledVersion { get; set; }
+    /// <summary>When the manifest (a blob next to the album's files) was last written.</summary>
     public DateTime? CompiledAt { get; set; }
-    public string? ManifestJson { get; set; }
     /// <summary>Link sharing: the secret code in the album's share link; null when not shared.</summary>
     public string? ShareToken { get; set; }
     /// <summary>Viewers of the share link don't see the map (or the photos' locations). Default: they do.</summary>
     public bool ShareHideMap { get; set; }
 
-    public List<MediaFile> Media { get; set; } = [];
+    /// <summary>The stored row's version when read; an update fails if the row changed since (not stored itself).</summary>
+    public string? ETag { get; set; }
+
+    internal Album Clone() => (Album)MemberwiseClone();
 }
 
 /// <summary>Which album collection a file belongs to (the URL segment).</summary>
@@ -61,4 +66,6 @@ public sealed class MediaFile
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public ThumbnailState ThumbnailState { get; set; }
+
+    internal MediaFile Clone() => (MediaFile)MemberwiseClone();
 }

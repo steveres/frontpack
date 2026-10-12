@@ -15,7 +15,7 @@ using Slideshow.Api.Identity;
 namespace Slideshow.Api.Tests.Infrastructure;
 
 /// <summary>
-/// The real app with SQLite + a temp folder for storage, and tokens signed by a test key in place of
+/// The real app with its data in memory + a temp folder for storage, and tokens signed by a test key in place of
 /// Entra's. Everything else (JWT validation, scope check, logout cut-off) is the production pipeline.
 /// </summary>
 public sealed class ApiFactory : WebApplicationFactory<Program>
@@ -40,8 +40,17 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment(Environment);
         var testTokens = Environment != "Development";
-        builder.UseSetting("Database:Provider", "Sqlite");
-        builder.UseSetting("Database:ConnectionString", $"Data Source={Path.Combine(Root, "test.db")};Pooling=False");
+        if (System.Environment.GetEnvironmentVariable("SLIDESHOW_TEST_TABLES") == "azurite")
+        {
+            // Same tests against the Table Storage code: start Azurite first (see api/README.md).
+            builder.UseSetting("Tables:Provider", "AzureTable");
+            builder.UseSetting("Tables:ConnectionString", "UseDevelopmentStorage=true");
+        }
+        else
+        {
+            builder.UseSetting("Tables:Provider", "Local");
+            builder.UseSetting("Tables:LocalPath", ""); // memory only
+        }
         builder.UseSetting("Storage:Provider", "FileSystem");
         builder.UseSetting("Storage:RootPath", MediaRoot);
         if (testTokens)

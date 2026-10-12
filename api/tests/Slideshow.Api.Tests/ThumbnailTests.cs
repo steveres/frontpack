@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SkiaSharp;
 using Slideshow.Api.Data;
@@ -84,11 +83,8 @@ public sealed class ThumbnailTests(ApiFactory factory) : IClassFixture<ApiFactor
         var thumbFile = Path.Combine(factory.MediaRoot, userId, Guid.Parse(album).ToString("N"), id.ToString("N") + ".thumb");
         Assert.True(File.Exists(thumbFile));
         File.Delete(thumbFile);
-        using (var scope = factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            await db.MediaFiles.Where(m => m.Id == id).ExecuteUpdateAsync(s => s.SetProperty(m => m.ThumbnailState, ThumbnailState.None));
-        }
+        await factory.Services.GetRequiredService<IDataStore>()
+            .SetThumbnailStateAsync(userId, Guid.Parse(album), id, ThumbnailState.None, CancellationToken.None);
 
         Assert.Equal(new SKSizeI(400, 400), await ThumbnailSizeAsync(client, info.GetProperty("thumbnailUrl").GetString()!));
         Assert.True(File.Exists(thumbFile)); // kept for next time

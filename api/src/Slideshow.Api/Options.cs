@@ -11,13 +11,16 @@ public sealed class AuthOptions
     public string RequiredScope { get; set; } = "Slideshow.Access";
 }
 
-/// <summary>"Database" section.</summary>
-public sealed class DatabaseOptions
+/// <summary>"Tables" section: where users, albums and media details are kept.</summary>
+public sealed class TablesOptions
 {
-    /// <summary>"SqlServer" (Azure SQL) or "Sqlite" (local development and tests).</summary>
-    public string Provider { get; set; } = "Sqlite";
-    public string ConnectionString { get; set; } = "Data Source=App_Data/slideshow.db";
-    public bool MigrateOnStartup { get; set; } = true;
+    /// <summary>"AzureTable" (Azure Table Storage or Azurite) or "Local" (memory, optionally saved to LocalPath).</summary>
+    public string Provider { get; set; } = "Local";
+    /// <summary>Local: a JSON file the data is saved to; empty keeps it in memory only (tests).</summary>
+    public string? LocalPath { get; set; } = "App_Data/data.json";
+    /// <summary>AzureTable: e.g. https://account.table.core.windows.net (managed identity), or a connection string for Azurite.</summary>
+    public string? ServiceUri { get; set; }
+    public string? ConnectionString { get; set; }
 }
 
 /// <summary>"Storage" section.</summary>

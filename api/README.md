@@ -10,7 +10,7 @@ api/
     Identity/                   token validation, logout cut-off, Microsoft Graph
     Media/                      file-type sniffing, EXIF/video date + GPS, natural sort
     Storage/                    Azure Blob / local folder
-    Data/                       EF Core model + Azure SQL migrations
+    Data/                       entities + data store (Table Storage; in memory / JSON file locally)
   tests/Slideshow.Api.Tests/    integration + unit tests
 infra/                          Bicep template, parameters, deploy script
 ```
@@ -21,17 +21,23 @@ infra/                          Bicep template, parameters, deploy script
 cd api
 dotnet test
 ```
-No Azure, database server or emulator needed: the tests run the real app against SQLite and a temp
-folder, with tokens signed by a test key.
+No Azure, database server or emulator needed: the tests run the real app with its data in memory and
+files in a temp folder, with tokens signed by a test key.
+
+To run the same tests against the Table Storage code, start Azurite's table service, then:
+```powershell
+npx -p azurite azurite-table --inMemoryPersistence --skipApiVersionCheck   # in another terminal
+$env:SLIDESHOW_TEST_TABLES = 'azurite'; dotnet test; Remove-Item Env:SLIDESHOW_TEST_TABLES
+```
 
 ## Run locally
 
 Two launch profiles, both on http://localhost:5160:
 
-| Profile | Database | Media storage | Needs |
+| Profile | Album details | Media storage | Needs |
 |---|---|---|---|
-| `local` (default) | SQLite file in `App_Data/` | folder `App_Data/media` | nothing |
-| `local-azure` | SQL Server LocalDB (same migrations as Azure SQL) | Azurite (Blob Storage emulator) | LocalDB, Node.js |
+| `local` (default) | memory, saved to `App_Data/data.json` | folder `App_Data/media` | nothing |
+| `local-azure` | Azurite (Table Storage emulator) | Azurite (Blob Storage emulator) | Node.js |
 
 ```powershell
 cd api\src\Slideshow.Api
@@ -41,7 +47,7 @@ dotnet run                               # or: dotnet run --launch-profile local
 For `local-azure`, start Azurite first in another terminal (`--skipApiVersionCheck` because the Azure
 SDK is usually newer than the emulator):
 ```powershell
-npx -p azurite azurite-blob --skipApiVersionCheck --location $env:TEMP\azurite
+npx -p azurite azurite --skipApiVersionCheck --location $env:TEMP\azurite
 ```
 
 ### Browse and try the API
@@ -117,18 +123,17 @@ the .NET 9 SDK and Node.js. Docker is **not** needed; the .NET SDK builds and pu
 
 What gets created: Static Web App (Free plan; `eastus2`, since Static Web Apps isn't offered in every
 region), Container Apps environment + app (scale 0–3), Azure Container Registry, Storage account
-(private `media` container, shared keys off, 7-day soft delete), Azure SQL serverless database (free
-offer, auto-pause, Entra-only auth), Log Analytics + Application Insights, and a user-assigned managed
-identity with exactly the roles it needs (AcrPull, Storage Blob Data Contributor, SQL admin). The
-website's address is always allowed by the API's CORS settings.
+(private `media` container for files and compiled manifests, tables `Users`, `Albums`, `Media` and
+`Shares` for album details; shared keys off, 7-day soft delete), Log Analytics + Application Insights,
+and a user-assigned managed identity with exactly the roles it needs (AcrPull, Storage Blob Data
+Contributor, Storage Table Data Contributor). The website's address is always allowed by the API's
+CORS settings.
 
 Notes
-- The API's managed identity is the SQL server's Entra admin, since it runs the schema migrations on
-  start. To query the database yourself, temporarily set yourself as admin:
-  `az sql server ad-admin create -g slideshow-rg -s <server> -u <you@domain> -i <your-object-id>`
-  (then set it back to the identity).
-- The first request after an idle period is slow: the app scales from zero and the database resumes
-  from auto-pause. Set `minReplicas: 1` in `main.bicep` to avoid the app cold start (costs more).
+- To browse the album details yourself, open the storage account's *Storage browser* in the Azure
+  portal (or Azure Storage Explorer); your account needs the *Storage Table Data Reader* role on it.
+- The first request after an idle period is slow: the app scales from zero. Set `apiMinReplicas = 1`
+  in `main.bicepparam` to keep one instance warm (costs more).
 - Restrict the Google Maps key to the website's address in the Google Cloud console.
 
 ## Configuration reference
@@ -136,19 +141,15 @@ Notes
 | Setting | Meaning |
 |---|---|
 | `Auth:Authority`, `Auth:Audiences`, `Auth:RequiredScope` | Entra External ID token validation |
-| `Database:Provider` (`Sqlite`/`SqlServer`), `Database:ConnectionString` | metadata store |
+| `Tables:Provider` (`Local`/`AzureTable`), `Tables:LocalPath` or `Tables:ServiceUri` / `Tables:ConnectionString` | album details |
 | `Storage:Provider` (`FileSystem`/`AzureBlob`), `Storage:BlobServiceUri` or `Storage:ConnectionString` | media bytes |
 | `Graph:TenantId`, `Graph:ClientId`, `Graph:ClientSecret` | Entra user deletion / session revocation |
 | `Limits:*` | per-kind file size, per-user quota, files per album, albums per user, requests per minute |
 | `Cors:AllowedOrigins` | SPA origins |
 
-Environment variables use `__` for `:` (e.g. `Database__Provider`).
+Environment variables use `__` for `:` (e.g. `Tables__Provider`).
 
-## Schema changes
+## Data changes
 
-```powershell
-cd api
-dotnet ef migrations add <Name> -p src/Slideshow.Api -o Data/Migrations
-```
-Migrations target Azure SQL / SQL Server and are applied when the app starts. SQLite (local/tests)
-builds its schema straight from the model.
+Tables have no schema: a new field is just a new property in `Data/TableDataStore.cs` (and in the
+entity). Rows written before it existed simply lack it, so give it a sensible default when reading.

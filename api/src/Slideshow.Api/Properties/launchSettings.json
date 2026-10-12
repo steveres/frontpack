@@ -17,8 +17,8 @@
       "applicationUrl": "http://localhost:5160",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "Database__Provider": "SqlServer",
-        "Database__ConnectionString": "Server=(localdb)\\MSSQLLocalDB;Database=SlideshowLocal;Trusted_Connection=True;TrustServerCertificate=True",
+        "Tables__Provider": "AzureTable",
+        "Tables__ConnectionString": "UseDevelopmentStorage=true",
         "Storage__Provider": "AzureBlob",
         "Storage__ConnectionString": "UseDevelopmentStorage=true"
       }

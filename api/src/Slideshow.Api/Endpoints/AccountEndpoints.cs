@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Slideshow.Api.Data;
 using Slideshow.Api.Identity;
@@ -19,9 +18,9 @@ public static class AccountEndpoints
         g.MapDelete("/", Delete).WithSummary("Delete the account, all albums and files, and the Entra user.");
     }
 
-    private static async Task<IResult> Register(HttpContext http, AppDbContext db, IOptions<LimitsOptions> limits, ILogger<AppDbContext> log, CancellationToken ct)
+    private static async Task<IResult> Register(HttpContext http, IDataStore store, IOptions<LimitsOptions> limits, ILogger<Program> log, CancellationToken ct)
     {
-        if (http.Account() is { } existing) return Results.Ok(await ToDto(db, existing, limits.Value, ct));
+        if (http.Account() is { } existing) return Results.Ok(await ToDto(store, existing, limits.Value, ct));
 
         var user = new User
         {
@@ -30,30 +29,23 @@ public static class AccountEndpoints
             Email = Truncate(http.User.FindFirstValue("email") ?? http.User.FindFirstValue("preferred_username"), 320),
             CreatedAt = DateTime.UtcNow,
         };
-        db.Users.Add(user);
-        try
-        {
-            await db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException)
+        if (!await store.TryAddUserAsync(user, ct))
         {
             // Two registrations raced; the other one won.
-            db.ChangeTracker.Clear();
-            var winner = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == user.Id, ct);
-            if (winner is null) throw;
-            return Results.Ok(await ToDto(db, winner, limits.Value, ct));
+            var winner = await store.GetUserAsync(user.Id, ct) ?? throw new InvalidOperationException("Registration conflict, but no user.");
+            return Results.Ok(await ToDto(store, winner, limits.Value, ct));
         }
         log.LogInformation("Registered user {UserId}", user.Id);
-        return Results.Created("/api/v1/account", await ToDto(db, user, limits.Value, ct));
+        return Results.Created("/api/v1/account", await ToDto(store, user, limits.Value, ct));
     }
 
-    private static async Task<IResult> Get(HttpContext http, AppDbContext db, IOptions<LimitsOptions> limits, CancellationToken ct) =>
-        http.Account() is { } user ? Results.Ok(await ToDto(db, user, limits.Value, ct)) : Problems.NotRegistered();
+    private static async Task<IResult> Get(HttpContext http, IDataStore store, IOptions<LimitsOptions> limits, CancellationToken ct) =>
+        http.Account() is { } user ? Results.Ok(await ToDto(store, user, limits.Value, ct)) : Problems.NotRegistered();
 
-    private static async Task<IResult> Logout(HttpContext http, AppDbContext db, IIdentityDirectory directory, ILogger<AppDbContext> log, CancellationToken ct)
+    private static async Task<IResult> Logout(HttpContext http, IDataStore store, IIdentityDirectory directory, ILogger<Program> log, CancellationToken ct)
     {
         var userId = http.User.UserId();
-        await db.Users.Where(u => u.Id == userId).ExecuteUpdateAsync(s => s.SetProperty(u => u.TokensValidAfter, DateTime.UtcNow), ct);
+        await store.SetTokensValidAfterAsync(userId, DateTime.UtcNow, ct);
         try { await directory.RevokeSessionsAsync(userId, ct); }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -64,18 +56,17 @@ public static class AccountEndpoints
     }
 
     /// <summary>Data first, identity last: if any step fails the user can still sign in and retry.</summary>
-    private static async Task<IResult> Delete(HttpContext http, AppDbContext db, IBlobStore blobs, IIdentityDirectory directory, ILogger<AppDbContext> log, CancellationToken ct)
+    private static async Task<IResult> Delete(HttpContext http, IDataStore store, IBlobStore blobs, IIdentityDirectory directory, ILogger<Program> log, CancellationToken ct)
     {
         var userId = http.User.UserId();
-        var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
+        // Media rows, then share links and albums, then the user: a retry after a failure picks up where it stopped.
+        await store.DeleteAllMediaAsync(userId, null, ct);
+        foreach (var album in await store.ListAlbumsAsync(userId, ct))
         {
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
-            await db.MediaFiles.Where(m => m.OwnerId == userId).ExecuteDeleteAsync(ct);
-            await db.Albums.Where(a => a.OwnerId == userId).ExecuteDeleteAsync(ct);
-            await db.Users.Where(u => u.Id == userId).ExecuteDeleteAsync(ct);
-            await tx.CommitAsync(ct);
-        });
+            if (album.ShareToken is { } token) await store.DeleteShareAsync(token, ct);
+            await store.DeleteAlbumAsync(userId, album.Id, ct);
+        }
+        await store.DeleteUserAsync(userId, ct);
         await blobs.DeletePrefixAsync(BlobNames.UserPrefix(userId), ct);
 
         try { await directory.DeleteUserAsync(userId, ct); }
@@ -88,13 +79,12 @@ public static class AccountEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<AccountDto> ToDto(AppDbContext db, User u, LimitsOptions limits, CancellationToken ct)
+    private static async Task<AccountDto> ToDto(IDataStore store, User u, LimitsOptions limits, CancellationToken ct)
     {
-        var albums = await db.Albums.CountAsync(a => a.OwnerId == u.Id, ct);
-        var files = await db.MediaFiles.Where(m => m.OwnerId == u.Id).GroupBy(_ => 1)
-            .Select(g => new { Count = g.Count(), Bytes = g.Sum(m => m.SizeBytes) }).FirstOrDefaultAsync(ct);
+        var albums = await store.ListAlbumsAsync(u.Id, ct);
+        var files = await store.ListMediaAsync(u.Id, null, ct);
         return new AccountDto(u.Id, u.DisplayName, u.Email, u.CreatedAt,
-            new UsageDto(albums, files?.Count ?? 0, files?.Bytes ?? 0, limits.QuotaBytesPerUser));
+            new UsageDto(albums.Count, files.Count, files.Sum(m => m.SizeBytes), limits.QuotaBytesPerUser));
     }
 
     private static string? Truncate(string? s, int max) => s is null ? null : s.Length <= max ? s : s[..max];

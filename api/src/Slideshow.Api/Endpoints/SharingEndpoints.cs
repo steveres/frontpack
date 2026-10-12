@@ -1,7 +1,5 @@
 using System.Security.Cryptography;
-using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.EntityFrameworkCore;
 using Slideshow.Api.Data;
 using Slideshow.Api.Identity;
 using Slideshow.Api.Storage;
@@ -28,36 +26,70 @@ public static partial class SharingEndpoints
 
     private static ShareDto ToDto(Album a) => new(a.ShareToken is not null, a.ShareToken, !a.ShareHideMap);
 
-    private static Task<Album?> OwnedAlbum(AppDbContext db, HttpContext http, Guid albumId, CancellationToken ct) =>
-        db.Albums.FirstOrDefaultAsync(a => a.Id == albumId && a.OwnerId == http.User.UserId(), ct);
 
     /// <summary>128 random bits, URL-safe (22 characters).</summary>
     private static string NewToken() =>
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(16)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
-    private static async Task<IResult> Get(Guid albumId, HttpContext http, AppDbContext db, CancellationToken ct) =>
-        await OwnedAlbum(db, http, albumId, ct) is { } album ? Results.Ok(ToDto(album)) : Problems.AlbumNotFound();
+    private static async Task<IResult> Get(Guid albumId, HttpContext http, IDataStore store, CancellationToken ct) =>
+        await store.GetAlbumAsync(http.User.UserId(), albumId, ct) is { } album ? Results.Ok(ToDto(album)) : Problems.AlbumNotFound();
 
-    private static async Task<IResult> Update(Guid albumId, UpdateShareRequest body, HttpContext http, AppDbContext db, ILogger<AppDbContext> log, CancellationToken ct)
+    /// <summary>A new code, recorded in the share lookup for the album (codes are random, so a clash is near-impossible).</summary>
+    private static async Task<string> ClaimTokenAsync(IDataStore store, string ownerId, Guid albumId, CancellationToken ct)
     {
-        var album = await OwnedAlbum(db, http, albumId, ct);
+        while (true)
+        {
+            var token = NewToken();
+            if (await store.TryAddShareAsync(token, ownerId, albumId, ct)) return token;
+        }
+    }
+
+    /// <summary>
+    /// Points the album at a new share code (or none), then retires the old code. The new code is
+    /// recorded first, so a live link never points nowhere; if the album has gone meanwhile it is released.
+    /// </summary>
+    private static async Task<Album?> SetTokenAsync(IDataStore store, string ownerId, Guid albumId, bool share, bool? showMap, CancellationToken ct)
+    {
+        var newToken = share ? await ClaimTokenAsync(store, ownerId, albumId, ct) : null;
+        string? oldToken = null;
+        var album = await store.UpdateAlbumAsync(ownerId, albumId, a =>
+        {
+            oldToken = a.ShareToken;
+            a.ShareToken = newToken;
+            if (showMap is { } show) a.ShareHideMap = !show;
+        }, ct);
+        var retired = album is null ? newToken : oldToken;
+        if (retired is not null) await store.DeleteShareAsync(retired, ct);
+        return album;
+    }
+
+    private static async Task<IResult> Update(Guid albumId, UpdateShareRequest body, HttpContext http, IDataStore store, ILogger<Program> log, CancellationToken ct)
+    {
+        var ownerId = http.User.UserId();
+        var album = await store.GetAlbumAsync(ownerId, albumId, ct);
         if (album is null) return Problems.AlbumNotFound();
-        if (body.ShowMap is { } showMap) album.ShareHideMap = !showMap;
-        if (body.Enabled == true && album.ShareToken is null) album.ShareToken = NewToken();  // turning on again gives a new link
-        if (body.Enabled == false) album.ShareToken = null;                                    // old links stop working
-        await db.SaveChangesAsync(ct);
+
+        var shared = album.ShareToken is not null;
+        if (body.Enabled == true && !shared)        // turning on again gives a new link
+            album = await SetTokenAsync(store, ownerId, albumId, true, body.ShowMap, ct);
+        else if (body.Enabled == false && shared)   // old links stop working
+            album = await SetTokenAsync(store, ownerId, albumId, false, body.ShowMap, ct);
+        else if (body.ShowMap is { } showMap)
+            album = await store.UpdateAlbumAsync(ownerId, albumId, a => a.ShareHideMap = !showMap, ct);
+        if (album is null) return Problems.AlbumNotFound();
+
         log.LogInformation("Album {AlbumId} sharing: {Shared}", albumId, album.ShareToken is not null);
         return Results.Ok(ToDto(album));
     }
 
-    private static async Task<IResult> Reset(Guid albumId, HttpContext http, AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> Reset(Guid albumId, HttpContext http, IDataStore store, CancellationToken ct)
     {
-        var album = await OwnedAlbum(db, http, albumId, ct);
+        var ownerId = http.User.UserId();
+        var album = await store.GetAlbumAsync(ownerId, albumId, ct);
         if (album is null) return Problems.AlbumNotFound();
         if (album.ShareToken is null) return Problems.Of(409, "album_not_shared", "Turn on link sharing first.");
-        album.ShareToken = NewToken();
-        await db.SaveChangesAsync(ct);
-        return Results.Ok(ToDto(album));
+        album = await SetTokenAsync(store, ownerId, albumId, true, null, ct);
+        return album is null ? Problems.AlbumNotFound() : Results.Ok(ToDto(album));
     }
 
     // ───────── Anyone with the link: /api/v1/shared/{token} ─────────
@@ -66,10 +98,10 @@ public static partial class SharingEndpoints
     {
         shared.WithTags("Shared");
         shared.MapGet("/{token}", GetShared).WithSummary("The shared album's slideshow (no sign-in).");
-        shared.MapGet("/{token}/images/{id:guid}", (string token, Guid id, HttpContext http, AppDbContext db, IBlobStore blobs, CancellationToken ct) =>
-            GetSharedFile(token, id, MediaCollection.Images, http, db, blobs, ct)).WithSummary("A photo or video of a shared album.");
-        shared.MapGet("/{token}/music/{id:guid}", (string token, Guid id, HttpContext http, AppDbContext db, IBlobStore blobs, CancellationToken ct) =>
-            GetSharedFile(token, id, MediaCollection.Music, http, db, blobs, ct)).WithSummary("A music track of a shared album.");
+        shared.MapGet("/{token}/images/{id:guid}", (string token, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct) =>
+            GetSharedFile(token, id, MediaCollection.Images, http, store, blobs, ct)).WithSummary("A photo or video of a shared album.");
+        shared.MapGet("/{token}/music/{id:guid}", (string token, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct) =>
+            GetSharedFile(token, id, MediaCollection.Music, http, store, blobs, ct)).WithSummary("A music track of a shared album.");
     }
 
     [GeneratedRegex("^[A-Za-z0-9_-]{22}$")]
@@ -78,18 +110,23 @@ public static partial class SharingEndpoints
     /// <summary>A wrong, revoked or malformed code all look the same: not found.</summary>
     private static IResult NotShared() => Problems.Of(404, "share_not_found", "This slideshow isn't shared, or the link is wrong.");
 
-    private static Task<Album?> SharedAlbum(AppDbContext db, string token, CancellationToken ct) =>
-        TokenFormat().IsMatch(token) ? db.Albums.FirstOrDefaultAsync(a => a.ShareToken == token, ct) : Task.FromResult<Album?>(null);
-
-    private static async Task<IResult> GetShared(string token, AppDbContext db, CancellationToken ct)
+    /// <summary>The album the code points to, if the album still has that code (a turned-off link finds nothing).</summary>
+    private static async Task<Album?> SharedAlbum(IDataStore store, string token, CancellationToken ct)
     {
-        var album = await SharedAlbum(db, token, ct);
+        if (!TokenFormat().IsMatch(token) || await store.ResolveShareAsync(token, ct) is not { } share) return null;
+        var album = await store.GetAlbumAsync(share.OwnerId, share.AlbumId, ct);
+        return album?.ShareToken == token ? album : null;
+    }
+
+    private static async Task<IResult> GetShared(string token, IDataStore store, IBlobStore blobs, CancellationToken ct)
+    {
+        var album = await SharedAlbum(store, token, ct);
         if (album is null) return NotShared();
 
         // Viewers always get the current slideshow: compile if the owner changed the album since.
-        var manifest = album.ManifestJson is null || album.CompiledVersion != album.ContentVersion
-            ? await AlbumEndpoints.CompileAsync(db, album, ct)
-            : JsonSerializer.Deserialize<AlbumManifestDto>(album.ManifestJson, AlbumEndpoints.ManifestJson)!;
+        var manifest = album.CompiledVersion == album.ContentVersion ? await AlbumEndpoints.ReadManifestAsync(blobs, album, ct) : null;
+        manifest ??= await AlbumEndpoints.CompileAsync(store, blobs, album, ct);
+        if (manifest is null) return NotShared(); // deleted meanwhile
 
         var showMap = !album.ShareHideMap;
         MediaInfoDto Shared(MediaInfoDto m, string segment) => m with
@@ -103,12 +140,12 @@ public static partial class SharingEndpoints
             manifest.Music.Select(m => Shared(m, "music")).ToList()));
     }
 
-    private static async Task<IResult> GetSharedFile(string token, Guid id, MediaCollection collection, HttpContext http, AppDbContext db, IBlobStore blobs, CancellationToken ct)
+    private static async Task<IResult> GetSharedFile(string token, Guid id, MediaCollection collection, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct)
     {
-        var album = await SharedAlbum(db, token, ct);
+        var album = await SharedAlbum(store, token, ct);
         if (album is null) return NotShared();
-        var media = await db.MediaFiles.AsNoTracking()
-            .FirstOrDefaultAsync(m => m.Id == id && m.AlbumId == album.Id && m.Collection == collection, ct);
+        var media = await store.GetMediaAsync(album.OwnerId, album.Id, id, ct);
+        if (media?.Collection != collection) media = null;
         // Only what the slideshow shows: photos/videos left out of it (no date or location) stay private.
         if (media is null || MediaInfoDto.MissingFor(media).Count > 0) return Problems.MediaNotFound();
         return await MediaEndpoints.StreamAsync(http, blobs, media, "private, max-age=3600", ct);

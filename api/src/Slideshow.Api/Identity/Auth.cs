@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Slideshow.Api.Data;
@@ -50,8 +49,8 @@ public static class Auth
         var oid = ctx.Principal?.FindFirstValue("oid");
         if (string.IsNullOrEmpty(oid)) { ctx.Fail("Token has no oid claim."); return; }
 
-        var db = ctx.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
-        var account = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == oid, ctx.HttpContext.RequestAborted);
+        var store = ctx.HttpContext.RequestServices.GetRequiredService<IDataStore>();
+        var account = await store.GetUserAsync(oid, ctx.HttpContext.RequestAborted);
         if (account?.TokensValidAfter is { } cutoff)
         {
             var issuedAt = ctx.SecurityToken is JsonWebToken jwt ? jwt.IssuedAt : DateTime.MinValue;

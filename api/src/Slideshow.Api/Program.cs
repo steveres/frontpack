@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using Scalar.AspNetCore;
@@ -15,21 +14,17 @@ var builder = WebApplication.CreateBuilder(args);
 var services = builder.Services;
 
 services.AddOptions<AuthOptions>().BindConfiguration("Auth");
-services.AddOptions<DatabaseOptions>().BindConfiguration("Database");
+services.AddOptions<TablesOptions>().BindConfiguration("Tables");
 services.AddOptions<StorageOptions>().BindConfiguration("Storage");
 services.AddOptions<GraphOptions>().BindConfiguration("Graph");
 services.AddOptions<LimitsOptions>().BindConfiguration("Limits");
 services.AddOptions<CorsOptions>().BindConfiguration("Cors");
 
-// Database: Azure SQL in the cloud, SQLite locally and in tests.
-services.AddDbContext<AppDbContext>((sp, o) =>
-{
-    var db = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value;
-    if (db.Provider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
-        o.UseSqlServer(db.ConnectionString, sql => sql.EnableRetryOnFailure());
-    else
-        o.UseSqlite(db.ConnectionString);
-});
+// Users, albums and media details: Azure Table Storage in the cloud, memory (saved to a file) locally and in tests.
+services.AddSingleton<IDataStore>(sp =>
+    sp.GetRequiredService<IOptions<TablesOptions>>().Value.Provider.Equals("AzureTable", StringComparison.OrdinalIgnoreCase)
+        ? ActivatorUtilities.CreateInstance<TableDataStore>(sp)
+        : ActivatorUtilities.CreateInstance<LocalDataStore>(sp));
 
 // Media bytes: Azure Blob Storage in the cloud, a folder locally.
 services.AddSingleton<IBlobStore>(sp =>
@@ -115,20 +110,8 @@ app.Run();
 
 static async Task InitializeStorageAsync(IServiceProvider services)
 {
-    using var scope = services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var options = scope.ServiceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
-    if (options.MigrateOnStartup)
-    {
-        if (db.Database.IsSqlServer()) await db.Database.MigrateAsync(); // EF takes a lock, so replicas can start together
-        else
-        {
-            if (db.Database.GetDbConnection().DataSource is { Length: > 0 } file && Path.GetDirectoryName(Path.GetFullPath(file)) is { } dir)
-                Directory.CreateDirectory(dir);
-            await db.Database.EnsureCreatedAsync(); // SQLite (local/tests): no migrations, schema from the model
-        }
-    }
-    if (scope.ServiceProvider.GetRequiredService<IBlobStore>() is AzureBlobStore azure) await azure.EnsureContainerAsync(default);
+    if (services.GetRequiredService<IDataStore>() is TableDataStore tables) await tables.EnsureTablesAsync(default);
+    if (services.GetRequiredService<IBlobStore>() is AzureBlobStore azure) await azure.EnsureContainerAsync(default);
 }
 
 public partial class Program; // for WebApplicationFactory in tests

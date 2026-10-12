@@ -9,14 +9,7 @@ param graphClientId = ''          // set once the Graph app is set up; empty = s
 // The website (Static Web App) is always allowed; add more origins here if needed.
 param allowedOrigins = []
 param webLocation = 'eastus2'      // Static Web Apps region (not offered in eastus)
-param sqlLocation = 'centralus'    // new subscriptions can't create SQL servers in eastus/eastus2 (checked October 2026)
-param useSqlFreeLimit = true
 
-// SQL server admin: Entra group "Slideshow SQL admins" (the API's identity + the owner, for SSMS).
-param sqlAdminGroupObjectId = '24220861-b09d-4f76-b225-d4052ead2974'
-param sqlAdminGroupName = 'Slideshow SQL admins'
-
-// Start-up speed (October 2026: warm for a few weeks, then revert): 'serverless' + 0 = free but slow after idle;
-// 'basic' + 1 = no waiting, about US$15/month.
-param sqlTier = 'basic'
+// Start-up speed (October 2026: warm for a few weeks, then revert): 0 = free but slow after idle;
+// 1 = no waiting, about US$10/month.
 param apiMinReplicas = 1

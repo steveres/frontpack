@@ -1,6 +1,6 @@
-// Slideshow on Azure: website on Static Web Apps; API on Container Apps with Azure SQL (serverless),
-// Blob Storage and App Insights. deploy.ps1 runs this twice: first with containerImage empty (creates
-// the registry etc.), then, after pushing the image, with containerImage set. See api/README.md.
+// Slideshow on Azure: website on Static Web Apps; API on Container Apps with Table Storage (album
+// details), Blob Storage (files) and App Insights. deploy.ps1 runs this twice: first with containerImage
+// empty (creates the registry etc.), then, after pushing the image, with containerImage set. See api/README.md.
 targetScope = 'resourceGroup'
 
 @description('Short name used to derive resource names.')
@@ -9,9 +9,6 @@ targetScope = 'resourceGroup'
 param appName string = 'slideshow'
 
 param location string = resourceGroup().location
-
-@description('Region for Azure SQL. Defaults to location; set another when that region is not accepting new SQL servers.')
-param sqlLocation string = location
 
 @description('Static Web Apps is offered in fewer regions than the rest; pick the closest of them.')
 @allowed(['eastus2', 'centralus', 'westus2', 'westeurope', 'eastasia'])
@@ -39,17 +36,6 @@ param graphClientSecret string = ''
 @description('Extra origins allowed to call the API from a browser (the Static Web App is always allowed), e.g. http://localhost:3000')
 param allowedOrigins array = []
 
-@description('Use the Azure SQL free offer (one database per subscription).')
-param useSqlFreeLimit bool = true
-
-@description('Database tier. serverless: auto-pauses when idle (slow first request after); basic: always on, about US$5/month. Note: the free offer can only be chosen when a database is created, so going back from basic to serverless does not bring it back.')
-@allowed(['serverless', 'basic'])
-param sqlTier string = 'serverless'
-
-@description('Object id and name of an Entra group to make the SQL server admin (put the API identity and the people who need SSMS access in it). Empty: the API identity alone is admin.')
-param sqlAdminGroupObjectId string = ''
-param sqlAdminGroupName string = ''
-
 @description('API instances kept running when idle. 0: scales to zero (slow first request after idle); 1: always warm, about US$10/month.')
 @minValue(0)
 @maxValue(3)
@@ -62,8 +48,6 @@ var names = {
   identity: '${appName}-api-id'
   registry: toLower(replace('${appName}${suffix}', '-', ''))
   storage: take(toLower(replace('${appName}${suffix}', '-', '')), 24)
-  sqlServer: '${appName}-sql-${uniqueString(resourceGroup().id, sqlLocation)}' // region in the hash: a name stays reserved in its first region
-  sqlDb: appName
   environment: '${appName}-env'
   app: '${appName}-api'
   web: '${appName}-web'
@@ -73,6 +57,7 @@ var names = {
 var roles = {
   acrPull: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
   blobDataContributor: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+  tableDataContributor: '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
 }
 
 // ───────────── Monitoring ─────────────
@@ -167,49 +152,14 @@ resource blobContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
   }
 }
 
-// ───────────── Azure SQL ─────────────
-// Entra-only authentication. The admin is a group holding the API's identity (it runs the migrations)
-// and the people who manage the data in SSMS; without a group, the API's identity alone.
-var sqlAdmin = empty(sqlAdminGroupObjectId)
-  ? { principalType: 'Application', login: identity.name, sid: identity.properties.clientId }
-  : { principalType: 'Group', login: sqlAdminGroupName, sid: sqlAdminGroupObjectId }
-
-resource sqlServer 'Microsoft.Sql/servers@2023-08-01-preview' = {
-  name: names.sqlServer
-  location: sqlLocation
+resource tableContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, identity.id, roles.tableDataContributor)
+  scope: storage
   properties: {
-    minimalTlsVersion: '1.2'
-    publicNetworkAccess: 'Enabled'
-    administrators: {
-      administratorType: 'ActiveDirectory'
-      azureADOnlyAuthentication: true
-      principalType: sqlAdmin.principalType
-      login: sqlAdmin.login
-      sid: sqlAdmin.sid
-      tenantId: subscription().tenantId
-    }
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.tableDataContributor)
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
   }
-}
-
-resource sqlAllowAzure 'Microsoft.Sql/servers/firewallRules@2023-08-01-preview' = {
-  parent: sqlServer
-  name: 'AllowAzureServices'
-  properties: { startIpAddress: '0.0.0.0', endIpAddress: '0.0.0.0' }
-}
-
-resource sqlDb 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
-  parent: sqlServer
-  name: names.sqlDb
-  location: sqlLocation
-  sku: sqlTier == 'basic' ? { name: 'Basic', tier: 'Basic', capacity: 5 } : { name: 'GP_S_Gen5_1', tier: 'GeneralPurpose' }
-  properties: sqlTier == 'basic'
-    ? { maxSizeBytes: 2147483648 } // Basic allows up to 2 GB; album details are tiny (photos live in Blob Storage)
-    : {
-        autoPauseDelay: 60
-        minCapacity: json('0.5')
-        useFreeLimit: useSqlFreeLimit
-        freeLimitExhaustionBehavior: useSqlFreeLimit ? 'AutoPause' : null
-      }
 }
 
 // ───────────── Container Apps ─────────────
@@ -228,8 +178,6 @@ resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   }
 }
 
-var sqlConnection = 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Database=${names.sqlDb};Authentication=Active Directory Default;Encrypt=True;Connect Timeout=60'
-
 // ───────────── Website ─────────────
 
 resource web 'Microsoft.Web/staticSites@2023-12-01' = {
@@ -247,8 +195,8 @@ var corsEnv = concat([{ name: 'Cors__AllowedOrigins__0', value: webOrigin }], ex
 var appEnv = concat([
   { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId } // DefaultAzureCredential → this identity
   { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', secretRef: 'appinsights' }
-  { name: 'Database__Provider', value: 'SqlServer' }
-  { name: 'Database__ConnectionString', value: sqlConnection }
+  { name: 'Tables__Provider', value: 'AzureTable' }
+  { name: 'Tables__ServiceUri', value: storage.properties.primaryEndpoints.table }
   { name: 'Storage__Provider', value: 'AzureBlob' }
   { name: 'Storage__BlobServiceUri', value: storage.properties.primaryEndpoints.blob }
   { name: 'Storage__ContainerName', value: mediaContainer.name }
@@ -272,7 +220,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (!empty(containerImag
     type: 'UserAssigned'
     userAssignedIdentities: { '${identity.id}': {} }
   }
-  dependsOn: [acrPull, blobContributor, sqlDb, sqlAllowAzure]
+  dependsOn: [acrPull, blobContributor, tableContributor]
   properties: {
     managedEnvironmentId: environment.id
     configuration: {

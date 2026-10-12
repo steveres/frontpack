@@ -25,8 +25,9 @@ Photo previews are made with SkiaSharp (MIT) and stored next to the photo as `{b
    ▼
  Azure Container Apps ── Slideshow.Api (ASP.NET Core 9, stateless, scale 0..N)
    │   system-assigned managed identity (no secrets in config)
-   ├──► Azure SQL Database (serverless)   users, albums, media metadata, compiled manifests
-   ├──► Azure Blob Storage (private)      the media bytes: media/{userId}/{albumId}/{mediaId}
+   ├──► Azure Table Storage                users, albums, media details, share codes
+   ├──► Azure Blob Storage (private)      the media bytes: media/{userId}/{albumId}/{mediaId},
+   │                                      and each album's compiled manifest next to them
    ├──► Microsoft Graph (customer tenant)  delete user / revoke sessions on account delete & logout
    └──► Application Insights               logs, traces, metrics (OpenTelemetry)
 ```
@@ -35,7 +36,7 @@ Photo previews are made with SkiaSharp (MIT) and stored next to the photo as `{b
 |---|---|---|
 | Compute | Container Apps (consumption) | `dotnet run` / in-process test host |
 | Identity | Entra External ID | test-issued JWTs (same validation pipeline) |
-| Metadata DB | Azure SQL Database, serverless | SQLite file |
+| Album details | Table Storage | in memory (saved to a JSON file when running locally) |
 | Media bytes | Blob Storage (private container) | folder on disk |
 | Directory ops | Microsoft Graph | no-op / recording fake |
 | Telemetry | Application Insights | console logs |
@@ -44,8 +45,9 @@ Photo previews are made with SkiaSharp (MIT) and stored next to the photo as `{b
 **Why these choices**
 - *Container Apps*: HTTP-scaled containers with scale-to-zero, managed TLS ingress and managed identity;
   no cluster to run. The image is built with `dotnet publish /t:PublishContainer` (no Dockerfile/Docker needed).
-- *Azure SQL serverless*: relational data with ownership joins, auto-pause, free-offer eligible, and
-  passwordless Entra authentication from the managed identity.
+- *Table Storage*: the album details are small and always read per owner, so each query reads one
+  partition; it lives in the same storage account as the files and costs pennies a month. (Azure SQL
+  was used until October 2026; it cost about US$5/month for three small tables.)
 - *Blob Storage*: cheap durable bytes. Shared-key access is disabled; the API reaches it with its
   managed identity (`Storage Blob Data Contributor`). The container has no public access.
 - *Entra External ID*: hosted, branded sign-up/sign-in (password, email OTP, social), MFA, password
@@ -175,20 +177,23 @@ anything; anonymous requests are rate-limited per IP address like everyone else'
   "excludedCount": 2 }                                                  // photos/videos left out
 ```
 
-## 6. Data model (Azure SQL)
+## 6. Data model (Table Storage)
 
 ```
-Users      Id (oid, PK) · DisplayName · Email · CreatedAt · TokensValidAfter?
-Albums     Id (guid v7, PK) · OwnerId → Users · Name · Description · CreatedAt · UpdatedAt
-           ContentVersion · CompiledVersion? · CompiledAt? · ManifestJson?
-MediaFiles Id (guid v7, PK) · AlbumId → Albums (cascade) · OwnerId · Collection (Images|Music)
-           Kind · FileName · ContentType · SizeBytes · BlobName · UploadedAt
-           TakenAt? · TakenSource? · Latitude? · Longitude? · ThumbnailState (None|Ready|Unavailable)
-           index (OwnerId, AlbumId, Collection)
+Users   PK userId · RK "user"            DisplayName · Email · CreatedAt · TokensValidAfter?
+Albums  PK ownerId · RK albumId          Name · Description · CreatedAt · UpdatedAt · ContentVersion
+                                         CompiledVersion? · CompiledAt? · ShareToken? · ShareHideMap
+Media   PK ownerId · RK albumId_mediaId  AlbumId · MediaId · Collection (Images|Music) · Kind · FileName
+                                         ContentType · SizeBytes · BlobName · UploadedAt · TakenAt? (text,
+                                         local time) · TakenSource? · Latitude? · Longitude? · ThumbnailState
+Shares  PK share code · RK "share"       OwnerId · AlbumId
 ```
-`ContentVersion` is bumped atomically on every add/delete; an album is stale when it differs from
-`CompiledVersion`. Schema changes ship as EF Core migrations, applied at startup (EF takes a lock,
-so several replicas starting together is safe).
+Everything an owner has is in their partition, so the album list, usage and quota are one query each,
+and one album's media is a row-key range. The compiled manifest is a blob
+(`{userId}/{albumId}/manifest.json`), as it can outgrow a table property (64 KB).
+`ContentVersion` is bumped on every add/delete (an ETag-checked update, retried if another request
+changed the album meanwhile); an album is stale when it differs from `CompiledVersion`. Deletes go
+media rows → share code → album → user, so a retry after a failure finishes the job.
 
 ## 7. Security controls
 
@@ -198,8 +203,8 @@ so several replicas starting together is safe).
   `Content-Disposition` with the sanitized original filename.
 - Limits: per-file size by kind, per-user storage quota (default 10 GB), files per album, and a
   per-user rate limit (`429`).
-- No secrets: managed identity for SQL, Blob, ACR and (via federation) Graph. TLS-only ingress.
-- No raw SQL; EF Core parameterizes everything. File names and personal data are not logged.
+- No secrets: managed identity for Tables, Blob, ACR and (via federation) Graph. TLS-only ingress.
+- Table queries are built with the SDK's escaping filter builder. File names and personal data are not logged.
 
 ## 8. Operations
 

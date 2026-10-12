@@ -1,7 +1,7 @@
 <#
   Builds and deploys everything to Azure.
     1. Registers the Azure resource providers used (needed once on a new subscription).
-    2. Creates/updates the infrastructure (registry, storage, SQL, Container Apps environment, website).
+    2. Creates/updates the infrastructure (registry, storage, Container Apps environment, website).
     3. Builds the API image with the .NET SDK (no Docker needed) and pushes it to the registry.
     4. Deploys the API container with that image.
     5. Packages the website with production settings and uploads it to Static Web Apps.
@@ -38,7 +38,7 @@ function Invoke-Native([string]$Exe, [string[]]$Arguments) {
 function Invoke-Az { return Invoke-Native 'az' $args }
 
 Write-Host '1/5 Resource providers...'
-foreach ($ns in 'Microsoft.App', 'Microsoft.ContainerRegistry', 'Microsoft.Sql', 'Microsoft.Storage', 'Microsoft.OperationalInsights',
+foreach ($ns in 'Microsoft.App', 'Microsoft.ContainerRegistry', 'Microsoft.Storage', 'Microsoft.OperationalInsights',
                 'Microsoft.Insights', 'Microsoft.ManagedIdentity', 'Microsoft.Web') {
   $state = Invoke-Az provider show --namespace $ns --query registrationState --output tsv
   if ($state -ne 'Registered') {
@@ -109,5 +109,5 @@ try {
   $health = Invoke-RestMethod "$apiUrl/healthz" -TimeoutSec 120
   Write-Host "API health:       $($health.status)"
 } catch {
-  Write-Host 'API health:       not answering yet (first start runs migrations and may wake the database); retry in a minute.' -ForegroundColor Yellow
+  Write-Host 'API health:       not answering yet (a new container can take a minute to start); retry in a minute.' -ForegroundColor Yellow
 }

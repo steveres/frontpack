@@ -23,6 +23,8 @@ public static class BlobNames
     public static string UserPrefix(string ownerId) => $"{ownerId}/";
     /// <summary>A photo's preview, stored next to it (so album and account deletes remove it too).</summary>
     public static string Thumbnail(string blobName) => blobName + ".thumb";
+    /// <summary>An album's compiled slideshow (JSON), stored with its files (so deleting the album removes it).</summary>
+    public static string Manifest(string ownerId, Guid albumId) => AlbumPrefix(ownerId, albumId) + "manifest.json";
 }
 
 public sealed class AzureBlobStore : IBlobStore

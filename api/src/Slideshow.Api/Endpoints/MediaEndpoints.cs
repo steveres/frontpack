@@ -1,6 +1,5 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 using Slideshow.Api.Data;
@@ -22,60 +21,59 @@ public static class MediaEndpoints
         var g = albums.MapGroup($"/{{albumId:guid}}/{segment}").WithTags(collection == MediaCollection.Images ? "Images" : "Music");
         var what = collection == MediaCollection.Images ? "image or video" : "music track";
 
-        g.MapGet("/", (Guid albumId, HttpContext http, AppDbContext db, CancellationToken ct) => List(albumId, segment, collection, http, db, ct))
+        g.MapGet("/", (Guid albumId, HttpContext http, IDataStore store, CancellationToken ct) => List(albumId, segment, collection, http, store, ct))
             .WithSummary($"Every {what} in the album, in upload order.");
 
         g.MapPost("/", (Guid albumId, IFormFile? file, [FromForm] int? utcOffsetMinutes,
-                HttpContext http, AppDbContext db, IBlobStore blobs, IOptions<LimitsOptions> limits, ILogger<AppDbContext> log, CancellationToken ct) =>
-                Add(albumId, segment, collection, file, utcOffsetMinutes, http, db, blobs, limits.Value, log, ct))
+                HttpContext http, IDataStore store, IBlobStore blobs, IOptions<LimitsOptions> limits, ILogger<Program> log, CancellationToken ct) =>
+                Add(albumId, segment, collection, file, utcOffsetMinutes, http, store, blobs, limits.Value, log, ct))
             .WithSummary($"Upload an {what} (multipart/form-data, field \"file\").")
             .DisableAntiforgery() // bearer tokens only, no cookies: nothing for CSRF to ride on
             .Accepts<IFormFile>("multipart/form-data")
             .WithMetadata(new RequestSizeLimitAttribute(maxUploadBytes + MultipartOverhead))
             .WithFormOptions(multipartBodyLengthLimit: maxUploadBytes + MultipartOverhead);
 
-        g.MapGet("/{id:guid}", (Guid albumId, Guid id, HttpContext http, AppDbContext db, IBlobStore blobs, CancellationToken ct) =>
-                GetContent(albumId, id, collection, http, db, blobs, ct))
+        g.MapGet("/{id:guid}", (Guid albumId, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct) =>
+                GetContent(albumId, id, collection, http, store, blobs, ct))
             .WithSummary($"The {what}'s bytes (supports Range).");
 
-        g.MapGet("/{id:guid}/info", async (Guid albumId, Guid id, HttpContext http, AppDbContext db, CancellationToken ct) =>
-                await Find(db, http.User.UserId(), albumId, collection, id, ct) is { } m
+        g.MapGet("/{id:guid}/info", async (Guid albumId, Guid id, HttpContext http, IDataStore store, CancellationToken ct) =>
+                await Find(store, http.User.UserId(), albumId, collection, id, ct) is { } m
                     ? Results.Ok(MediaInfoDto.From(m, ContentUrl(albumId, segment, m.Id)))
                     : Problems.MediaNotFound())
             .WithSummary($"The {what}'s details.");
 
-        g.MapDelete("/{id:guid}", (Guid albumId, Guid id, HttpContext http, AppDbContext db, IBlobStore blobs, ILogger<AppDbContext> log, CancellationToken ct) =>
-                Delete(albumId, id, collection, http, db, blobs, log, ct))
+        g.MapDelete("/{id:guid}", (Guid albumId, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, ILogger<Program> log, CancellationToken ct) =>
+                Delete(albumId, id, collection, http, store, blobs, log, ct))
             .WithSummary($"Delete the {what}.");
 
         if (collection == MediaCollection.Images)
-            g.MapGet("/{id:guid}/thumbnail", (Guid albumId, Guid id, HttpContext http, AppDbContext db, IBlobStore blobs, CancellationToken ct) =>
-                    GetThumbnail(albumId, id, http, db, blobs, ct))
+            g.MapGet("/{id:guid}/thumbnail", (Guid albumId, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct) =>
+                    GetThumbnail(albumId, id, http, store, blobs, ct))
                 .WithSummary("A small JPEG preview of a photo (videos have none yet).");
     }
 
-    private static Task<MediaFile?> Find(AppDbContext db, string ownerId, Guid albumId, MediaCollection collection, Guid id, CancellationToken ct) =>
-        db.MediaFiles.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id && m.AlbumId == albumId && m.OwnerId == ownerId && m.Collection == collection, ct);
+    private static async Task<MediaFile?> Find(IDataStore store, string ownerId, Guid albumId, MediaCollection collection, Guid id, CancellationToken ct) =>
+        await store.GetMediaAsync(ownerId, albumId, id, ct) is { } m && m.Collection == collection ? m : null;
 
-    private static Task<bool> AlbumExists(AppDbContext db, string ownerId, Guid albumId, CancellationToken ct) =>
-        db.Albums.AnyAsync(a => a.Id == albumId && a.OwnerId == ownerId, ct);
+    private static async Task<bool> AlbumExists(IDataStore store, string ownerId, Guid albumId, CancellationToken ct) =>
+        await store.GetAlbumAsync(ownerId, albumId, ct) is not null;
 
-    private static async Task<IResult> List(Guid albumId, string segment, MediaCollection collection, HttpContext http, AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> List(Guid albumId, string segment, MediaCollection collection, HttpContext http, IDataStore store, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
-        if (!await AlbumExists(db, ownerId, albumId, ct)) return Problems.AlbumNotFound();
-        var media = await db.MediaFiles.AsNoTracking()
-            .Where(m => m.AlbumId == albumId && m.OwnerId == ownerId && m.Collection == collection)
-            .OrderBy(m => m.UploadedAt).ThenBy(m => m.Id)
-            .ToListAsync(ct);
+        if (!await AlbumExists(store, ownerId, albumId, ct)) return Problems.AlbumNotFound();
+        var media = (await store.ListMediaAsync(ownerId, albumId, ct))
+            .Where(m => m.Collection == collection)
+            .OrderBy(m => m.UploadedAt).ThenBy(m => m.Id);
         return Results.Ok(media.Select(m => MediaInfoDto.From(m, ContentUrl(albumId, segment, m.Id))));
     }
 
     private static async Task<IResult> Add(Guid albumId, string segment, MediaCollection collection, IFormFile? file, int? utcOffsetMinutes,
-        HttpContext http, AppDbContext db, IBlobStore blobs, LimitsOptions limits, ILogger log, CancellationToken ct)
+        HttpContext http, IDataStore store, IBlobStore blobs, LimitsOptions limits, ILogger log, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
-        if (!await AlbumExists(db, ownerId, albumId, ct)) return Problems.AlbumNotFound();
+        if (!await AlbumExists(store, ownerId, albumId, ct)) return Problems.AlbumNotFound();
         if (file is null || file.Length == 0) return Problems.Validation("Send the file as multipart/form-data in a field named \"file\".");
         if (utcOffsetMinutes is < -14 * 60 or > 14 * 60) return Problems.Validation("utcOffsetMinutes must be between -840 and 840.");
 
@@ -92,9 +90,9 @@ public static class MediaEndpoints
         var max = sniffed.Kind switch { MediaKind.Image => limits.MaxImageBytes, MediaKind.Video => limits.MaxVideoBytes, _ => limits.MaxMusicBytes };
         if (file.Length > max) return Problems.Of(413, "file_too_large", $"This kind of file can be at most {max / (1024 * 1024)} MB.");
 
-        var used = await db.MediaFiles.Where(m => m.OwnerId == ownerId).SumAsync(m => (long?)m.SizeBytes, ct) ?? 0;
-        if (used + file.Length > limits.QuotaBytesPerUser) return Problems.Of(413, "quota_exceeded", "Your storage is full. Delete some files and try again.");
-        if (await db.MediaFiles.CountAsync(m => m.AlbumId == albumId && m.OwnerId == ownerId, ct) >= limits.MaxFilesPerAlbum)
+        var owned = await store.ListMediaAsync(ownerId, null, ct);
+        if (owned.Sum(m => m.SizeBytes) + file.Length > limits.QuotaBytesPerUser) return Problems.Of(413, "quota_exceeded", "Your storage is full. Delete some files and try again.");
+        if (owned.Count(m => m.AlbumId == albumId) >= limits.MaxFilesPerAlbum)
             return Problems.Of(409, "album_full", $"An album can hold at most {limits.MaxFilesPerAlbum} files.");
 
         var offset = TimeSpan.FromMinutes(utcOffsetMinutes ?? 0);
@@ -137,32 +135,34 @@ public static class MediaEndpoints
         {
             if (thumbnail is not null)
                 await blobs.UploadAsync(BlobNames.Thumbnail(media.BlobName), new MemoryStream(thumbnail), Thumbnails.ContentType, ct);
-            var strategy = db.Database.CreateExecutionStrategy();
-            await strategy.ExecuteAsync(async () =>
+            await store.AddMediaAsync(media, ct);
+            if (await store.BumpVersionAsync(ownerId, albumId, now, ct) is null)
             {
-                db.ChangeTracker.Clear();
-                await using var tx = await db.Database.BeginTransactionAsync(ct);
-                db.MediaFiles.Add(media);
-                await db.SaveChangesAsync(ct);
-                // A missing album here means it was deleted mid-upload; the FK insert above would have failed.
-                await BumpVersion(db, albumId, now, ct);
-                await tx.CommitAsync(ct);
-            });
+                // The album was deleted mid-upload: take the file back out.
+                await store.DeleteMediaAsync(ownerId, albumId, media.Id, CancellationToken.None);
+                await DeleteBlobsAsync();
+                return Problems.AlbumNotFound();
+            }
         }
         catch
         {
+            await DeleteBlobsAsync();
+            throw;
+        }
+
+        async Task DeleteBlobsAsync()
+        {
             await blobs.DeleteAsync(media.BlobName, CancellationToken.None);
             if (thumbnail is not null) await blobs.DeleteAsync(BlobNames.Thumbnail(media.BlobName), CancellationToken.None);
-            throw;
         }
         log.LogInformation("Stored {Kind} {MediaId} ({Bytes} bytes) in album {AlbumId}", media.Kind, media.Id, media.SizeBytes, albumId);
         var url = ContentUrl(albumId, segment, media.Id);
         return Results.Created(url + "/info", MediaInfoDto.From(media, url));
     }
 
-    private static async Task<IResult> GetContent(Guid albumId, Guid id, MediaCollection collection, HttpContext http, AppDbContext db, IBlobStore blobs, CancellationToken ct)
+    private static async Task<IResult> GetContent(Guid albumId, Guid id, MediaCollection collection, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct)
     {
-        var media = await Find(db, http.User.UserId(), albumId, collection, id, ct);
+        var media = await Find(store, http.User.UserId(), albumId, collection, id, ct);
         if (media is null) return Problems.MediaNotFound();
         return await StreamAsync(http, blobs, media, "private, max-age=31536000, immutable", ct); // a media id's bytes never change
     }
@@ -183,9 +183,9 @@ public static class MediaEndpoints
     }
 
     /// <summary>The photo's preview; made now (and kept) if it was uploaded before previews existed.</summary>
-    private static async Task<IResult> GetThumbnail(Guid albumId, Guid id, HttpContext http, AppDbContext db, IBlobStore blobs, CancellationToken ct)
+    private static async Task<IResult> GetThumbnail(Guid albumId, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct)
     {
-        var media = await Find(db, http.User.UserId(), albumId, MediaCollection.Images, id, ct);
+        var media = await Find(store, http.User.UserId(), albumId, MediaCollection.Images, id, ct);
         if (media is null) return Problems.MediaNotFound();
         var noThumbnail = Problems.Of(404, "no_thumbnail", "This file has no preview.");
         if (media.Kind != MediaKind.Image || media.ThumbnailState == ThumbnailState.Unavailable) return noThumbnail;
@@ -202,7 +202,7 @@ public static class MediaEndpoints
             }
             if (bytes is not null) await blobs.UploadAsync(name, new MemoryStream(bytes), Thumbnails.ContentType, ct);
             var state = bytes is null ? ThumbnailState.Unavailable : ThumbnailState.Ready;
-            await db.MediaFiles.Where(m => m.Id == media.Id).ExecuteUpdateAsync(s => s.SetProperty(m => m.ThumbnailState, state), ct);
+            await store.SetThumbnailStateAsync(media.OwnerId, media.AlbumId, media.Id, state, ct);
             if (bytes is null) return noThumbnail;
             stream = new MemoryStream(bytes);
         }
@@ -211,21 +211,14 @@ public static class MediaEndpoints
         return Results.Stream(stream, Thumbnails.ContentType, entityTag: new EntityTagHeaderValue($"\"{media.Id:N}-thumb\""));
     }
 
-    private static async Task<IResult> Delete(Guid albumId, Guid id, MediaCollection collection, HttpContext http, AppDbContext db, IBlobStore blobs, ILogger log, CancellationToken ct)
+    private static async Task<IResult> Delete(Guid albumId, Guid id, MediaCollection collection, HttpContext http, IDataStore store, IBlobStore blobs, ILogger log, CancellationToken ct)
     {
-        var media = await Find(db, http.User.UserId(), albumId, collection, id, ct);
+        var ownerId = http.User.UserId();
+        var media = await Find(store, ownerId, albumId, collection, id, ct);
         if (media is null) return Problems.MediaNotFound();
 
-        var strategy = db.Database.CreateExecutionStrategy();
-        var deleted = 0;
-        await strategy.ExecuteAsync(async () =>
-        {
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
-            deleted = await db.MediaFiles.Where(m => m.Id == media.Id).ExecuteDeleteAsync(ct);
-            if (deleted > 0) await BumpVersion(db, albumId, DateTime.UtcNow, ct);
-            await tx.CommitAsync(ct);
-        });
-        if (deleted == 0) return Problems.MediaNotFound(); // deleted concurrently
+        if (!await store.DeleteMediaAsync(ownerId, albumId, id, ct)) return Problems.MediaNotFound(); // deleted concurrently
+        await store.BumpVersionAsync(ownerId, albumId, DateTime.UtcNow, ct);
 
         try
         {
@@ -238,11 +231,6 @@ public static class MediaEndpoints
         }
         return Results.NoContent();
     }
-
-    private static Task<int> BumpVersion(AppDbContext db, Guid albumId, DateTime now, CancellationToken ct) =>
-        db.Albums.Where(a => a.Id == albumId).ExecuteUpdateAsync(s => s
-            .SetProperty(a => a.ContentVersion, a => a.ContentVersion + 1)
-            .SetProperty(a => a.UpdatedAt, now), ct);
 
     /// <summary>Keeps only the base name, without control or path characters, at most 255 chars.</summary>
     public static string SafeFileName(string? raw)
