@@ -64,6 +64,8 @@ export const AlbumsApi = {
     return (await api.post<AlbumInfo>(albums, { name, description }))!;
   },
   remove: (id: string) => api.delete(at(id)),
+  /** Rename, or change the description (an empty one removes it). Omitted fields stay as they are. */
+  update: (id: string, changes: { name?: string; description?: string }) => api.patch<AlbumInfo>(at(id), changes),
   async compile(id: string): Promise<AlbumManifest> {
     return (await api.post<AlbumManifest>(`${at(id)}/compile`))!;
   },
@@ -103,6 +105,11 @@ export const MediaApi = {
   },
 
   remove: (albumId: string, collection: Collection, id: string) => api.delete(`${at(albumId)}/${collection}/${encodeURIComponent(id)}`),
+
+  /** Deletes several files of one collection at once; resolves with how many were deleted. */
+  async removeMany(albumId: string, collection: Collection, ids: string[]): Promise<number> {
+    return (await api.post<{ deleted: number }>(`${at(albumId)}/${collection}/delete`, { ids }))!.deleted;
+  },
 
   /** The file's bytes, by the `url` the API gave for it. */
   download: (url: string) => api.blob(url),

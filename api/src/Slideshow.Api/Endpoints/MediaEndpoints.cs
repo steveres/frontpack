@@ -47,6 +47,10 @@ public static class MediaEndpoints
                 Delete(albumId, id, collection, http, store, blobs, log, ct))
             .WithSummary($"Delete the {what}.");
 
+        g.MapPost("/delete", (Guid albumId, DeleteMediaRequest body, HttpContext http, IDataStore store, IBlobStore blobs, ILogger<Program> log, CancellationToken ct) =>
+                DeleteMany(albumId, body, collection, http, store, blobs, log, ct))
+            .WithSummary($"Delete several files at once (body: {{ \"ids\": [...] }}); ids not in the album are skipped.");
+
         if (collection == MediaCollection.Images)
             g.MapGet("/{id:guid}/thumbnail", (Guid albumId, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct) =>
                     GetThumbnail(albumId, id, http, store, blobs, ct))
@@ -209,6 +213,42 @@ public static class MediaEndpoints
 
         http.Response.Headers.CacheControl = "private, max-age=31536000, immutable"; // a photo's preview never changes
         return Results.Stream(stream, Thumbnails.ContentType, entityTag: new EntityTagHeaderValue($"\"{media.Id:N}-thumb\""));
+    }
+
+    private static async Task<IResult> DeleteMany(Guid albumId, DeleteMediaRequest body, MediaCollection collection,
+        HttpContext http, IDataStore store, IBlobStore blobs, ILogger log, CancellationToken ct)
+    {
+        var ids = body.Ids?.Distinct().ToHashSet() ?? [];
+        if (ids.Count == 0) return Problems.Validation("Give the ids of the files to delete.");
+        if (ids.Count > Limits.DeleteBatch) return Problems.Validation($"At most {Limits.DeleteBatch} files at a time.");
+
+        var ownerId = http.User.UserId();
+        if (!await AlbumExists(store, ownerId, albumId, ct)) return Problems.AlbumNotFound();
+        var media = (await store.ListMediaAsync(ownerId, albumId, ct)).Where(m => m.Collection == collection && ids.Contains(m.Id)).ToList();
+
+        // Rows first, a few at a time; the album is marked changed once, at the end.
+        var deleted = new System.Collections.Concurrent.ConcurrentBag<MediaFile>();
+        await Parallel.ForEachAsync(media, new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = ct }, async (m, token) =>
+        {
+            if (await store.DeleteMediaAsync(ownerId, albumId, m.Id, token)) deleted.Add(m);
+        });
+        if (!deleted.IsEmpty) await store.BumpVersionAsync(ownerId, albumId, DateTime.UtcNow, ct);
+
+        // Then the files. The rows are gone, so a file left behind is unreachable, only wasted space.
+        await Parallel.ForEachAsync(deleted, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (m, token) =>
+        {
+            try
+            {
+                await blobs.DeleteAsync(m.BlobName, token);
+                if (m.Kind == MediaKind.Image) await blobs.DeleteAsync(BlobNames.Thumbnail(m.BlobName), token);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                log.LogWarning(e, "Media {MediaId} deleted; its blob was left behind", m.Id);
+            }
+        });
+        log.LogInformation("Deleted {Count} files from album {AlbumId}", deleted.Count, albumId);
+        return Results.Ok(new DeleteMediaResult(deleted.Count));
     }
 
     private static async Task<IResult> Delete(Guid albumId, Guid id, MediaCollection collection, HttpContext http, IDataStore store, IBlobStore blobs, ILogger log, CancellationToken ct)

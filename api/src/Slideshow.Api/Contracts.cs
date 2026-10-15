@@ -8,12 +8,21 @@ public static class Limits
     public const int AlbumNameLength = 200;
     public const int AlbumDescriptionLength = 2000;
     public const int FileNameLength = 255;
+    public const int DeleteBatch = 5000; // = the most files an album can hold
 }
 
 public sealed record UsageDto(int Albums, int Files, long Bytes, long QuotaBytes);
 public sealed record AccountDto(string Id, string? DisplayName, string? Email, DateTime CreatedAt, UsageDto Usage);
 
 public sealed record CreateAlbumRequest(string? Name, string? Description);
+
+/// <summary>Rename an album or change its description. Omitted fields stay as they are; an empty description removes it.</summary>
+public sealed record UpdateAlbumRequest(string? Name, string? Description);
+
+/// <summary>Several files of one collection to delete at once (at most <see cref="Limits.DeleteBatch"/>).</summary>
+public sealed record DeleteMediaRequest(IReadOnlyList<Guid>? Ids);
+/// <param name="Deleted">How many of the files existed and were deleted.</param>
+public sealed record DeleteMediaResult(int Deleted);
 
 /// <param name="ExcludedCount">Photos/videos the slideshow leaves out because they have no date or no location.</param>
 /// <param name="CoverId">The photo shown on the album's card: the first in slideshow order, else the first uploaded.</param>

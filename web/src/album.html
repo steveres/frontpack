@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/css/base/shared.css">
     <link rel="stylesheet" href="/css/components/navigation.css">
     <link rel="stylesheet" href="/css/components/album.css">
+    <link rel="stylesheet" href="/css/components/media-viewer.css">
 
     <script type="module" src="/js/pages/album-page.js"></script>
 </head>
@@ -34,10 +35,22 @@
                 </div>
                 <div class="album__actions">
                     <a class="button button--primary album__play">Play slideshow</a>
+                    <button type="button" class="button album__edit-toggle" aria-expanded="false" aria-controls="album-edit">Edit details</button>
                     <button type="button" class="button album__share-toggle" aria-expanded="false" aria-controls="album-share">Share…</button>
                     <button type="button" class="button button--danger album__delete">Delete album…</button>
                 </div>
             </header>
+
+            <!-- Edit the name and description -->
+            <form class="card album__edit" id="album-edit" hidden>
+                <label class="field">Name <input class="album__edit-name" name="name" type="text" maxlength="200" required></label>
+                <label class="field">Description <textarea class="album__edit-description" name="description" maxlength="2000" rows="3" placeholder="Optional"></textarea></label>
+                <div class="album__edit-actions">
+                    <button type="submit" class="button button--primary">Save</button>
+                    <button type="button" class="button album__edit-cancel">Cancel</button>
+                </div>
+                <p class="form-error album__edit-error" role="alert" hidden></p>
+            </form>
 
             <!-- Share: anyone with the link can watch the slideshow -->
             <section class="card share" id="album-share" hidden>
@@ -72,8 +85,13 @@
                 <h2>Photos and videos</h2>
                 <p class="notice notice--warning album__excluded" hidden></p>
                 <p class="album__none album__none--images" hidden>None yet.</p>
+                <div class="bulk album__bulk--images" hidden>
+                    <span class="bulk__count"></span>
+                    <button type="button" class="button button--danger bulk__delete">Delete selected…</button>
+                    <button type="button" class="button button--quiet bulk__clear">Clear selection</button>
+                </div>
                 <table class="media-table album__images-table" hidden>
-                    <thead><tr><th><span class="visually-hidden">Preview</span></th><th>File</th><th>Taken</th><th>Location</th><th>Slideshow</th><th class="media-table__size">Size</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <thead><tr><th class="media-table__check"><input type="checkbox" class="media-table__select-all" aria-label="Select all photos and videos"></th><th><span class="visually-hidden">Preview</span></th><th>File</th><th>Taken</th><th>Location</th><th>Slideshow</th><th class="media-table__size">Size</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
                     <tbody class="album__images"></tbody>
                 </table>
             </section>
@@ -82,8 +100,13 @@
             <section class="album__section">
                 <h2>Music</h2>
                 <p class="album__none album__none--music" hidden>None yet. MP3s play in random order during the slideshow.</p>
+                <div class="bulk album__bulk--music" hidden>
+                    <span class="bulk__count"></span>
+                    <button type="button" class="button button--danger bulk__delete">Delete selected…</button>
+                    <button type="button" class="button button--quiet bulk__clear">Clear selection</button>
+                </div>
                 <table class="media-table album__music-table" hidden>
-                    <thead><tr><th>File</th><th class="media-table__size">Size</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <thead><tr><th class="media-table__check"><input type="checkbox" class="media-table__select-all" aria-label="Select all music"></th><th>File</th><th class="media-table__size">Size</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
                     <tbody class="album__music"></tbody>
                 </table>
             </section>

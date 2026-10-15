@@ -57,6 +57,39 @@
 .media-table__delete { color: var(--color-muted); }
 .media-table__delete:hover { color: var(--color-danger); }
 
+/* Edit name and description */
+.album__edit { display: grid; gap: var(--spacing-md); margin-bottom: var(--spacing-lg); }
+.album__edit textarea { font: inherit; color: var(--color-paper); background: var(--color-field); border: 1px solid var(--color-line-strong); border-radius: var(--radius-sm); padding: 10px 12px; resize: vertical; }
+.album__edit textarea:focus-visible { outline: 2px solid var(--color-lamp); outline-offset: 2px; }
+.album__edit-actions { display: flex; gap: var(--spacing-sm); }
+.album__edit-error { margin: 0; }
+
+/* Selecting files: a checkbox per row, and a bar (stays in view while scrolling) for what's selected */
+.media-table__check { width: 36px; padding-right: 0; }
+.media-table input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--color-lamp); cursor: pointer; vertical-align: middle; }
+.media-table__row--selected td { background: rgba(242, 184, 75, .1); }
+.bulk { position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md); background: var(--color-panel); border: 1px solid var(--color-lamp); border-radius: var(--radius-md); }
+.bulk__count { margin-right: auto; font-weight: 500; }
+
+/* Previews and names open the full-size viewer */
+.media-table__view { display: block; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: var(--radius-sm); }
+.media-table__view:focus-visible { outline: 2px solid var(--color-lamp); outline-offset: 2px; }
+.media-table__view:hover .thumb { box-shadow: 0 0 0 2px var(--color-lamp); }
+.media-table__name-button { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; overflow-wrap: anywhere; cursor: zoom-in; }
+.media-table__name-button:hover { color: var(--color-lamp); text-decoration: underline; }
+
 @media (max-width: 700px) {
-  .album__images-table th:nth-child(4), .album__images-table td:nth-child(4) { display: none; } /* location column */
+  .album__images-table th:nth-child(5), .album__images-table td:nth-child(5) { display: none; } /* location column */
+}
+/* Phones: the table fits the width. The capture date (the badge says when it's missing), size and the
+   per-row Delete go (select rows and use "Delete selected"); file names break only between words. */
+@media (max-width: 600px) {
+  .album__images-table th:nth-child(4), .album__images-table td:nth-child(4),
+  .album__images-table th:nth-child(n+7), .album__images-table td:nth-child(n+7),
+  .album__music-table th:nth-child(n+3), .album__music-table td:nth-child(n+3) { display: none; }
+  .media-table th, .media-table td { padding: var(--spacing-xs); }
+  .media-table .badge { white-space: normal; }
+  .media-table__name, .media-table__name-button { overflow-wrap: break-word; }
+  .media-table__preview { width: 52px; }
+  .thumb--row { width: 48px; height: 48px; }
 }

@@ -1,7 +1,9 @@
-// album.html?id=…: one album — upload files, see which will be shown, play, delete.
+// album.html?id=…: one album — upload files, see which will be shown, view them full size, select and
+// delete them, rename the album, play, share, delete.
 
 import { AlbumsApi, collectionFor, MediaApi, type AlbumInfo, type Collection, type MediaInfo } from '../api/albums-api.js';
 import { requireSignIn } from '../auth/session.js';
+import { createMediaViewer } from '../components/media-viewer.js';
 import { mountNavigation } from '../components/navigation.js';
 import { mountSharePanel } from '../components/share-panel.js';
 import { thumbnail } from '../components/thumbnail.js';
@@ -17,6 +19,90 @@ const albumId = new URLSearchParams(location.search).get('id') ?? '';
 const page = query(document, '.album');
 const errorEl = query(page, '.album__error');
 const showError = (err: unknown) => { errorEl.textContent = errorMessage(err); errorEl.hidden = false; };
+const viewer = createMediaViewer();
+let album: AlbumInfo | null = null;
+
+// ───────── Selecting files ─────────
+
+/** The checkboxes of one table, the "select all" box and the bar that acts on the selection. */
+function selectionFor(collection: Collection) {
+  const table = query(page, collection === 'images' ? '.album__images-table' : '.album__music-table');
+  const bar = query(page, collection === 'images' ? '.album__bulk--images' : '.album__bulk--music');
+  const all = query<HTMLInputElement>(table, '.media-table__select-all');
+  const count = query(bar, '.bulk__count');
+  const deleteButton = query<HTMLButtonElement>(bar, '.bulk__delete');
+  const selected = new Set<string>();
+  let boxes: HTMLInputElement[] = [];
+  let anchor = -1; // last box clicked, for shift-click ranges
+  const noun = collection === 'images' ? ['photo or video', 'photos and videos'] : ['track', 'tracks'];
+
+  function refresh(): void {
+    for (const box of boxes) {
+      box.checked = selected.has(box.value);
+      box.closest('tr')!.classList.toggle('media-table__row--selected', box.checked);
+    }
+    all.checked = boxes.length > 0 && selected.size === boxes.length;
+    all.indeterminate = selected.size > 0 && selected.size < boxes.length;
+    bar.hidden = selected.size === 0;
+    count.textContent = `${selected.size} ${selected.size === 1 ? noun[0] : noun[1]} selected`;
+  }
+
+  all.onchange = () => {
+    if (all.checked) boxes.forEach(b => selected.add(b.value)); else selected.clear();
+    refresh();
+  };
+  query<HTMLButtonElement>(bar, '.bulk__clear').onclick = () => { selected.clear(); refresh(); };
+  deleteButton.onclick = async () => {
+    const n = selected.size;
+    if (!confirm(`Delete ${n === 1 ? `1 ${noun[0]}` : `${n} ${noun[1]}`} from this album? This can't be undone.`)) return;
+    deleteButton.disabled = true;
+    deleteButton.textContent = 'Deleting…';
+    try {
+      await MediaApi.removeMany(albumId, collection, [...selected]);
+      selected.clear();
+      await load();
+    } catch (err) {
+      showError(err);
+    } finally {
+      deleteButton.disabled = false;
+      deleteButton.textContent = 'Delete selected…';
+    }
+  };
+
+  return {
+    /** A checkbox for a row; clicking with Shift selects (or clears) everything from the last one clicked. */
+    checkbox(m: MediaInfo): HTMLTableCellElement {
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.value = m.id;
+      box.setAttribute('aria-label', `Select ${m.fileName}`);
+      box.addEventListener('click', e => {
+        const i = boxes.indexOf(box);
+        if (e.shiftKey && anchor >= 0) {
+          const [from, to] = i < anchor ? [i, anchor] : [anchor, i];
+          for (const b of boxes.slice(from, to + 1)) box.checked ? selected.add(b.value) : selected.delete(b.value);
+        } else if (box.checked) selected.add(m.id);
+        else selected.delete(m.id);
+        anchor = i;
+        refresh();
+      });
+      const td = document.createElement('td');
+      td.className = 'media-table__check';
+      td.append(box);
+      return td;
+    },
+    /** After the rows are (re)built: forget files that are gone, show the rest as selected. */
+    attach(): void {
+      boxes = Array.from(table.querySelectorAll<HTMLInputElement>('tbody input[type="checkbox"]'));
+      const present = new Set(boxes.map(b => b.value));
+      for (const id of selected) if (!present.has(id)) selected.delete(id);
+      anchor = -1;
+      refresh();
+    },
+  };
+}
+
+const selections = { images: selectionFor('images'), music: selectionFor('music') };
 
 // ───────── Rendering ─────────
 
@@ -48,19 +134,39 @@ function deleteCell(m: MediaInfo, collection: Collection): HTMLTableCellElement 
 const missingText = (missing: MediaInfo['missing']) =>
   missing.length === 2 ? 'No date or location' : missing[0] === 'date' ? 'No capture date' : 'No location';
 
-function imageRow(m: MediaInfo): HTMLTableRowElement {
+/** A row of the photos-and-videos table; its preview and name open the viewer at this file. */
+function imageRow(m: MediaInfo, list: MediaInfo[], index: number): HTMLTableRowElement {
   const tr = document.createElement('tr');
   if (!m.playable) tr.className = 'media-table__row--excluded';
-  const name = cell(`${m.fileName}${m.kind === 'video' ? ' (video)' : ''}`, 'media-table__name');
+  const open = () => viewer.open(list, index);
+
+  const viewButton = document.createElement('button');
+  viewButton.type = 'button';
+  viewButton.className = 'media-table__view';
+  viewButton.setAttribute('aria-label', `View ${m.fileName}`);
+  viewButton.append(thumbnail(m.thumbnailUrl, m.kind, 'thumb--row'));
+  viewButton.onclick = open;
+  const preview = document.createElement('td');
+  preview.className = 'media-table__preview';
+  preview.append(viewButton);
+
+  const nameButton = document.createElement('button');
+  nameButton.type = 'button';
+  nameButton.className = 'media-table__name-button';
+  nameButton.textContent = `${m.fileName}${m.kind === 'video' ? ' (video)' : ''}`;
+  nameButton.onclick = open;
+  const name = document.createElement('td');
+  name.className = 'media-table__name';
+  name.append(nameButton);
+
   const status = document.createElement('td');
   const badge = document.createElement('span');
   badge.className = m.playable ? 'badge badge--ok' : 'badge badge--warning';
   badge.textContent = m.playable ? 'Shown' : `Not shown: ${missingText(m.missing)}`;
   status.append(badge);
-  const preview = document.createElement('td');
-  preview.className = 'media-table__preview';
-  preview.append(thumbnail(m.thumbnailUrl, m.kind, 'thumb--row'));
+
   tr.append(
+    selections.images.checkbox(m),
     preview,
     name,
     cell(m.taken ? formatTaken(m.taken) : '—', m.taken ? '' : 'media-table__missing'),
@@ -73,7 +179,7 @@ function imageRow(m: MediaInfo): HTMLTableRowElement {
 
 function musicRow(m: MediaInfo): HTMLTableRowElement {
   const tr = document.createElement('tr');
-  tr.append(cell(m.fileName, 'media-table__name'), cell(formatBytes(m.sizeBytes), 'media-table__size'), deleteCell(m, 'music'));
+  tr.append(selections.music.checkbox(m), cell(m.fileName, 'media-table__name'), cell(formatBytes(m.sizeBytes), 'media-table__size'), deleteCell(m, 'music'));
   return tr;
 }
 
@@ -84,6 +190,7 @@ function slideshowOrder(a: MediaInfo, b: MediaInfo): number {
 }
 
 function renderAlbum(a: AlbumInfo): void {
+  album = a;
   document.title = `${a.name} - Slideshow`;
   query(page, '.album__name').textContent = a.name;
   const description = query(page, '.album__description');
@@ -114,7 +221,13 @@ function renderAlbum(a: AlbumInfo): void {
 function renderList(collection: Collection, media: MediaInfo[]): void {
   const images = collection === 'images';
   const body = query(page, images ? '.album__images' : '.album__music');
-  body.replaceChildren(...(images ? [...media].sort(slideshowOrder).map(imageRow) : media.map(musicRow)));
+  if (images) {
+    const sorted = [...media].sort(slideshowOrder);
+    body.replaceChildren(...sorted.map((m, i) => imageRow(m, sorted, i)));
+  } else {
+    body.replaceChildren(...media.map(musicRow));
+  }
+  selections[collection].attach();
   query(page, images ? '.album__images-table' : '.album__music-table').hidden = media.length === 0;
   query(page, images ? '.album__none--images' : '.album__none--music').hidden = media.length > 0;
 }
@@ -134,6 +247,43 @@ async function load(): Promise<void> {
     query(page, '.album__loading').hidden = true;
   }
 }
+
+// ───────── Edit name and description ─────────
+
+const editForm = query<HTMLFormElement>(page, '.album__edit');
+const editToggle = query<HTMLButtonElement>(page, '.album__edit-toggle');
+const editName = query<HTMLInputElement>(editForm, '.album__edit-name');
+const editDescription = query<HTMLTextAreaElement>(editForm, '.album__edit-description');
+const editError = query(editForm, '.album__edit-error');
+
+function showEdit(open: boolean): void {
+  editForm.hidden = !open;
+  editToggle.setAttribute('aria-expanded', String(open));
+  editError.hidden = true;
+  if (open && album) {
+    editName.value = album.name;
+    editDescription.value = album.description ?? '';
+    editName.focus();
+  }
+}
+editToggle.onclick = () => showEdit(editForm.hidden !== false);
+query<HTMLButtonElement>(editForm, '.album__edit-cancel').onclick = () => showEdit(false);
+editForm.addEventListener('keydown', e => { if (e.key === 'Escape') showEdit(false); });
+editForm.onsubmit = async e => {
+  e.preventDefault();
+  const save = query<HTMLButtonElement>(editForm, 'button[type="submit"]');
+  save.disabled = true;
+  try {
+    // An empty description removes it.
+    renderAlbum(await AlbumsApi.update(albumId, { name: editName.value.trim(), description: editDescription.value.trim() }));
+    showEdit(false);
+  } catch (err) {
+    editError.textContent = errorMessage(err);
+    editError.hidden = false;
+  } finally {
+    save.disabled = false;
+  }
+};
 
 // ───────── Upload ─────────
 
@@ -211,3 +361,4 @@ query<HTMLButtonElement>(page, '.album__delete').onclick = async () => {
 
 if (!albumId) location.replace('/albums.html');
 else await load();
+

@@ -12,7 +12,7 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   json?: unknown;
   form?: FormData;
   /** Don't send the user to sign in on 401 (the caller handles it). */
@@ -70,6 +70,9 @@ export const api = {
 
   async put<T>(path: string, json: unknown): Promise<T> {
     return (await send(path, { method: 'PUT', json })).json() as Promise<T>;
+  },
+  async patch<T>(path: string, json: unknown): Promise<T> {
+    return (await send(path, { method: 'PATCH', json })).json() as Promise<T>;
   },
   /** GET without signing in (share links). */
   async publicGet<T>(path: string): Promise<T> {

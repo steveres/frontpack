@@ -19,6 +19,7 @@ public static class AlbumEndpoints
         g.MapPost("/", Create).WithSummary("Create an album.");
         g.MapGet("/{albumId:guid}", Get).WithSummary("The compiled, playable album (manifest).");
         g.MapGet("/{albumId:guid}/info", GetInfo).WithSummary("Album details and counts.");
+        g.MapPatch("/{albumId:guid}", Update).WithSummary("Rename an album or change its description.");
         g.MapPost("/{albumId:guid}/compile", Compile).WithSummary("Order the slides by date taken and store the manifest.");
         g.MapDelete("/{albumId:guid}", Delete).WithSummary("Delete the album with its images and music.");
         SharingEndpoints.MapOwner(g);
@@ -65,23 +66,48 @@ public static class AlbumEndpoints
         return album is null ? Problems.AlbumNotFound() : Results.Ok(Info(album, await store.ListMediaAsync(ownerId, albumId, ct)));
     }
 
+    /// <summary>The problem with a name or description, or null. A null name means "not given" (allowed only when updating).</summary>
+    private static IResult? Invalid(string? name, string? description, bool nameRequired)
+    {
+        if (name is null ? nameRequired : name.Length == 0) return Problems.Validation("Name is required.");
+        if (name?.Length > Limits.AlbumNameLength) return Problems.Validation($"Name can be at most {Limits.AlbumNameLength} characters.");
+        if (description?.Length > Limits.AlbumDescriptionLength) return Problems.Validation($"Description can be at most {Limits.AlbumDescriptionLength} characters.");
+        return null;
+    }
+
+    private static string? CleanDescription(string? d) => string.IsNullOrWhiteSpace(d) ? null : d.Trim();
+
     private static async Task<IResult> Create(CreateAlbumRequest body, HttpContext http, IDataStore store, IOptions<LimitsOptions> limits, CancellationToken ct)
     {
         var name = body.Name?.Trim();
-        var description = string.IsNullOrWhiteSpace(body.Description) ? null : body.Description.Trim();
-        if (string.IsNullOrEmpty(name)) return Problems.Validation("Name is required.");
-        if (name.Length > Limits.AlbumNameLength) return Problems.Validation($"Name can be at most {Limits.AlbumNameLength} characters.");
-        if (description?.Length > Limits.AlbumDescriptionLength) return Problems.Validation($"Description can be at most {Limits.AlbumDescriptionLength} characters.");
+        var description = CleanDescription(body.Description);
+        if (Invalid(name, description, nameRequired: true) is { } problem) return problem;
 
         var ownerId = http.User.UserId();
         if ((await store.ListAlbumsAsync(ownerId, ct)).Count >= limits.Value.MaxAlbumsPerUser)
             return Problems.Of(409, "album_limit_reached", $"You can have at most {limits.Value.MaxAlbumsPerUser} albums.");
 
         var now = DateTime.UtcNow;
-        var album = new Album { Id = Guid.CreateVersion7(), OwnerId = ownerId, Name = name, Description = description, CreatedAt = now, UpdatedAt = now };
+        var album = new Album { Id = Guid.CreateVersion7(), OwnerId = ownerId, Name = name!, Description = description, CreatedAt = now, UpdatedAt = now };
         await store.AddAlbumAsync(album, ct);
         var info = new AlbumInfoDto(album.Id, album.Name, album.Description, now, now, 0, 0, 0, 0, 0, null, true, false, null);
         return Results.Created($"/api/v1/albums/{album.Id}/info", info);
+    }
+
+    private static async Task<IResult> Update(Guid albumId, UpdateAlbumRequest body, HttpContext http, IDataStore store, CancellationToken ct)
+    {
+        var name = body.Name?.Trim();
+        var description = body.Description is null ? null : CleanDescription(body.Description) ?? "";
+        if (Invalid(name, description, nameRequired: false) is { } problem) return problem;
+
+        var ownerId = http.User.UserId();
+        var album = await store.UpdateAlbumAsync(ownerId, albumId, a =>
+        {
+            if (name is not null) a.Name = name;
+            if (description is not null) a.Description = description.Length == 0 ? null : description;
+            a.UpdatedAt = DateTime.UtcNow;
+        }, ct);
+        return album is null ? Problems.AlbumNotFound() : Results.Ok(Info(album, await store.ListMediaAsync(ownerId, albumId, ct)));
     }
 
     private static async Task<IResult> Get(Guid albumId, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct)
@@ -90,7 +116,8 @@ public static class AlbumEndpoints
         if (album is null) return Problems.AlbumNotFound();
         var manifest = album.CompiledVersion is null ? null : await ReadManifestAsync(blobs, album, ct);
         if (manifest is null) return Problems.Of(409, "album_not_compiled", "Compile the album first: POST /api/v1/albums/{id}/compile.");
-        return Results.Ok(manifest with { IsStale = album.CompiledVersion != album.ContentVersion });
+        // The name may have changed since it was compiled (renaming doesn't make the slideshow stale).
+        return Results.Ok(manifest with { Name = album.Name, IsStale = album.CompiledVersion != album.ContentVersion });
     }
 
     /// <summary>The album's stored manifest, or null if it has none.</summary>
