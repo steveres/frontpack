@@ -1,7 +1,7 @@
 // Every call to the Slideshow API goes through here: base URL, access token, errors, expired sign-ins.
 
 import { APP_CONFIG } from '../config.js';
-import { currentPath, getAuth, NotSignedInError } from '../auth/auth.js';
+import { currentPath, getAuth, justSignedIn, NotSignedInError } from '../auth/auth.js';
 
 /** An error response from the API (RFC 7807 problem details). `code` is the API's machine-readable code. */
 export class ApiError extends Error {
@@ -32,6 +32,10 @@ async function token(noRedirect = false): Promise<string> {
 
 /** Turns a failed response into an ApiError, or into a sign-in trip for 401 (expired or revoked token). */
 async function failure(status: number, bodyText: string, noRedirect = false): Promise<Error> {
+  // Turned away straight after signing in: another trip to sign in would only end up here again.
+  if (status === 401 && !noRedirect && justSignedIn()) {
+    return new ApiError(401, 'sign_in_rejected', "Your sign-in wasn't accepted. Wait a minute and reload the page, or sign in again.");
+  }
   if (status === 401 && !noRedirect) {
     await (await getAuth()).signIn(currentPath());
     return new NotSignedInError();

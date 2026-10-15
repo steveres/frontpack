@@ -109,6 +109,24 @@ public sealed class AuthAndAccountTests(ApiFactory factory) : IClassFixture<ApiF
     }
 
     [Fact]
+    public async Task Signing_in_again_right_after_logout_works()
+    {
+        // Entra stamps tokens 5 minutes early: a sign-in a moment after logging out gets a token that
+        // looks older than the logout. It must still be accepted (this used to send users round in circles).
+        var oid = NewUser();
+        var client = await factory.RegisteredClientAsync(oid);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync("/api/v1/account/logout", null)).StatusCode);
+
+        await Task.Delay(1100); // a token's time has whole seconds
+        var again = factory.ClientFor(oid, ApiFactory.Token(oid));
+        Assert.Equal(HttpStatusCode.OK, (await again.GetAsync("/api/v1/account")).StatusCode);
+
+        // A token really issued well before the logout is still turned away.
+        var old = factory.ClientFor(oid, ApiFactory.Token(oid, issuedAt: DateTime.UtcNow.AddMinutes(-10)));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await old.GetAsync("/api/v1/account")).StatusCode);
+    }
+
+    [Fact]
     public async Task Delete_account_removes_data_files_and_identity()
     {
         var oid = NewUser();

@@ -9,6 +9,12 @@ public sealed class AuthOptions
     public string[] Audiences { get; set; } = [];
     /// <summary>Delegated scope the token must carry in "scp".</summary>
     public string RequiredScope { get; set; } = "Slideshow.Access";
+    /// <summary>
+    /// Entra dates its tokens' "iat" (issued at) about 5 minutes before they're really issued, to allow
+    /// for clock differences. The logout cut-off allows for it, or a sign-in in the first minutes after
+    /// a logout would get a token that looks older than the logout, and be turned away.
+    /// </summary>
+    public TimeSpan IssuedAtBackdating { get; set; } = TimeSpan.FromMinutes(5);
 }
 
 /// <summary>"Tables" section: where users, albums and media details are kept.</summary>

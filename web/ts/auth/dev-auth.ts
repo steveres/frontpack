@@ -2,7 +2,7 @@
 // `dotnet user-jwts` key it trusts. The same email is always the same user. Not used in production.
 
 import { APP_CONFIG } from '../config.js';
-import { loginUrl, NotSignedInError, type Account, type AuthProvider } from './auth.js';
+import { loginUrl, markSignedIn, NotSignedInError, type Account, type AuthProvider } from './auth.js';
 
 const STORAGE_KEY = 'slideshow.devAuth';
 const EXPIRY_MARGIN_MS = 60_000;
@@ -50,6 +50,7 @@ export function createDevAuth(): DevAuthProvider {
       const { accessToken, expiresAt } = await res.json() as { accessToken: string; expiresAt: string };
       const session: StoredSession = { accessToken, expiresAt, name: name || email.split('@')[0], email: email.toLowerCase() };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      markSignedIn();
     },
 
     async signOut() {

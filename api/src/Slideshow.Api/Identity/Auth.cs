@@ -54,7 +54,9 @@ public static class Auth
         if (account?.TokensValidAfter is { } cutoff)
         {
             var issuedAt = ctx.SecurityToken is JsonWebToken jwt ? jwt.IssuedAt : DateTime.MinValue;
-            if (issuedAt < cutoff) { ctx.Fail("Token was issued before the user signed out."); return; }
+            var backdating = ctx.HttpContext.RequestServices.GetRequiredService<IOptions<AuthOptions>>().Value.IssuedAtBackdating;
+            // (A token stamped up to `backdating` before the logout may really be from just after it.)
+            if (issuedAt + backdating < cutoff) { ctx.Fail("Token was issued before the user signed out."); return; }
         }
         if (account is not null) ctx.HttpContext.Items[AccountItem] = account;
     }

@@ -35,6 +35,23 @@ export function getAuth(): Promise<AuthProvider> {
   return provider;
 }
 
+const SIGNED_IN_AT = 'slideshow.signedInAt';
+const JUST_SIGNED_IN_MS = 60_000;
+
+/** Call when a sign-in has just completed (this tab). */
+export function markSignedIn(): void {
+  try { sessionStorage.setItem(SIGNED_IN_AT, String(Date.now())); } catch { /* storage unavailable */ }
+}
+
+/**
+ * Whether a sign-in completed in this tab within the last minute. If the API turns the session away
+ * that soon, sending the user to sign in again would only repeat it, round and round.
+ */
+export function justSignedIn(): boolean {
+  try { return Date.now() - Number(sessionStorage.getItem(SIGNED_IN_AT) ?? 0) < JUST_SIGNED_IN_MS; }
+  catch { return false; }
+}
+
 /** The current page, for coming back to it after signing in. */
 export const currentPath = () => location.pathname + location.search;
 

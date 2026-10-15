@@ -4,7 +4,7 @@
 import type { AccountInfo, Configuration, IPublicClientApplication } from '@azure/msal-browser';
 import { APP_CONFIG } from '../config.js';
 import type { EntraAuthConfig } from '../app-config-types.js';
-import { loginUrl, NotSignedInError, type AuthProvider } from './auth.js';
+import { loginUrl, markSignedIn, NotSignedInError, type AuthProvider } from './auth.js';
 
 type Msal = typeof import('@azure/msal-browser');
 
@@ -39,7 +39,7 @@ export async function createEntraAuth(): Promise<AuthProvider> {
 
   // Completes a sign-in redirect if this page load is the return from Entra.
   const result = await app.handleRedirectPromise();
-  if (result?.account) app.setActiveAccount(result.account);
+  if (result?.account) { app.setActiveAccount(result.account); markSignedIn(); }
   const current = (): AccountInfo | null => app.getActiveAccount() ?? app.getAllAccounts()[0] ?? null;
   const scopes = [config.apiScope];
 

@@ -1,6 +1,7 @@
 // login.html: sign in (Entra, or the development form), register with the API, then go back.
 
 import { AccountApi } from '../api/account-api.js';
+import { ApiError } from '../api/api-client.js';
 import { getAuth, safeReturnPath } from '../auth/auth.js';
 import type { DevAuthProvider } from '../auth/dev-auth.js';
 import { mountNavigation } from '../components/navigation.js';
@@ -22,35 +23,41 @@ async function finish(): Promise<void> {
   } catch (err) {
     query(card, '.login__busy').hidden = true;
     showError(err);
+    // The sign-in itself was turned away: offer to sign in again, as the message suggests.
+    if (err instanceof ApiError && err.code === 'sign_in_rejected') showSignIn();
   }
 }
 
 const auth = await getAuth();
 void mountNavigation();
 
-if (auth.account()) {
-  await finish(); // already signed in, or just back from Entra
-} else if (auth.mode === 'dev') {
-  const form = query<HTMLFormElement>(card, '.login__form--dev');
-  form.hidden = false;
-  const email = query<HTMLInputElement>(form, '[name=email]');
-  email.focus();
-  form.onsubmit = async e => {
-    e.preventDefault();
-    errorEl.hidden = true;
-    const button = query<HTMLButtonElement>(form, 'button');
-    button.disabled = true;
-    try {
-      await (auth as DevAuthProvider).signInAs(email.value.trim(), query<HTMLInputElement>(form, '[name=name]').value.trim());
-      await finish();
-    } catch (err) {
-      showError(err);
-    } finally {
-      button.disabled = false;
-    }
-  };
-} else {
-  const form = query(card, '.login__form--entra');
-  form.hidden = false;
-  query<HTMLButtonElement>(form, 'button').onclick = () => auth.signIn(returnTo).catch(showError);
+/** The way to sign in: the development form, or the button that goes to Entra. */
+function showSignIn(): void {
+  if (auth.mode === 'dev') {
+    const form = query<HTMLFormElement>(card, '.login__form--dev');
+    form.hidden = false;
+    const email = query<HTMLInputElement>(form, '[name=email]');
+    email.focus();
+    form.onsubmit = async e => {
+      e.preventDefault();
+      errorEl.hidden = true;
+      const button = query<HTMLButtonElement>(form, 'button');
+      button.disabled = true;
+      try {
+        await (auth as DevAuthProvider).signInAs(email.value.trim(), query<HTMLInputElement>(form, '[name=name]').value.trim());
+        await finish();
+      } catch (err) {
+        showError(err);
+      } finally {
+        button.disabled = false;
+      }
+    };
+  } else {
+    const form = query(card, '.login__form--entra');
+    form.hidden = false;
+    query<HTMLButtonElement>(form, 'button').onclick = () => auth.signIn(returnTo).catch(showError);
+  }
 }
+
+if (auth.account()) await finish(); // already signed in, or just back from Entra
+else showSignIn();

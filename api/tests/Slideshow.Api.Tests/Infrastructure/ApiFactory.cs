@@ -81,10 +81,14 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         });
     }
 
+    /// <summary>Like Entra: a token's "iat" and "nbf" are stamped this long before it's really issued.</summary>
+    public static readonly TimeSpan EntraBackdating = TimeSpan.FromMinutes(5);
+
+    /// <param name="issuedAt">When the token is really issued (default now); it's stamped <see cref="EntraBackdating"/> earlier.</param>
     public static string Token(string oid, string? scope = Scope, string audience = Audience, DateTime? issuedAt = null,
         SecurityKey? key = null, string name = "Test User")
     {
-        var iat = issuedAt ?? DateTime.UtcNow;
+        var iat = (issuedAt ?? DateTime.UtcNow) - EntraBackdating;
         var claims = new Dictionary<string, object> { ["oid"] = oid, ["name"] = name, ["email"] = $"{oid}@example.test" };
         if (scope is not null) claims["scp"] = scope;
         return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
@@ -93,8 +97,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             Audience = audience,
             Claims = claims,
             IssuedAt = iat,
-            NotBefore = iat.AddMinutes(-1),
-            Expires = iat.AddHours(1),
+            NotBefore = iat,
+            Expires = iat + EntraBackdating + TimeSpan.FromHours(1),
             SigningCredentials = new SigningCredentials(key ?? Key, SecurityAlgorithms.HmacSha256),
         });
     }
