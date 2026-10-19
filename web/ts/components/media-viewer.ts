@@ -1,5 +1,6 @@
-// Full-size view of an album's photos and videos: opens on the one clicked, steps through the rest
-// with the arrow keys, the on-screen buttons or a swipe, and closes with Esc. Files need the access
+// Full-screen view of an album's photos and videos: opens on the one clicked, steps through the rest
+// with the arrow keys, the on-screen buttons or a swipe, and closes with Esc. A photo is shown whole,
+// as large as the window allows, over a slowly drifting blurred copy of itself. Files need the access
 // token, so each is downloaded and shown from memory; the last few are kept for stepping back.
 
 import { MediaApi, type MediaInfo } from '../api/albums-api.js';
@@ -61,7 +62,7 @@ export function createMediaViewer(): MediaViewer {
     nameEl.textContent = m.fileName;
     const where = m.location ? `${m.location.lat.toFixed(4)}, ${m.location.lon.toFixed(4)}` : 'no location';
     metaEl.textContent = ` · ${m.taken ? formatTaken(m.taken) : 'no capture date'} · ${where} · ${formatBytes(m.sizeBytes)} · ${i + 1} of ${items.length}`;
-    stage.querySelector('img, video')?.remove();
+    clearStage();
     status.textContent = 'Loading…';
     status.hidden = false;
 
@@ -85,6 +86,14 @@ export function createMediaViewer(): MediaViewer {
         media = img;
       }
       media.className = 'viewer__media';
+      if (m.kind !== 'video') {
+        // The rest of the window: the same photo, blurred and darkened, drifting slowly.
+        const backdrop = new Image();
+        backdrop.alt = '';
+        backdrop.className = 'viewer__backdrop';
+        backdrop.src = url;
+        stage.append(backdrop);
+      }
       stage.append(media);
       status.hidden = true;
       // Get the next one ready for stepping forward.
@@ -107,12 +116,28 @@ export function createMediaViewer(): MediaViewer {
     if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
   });
-  // Clicking the dark area around the photo closes it, like most photo viewers.
-  stage.addEventListener('click', e => { if (e.target === stage) dialog.close(); });
-  dialog.addEventListener('close', () => {
-    showing++;
+  function clearStage(): void {
     stage.querySelector('video')?.pause();
-    stage.querySelector('img, video')?.remove();
+    stage.querySelectorAll('.viewer__media, .viewer__backdrop').forEach(el => el.remove());
+  }
+
+  // Clicking around the photo (not on it) closes the viewer, like most photo viewers. The photo's
+  // element fills the window, so work out where the picture itself is drawn inside it.
+  stage.addEventListener('click', e => {
+    const img = stage.querySelector<HTMLImageElement>('img.viewer__media');
+    if (!img) { if (e.target === stage) dialog.close(); return; }
+    if ((e.target as Element).closest('video')) return;
+    const box = img.getBoundingClientRect();
+    const scale = Math.min(box.width / img.naturalWidth, box.height / img.naturalHeight);
+    const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+    const left = box.left + (box.width - w) / 2, top = box.top + (box.height - h) / 2;
+    if (e.clientX < left || e.clientX > left + w || e.clientY < top || e.clientY > top + h) dialog.close();
+  });
+  // (The close event comes a moment after closing; if it was opened again meanwhile, leave it be.)
+  dialog.addEventListener('close', () => {
+    if (dialog.open) return;
+    showing++;
+    clearStage();
   });
 
   // Swipe left/right on touch screens.
