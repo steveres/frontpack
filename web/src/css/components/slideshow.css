@@ -63,6 +63,9 @@
 /* Back to the album (top-left; mirrors the settings gear top-right) */
 .slideshow__back { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 14px; display: inline-flex; align-items: center; gap: 8px; max-width: min(40ch, 45%); height: 44px; padding: 0 16px 0 12px; border-radius: 999px; background: rgba(20, 24, 29, .55); color: var(--color-paper); font-size: 15px; text-decoration: none; opacity: .45; transition: opacity .2s; }
 .slideshow__back:hover, .slideshow__back:focus-visible { opacity: 1; }
+
+/* "Show details": bottom right, above the controls (clear of the timeline's labels, the buttons and the map card); stays when idle */
+.slideshow__details { position: absolute; right: 14px; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 66px); margin: 0; padding: 4px 12px; border-radius: 999px; background: rgba(20, 24, 29, .7); color: var(--color-paper); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 .slideshow__back:focus-visible { outline: 2px solid var(--color-lamp); outline-offset: 2px; }
 .slideshow__back-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

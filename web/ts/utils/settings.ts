@@ -10,11 +10,13 @@ export interface Settings {
   fill: boolean;
   /** At the end: start again (on), or stay on the last slide and fade the music out (off). */
   repeat: boolean;
+  /** Each slide's resolution (as downloaded) and date taken, over the photo. */
+  details: boolean;
 }
 
 const SETTINGS_KEY = 'slideshow.settings.v2'; // bumped so the new default duration applies
 const prefersReducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-export const DEFAULTS: Settings = { duration: 2, showMap: true, muted: false, motion: !prefersReducedMotion, fill: false, repeat: false };
+export const DEFAULTS: Settings = { duration: 2, showMap: true, muted: false, motion: !prefersReducedMotion, fill: false, repeat: false, details: false };
 
 export function loadSettings(): Settings {
   try {

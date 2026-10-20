@@ -4,6 +4,7 @@
 import { FADE_MS, MAX_DURATION, MUSIC_FADE_MS, OVERLAY_IDLE_MS } from '../../config.js';
 import type { SlideshowContents } from '../../media/media-types.js';
 import { clamp, query } from '../../utils/dom.js';
+import { formatTaken } from '../../utils/format.js';
 import { DEFAULTS, loadSettings, saveSettings } from '../../utils/settings.js';
 import { MapView } from './map-view.js';
 import { canPlaySound, MusicPlayer } from './music-player.js';
@@ -41,7 +42,15 @@ export function mountSlideshow(root: HTMLElement, options: SlideshowOptions = {}
 
   // Zooming in pauses, and swaps a smaller version of the photo for the original.
   const photoZoom = new PhotoZoom(photos, () => player.currentMedia(), () => { player.setPlaying(false); void player.showFullSize(); });
-  player.onShow = () => photoZoom.reset();
+  // "Show details": the slide's resolution and date taken, to check which size of each photo arrived.
+  const details = query(root, '.slideshow__details');
+  const showDetails = () => {
+    const d = settings.details ? player.currentDetails() : null;
+    details.hidden = !d;
+    if (d) details.textContent = `${d.width} × ${d.height} · ${d.taken ? formatTaken(d.taken) : 'date unknown'}`;
+  };
+  player.onShow = () => { photoZoom.reset(); showDetails(); };
+  player.onFullSize = showDetails;
   const timeline = new Timeline(query(root, '.timeline'),
     i => { photos.classList.add('slideshow__photos--scrubbing'); player.scrubTo(i); },   // flip without cross-fade
     () => { photos.classList.remove('slideshow__photos--scrubbing'); void player.endScrub(); });
@@ -141,6 +150,9 @@ export function mountSlideshow(root: HTMLElement, options: SlideshowOptions = {}
   const repeat = query<HTMLInputElement>(root, '.settings__repeat');
   repeat.checked = settings.repeat;
   repeat.onchange = () => { settings.repeat = repeat.checked; saveSettings(settings); };
+  const detailsBox = query<HTMLInputElement>(root, '.settings__details');
+  detailsBox.checked = settings.details;
+  detailsBox.onchange = () => { settings.details = detailsBox.checked; saveSettings(settings); showDetails(); };
   fill.onchange = () => { settings.fill = fill.checked; saveSettings(settings); applyFill(); player.applyFillSetting(); };
 
   query(root, '.settings__restart').onclick = () => { togglePanel(false); if (active) player.restart(); };
@@ -192,6 +204,7 @@ export function mountSlideshow(root: HTMLElement, options: SlideshowOptions = {}
       plays++;
       setWaiting(false);
       player.stop();
+      details.hidden = true;
       music.stop();
       wake();
     },

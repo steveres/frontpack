@@ -19,6 +19,8 @@ export class Player {
   onState: (playing: boolean) => void = () => {};
   /** Called when a new item has been put on screen. */
   onShow: () => void = () => {};
+  /** Called when the photo on screen was swapped for its full-size version (zooming in). */
+  onFullSize: () => void = () => {};
   /** Called when the current position changes. */
   onIndex: (index: number) => void = () => {};
   /** Called when the slideshow reaches its end with Repeat off (it stays on the last slide). */
@@ -116,6 +118,16 @@ export class Player {
   /** The element holding the image or video on screen (the wheel/drag zoom moves this, the motion moves what's inside). */
   currentMedia(): HTMLElement | null { return this.layers[this.front].firstElementChild as HTMLElement | null; }
 
+  /** The slide on screen: its size in pixels as shown (the downloaded version, not the original) and when it was taken. */
+  currentDetails(): { width: number; height: number; taken?: string } | null {
+    const el = this.layers[this.front].querySelector<HTMLImageElement | HTMLVideoElement>('.slideshow__photo');
+    const item = this.items[this.index];
+    if (!el || !item) return null;
+    return el instanceof HTMLVideoElement
+      ? { width: el.videoWidth, height: el.videoHeight, taken: item.taken }
+      : { width: el.naturalWidth, height: el.naturalHeight, taken: item.taken };
+  }
+
   /** Swaps the photo on screen for its full-size version, if its source gave a smaller one (zooming in). */
   async showFullSize(): Promise<void> {
     const item = this.items[this.index], layer = this.front, gen = this.generation;
@@ -142,6 +154,7 @@ export class Player {
     this.urls[layer] = url;
     img.dataset.full = 'shown';
     if (old) URL.revokeObjectURL(old);
+    this.onFullSize();
   }
 
   /** Timeline drag: flip straight to item i, leaving the map alone until the drag ends. */

@@ -92,3 +92,5 @@ where they come from: the folder picker (`media/folder-source.ts`) or an album o
 (`media/api-source.ts`, which downloads each file when needed and prefetches the next). Photos from
 the API come in the size that suits the screen and connection (`media/photo-size.ts`: 720, 1280 or
 1920px, made by the API after upload, or the original on big screens); zooming in loads the original.
+To check which size arrived, turn on **Show details** in the slideshow's settings (off by default): it
+shows each slide's resolution as downloaded and its date taken.
