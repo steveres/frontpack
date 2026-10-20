@@ -127,6 +127,13 @@ public sealed class LocalDataStore : IDataStore
     public Task SetThumbnailStateAsync(string ownerId, Guid albumId, Guid mediaId, ThumbnailState state, CancellationToken ct) =>
         Task.FromResult(Write(s => { if (s.Media.TryGetValue(MediaKey(ownerId, albumId, mediaId), out var m)) m.ThumbnailState = state; return 0; }));
 
+    public Task SetResizeStateAsync(string ownerId, Guid albumId, Guid mediaId, ResizeState state, IReadOnlyList<int> sizes, CancellationToken ct) =>
+        Task.FromResult(Write(s =>
+        {
+            if (s.Media.TryGetValue(MediaKey(ownerId, albumId, mediaId), out var m)) { m.ResizeState = state; m.Sizes = [.. sizes]; }
+            return 0;
+        }));
+
     public Task<(string OwnerId, Guid AlbumId)?> ResolveShareAsync(string token, CancellationToken ct) =>
         Task.FromResult(Read<(string, Guid)?>(s => s.Shares.TryGetValue(token, out var r) ? (r.OwnerId, r.AlbumId) : null));
 

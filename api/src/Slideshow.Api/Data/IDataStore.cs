@@ -32,6 +32,8 @@ public interface IDataStore
     /// <summary>Deletes the owner's media rows: one album's, or all of them.</summary>
     Task DeleteAllMediaAsync(string ownerId, Guid? albumId, CancellationToken ct);
     Task SetThumbnailStateAsync(string ownerId, Guid albumId, Guid mediaId, ThumbnailState state, CancellationToken ct);
+    /// <summary>Records the photo's smaller versions. Nothing happens if it has been deleted.</summary>
+    Task SetResizeStateAsync(string ownerId, Guid albumId, Guid mediaId, ResizeState state, IReadOnlyList<int> sizes, CancellationToken ct);
 
     /// <summary>The album a share code points to, or null.</summary>
     Task<(string OwnerId, Guid AlbumId)?> ResolveShareAsync(string token, CancellationToken ct);

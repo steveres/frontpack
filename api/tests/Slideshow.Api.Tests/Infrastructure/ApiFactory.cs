@@ -42,9 +42,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         var testTokens = Environment != "Development";
         if (System.Environment.GetEnvironmentVariable("SLIDESHOW_TEST_TABLES") == "azurite")
         {
-            // Same tests against the Table Storage code: start Azurite first (see api/README.md).
+            // Same tests against the Table Storage and queue code: start Azurite first (see api/README.md).
             builder.UseSetting("Tables:Provider", "AzureTable");
             builder.UseSetting("Tables:ConnectionString", "UseDevelopmentStorage=true");
+            builder.UseSetting("Resize:Provider", "AzureQueue");
+            builder.UseSetting("Resize:ConnectionString", "UseDevelopmentStorage=true");
+            builder.UseSetting("Resize:QueueName", "resize-" + Guid.NewGuid().ToString("N")); // each test app has its own files, so its own queue
         }
         else
         {

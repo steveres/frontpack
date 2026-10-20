@@ -7,7 +7,11 @@ export type MediaKind = 'image' | 'video';
  * `location`, when the source already knows it (the API does), saves reading GPS from the file;
  * undefined means "read it from the file".
  */
-export interface MediaItem { name: string; kind: MediaKind; getFile(): Promise<File>; taken?: string; location?: LatLon | null; }
+export interface MediaItem {
+  name: string; kind: MediaKind; getFile(): Promise<File>; taken?: string; location?: LatLon | null;
+  /** The photo at full size, when getFile() may give a smaller version (zooming in loads it). */
+  getFullFile?(): Promise<File>;
+}
 
 export interface Track { name: string; getFile(): Promise<File>; }
 

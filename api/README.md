@@ -8,8 +8,9 @@ api/
   src/Slideshow.Api/            the API
     Endpoints/                  account, albums, images + music
     Identity/                   token validation, logout cut-off, Microsoft Graph
-    Media/                      file-type sniffing, EXIF/video date + GPS, natural sort
-    Storage/                    Azure Blob / local folder
+    Media/                      file-type sniffing, EXIF/video date + GPS, natural sort, previews,
+                                smaller versions of photos + the background worker that makes them
+    Storage/                    Azure Blob / local folder; resize queue (Azure Storage queue / memory)
     Data/                       entities + data store (Table Storage; in memory / JSON file locally)
   tests/Slideshow.Api.Tests/    integration + unit tests
 infra/                          Bicep template, parameters, deploy script
@@ -24,9 +25,9 @@ dotnet test
 No Azure, database server or emulator needed: the tests run the real app with its data in memory and
 files in a temp folder, with tokens signed by a test key.
 
-To run the same tests against the Table Storage code, start Azurite's table service, then:
+To run the same tests against the Table Storage and queue code, start Azurite, then:
 ```powershell
-npx -p azurite azurite-table --inMemoryPersistence --skipApiVersionCheck   # in another terminal
+npx -p azurite azurite --inMemoryPersistence --skipApiVersionCheck   # in another terminal
 $env:SLIDESHOW_TEST_TABLES = 'azurite'; dotnet test; Remove-Item Env:SLIDESHOW_TEST_TABLES
 ```
 
@@ -38,6 +39,9 @@ Two launch profiles, both on http://localhost:5160:
 |---|---|---|---|
 | `local` (default) | memory, saved to `App_Data/data.json` | folder `App_Data/media` | nothing |
 | `local-azure` | Azurite (Table Storage emulator) | Azurite (Blob Storage emulator) | Node.js |
+
+Photos waiting for their smaller versions are queued in memory with `local` (lost when the API stops:
+photos still waiting then stay full size) and in Azurite's queue service with `local-azure`.
 
 ```powershell
 cd api\src\Slideshow.Api
@@ -124,9 +128,10 @@ the .NET 9 SDK and Node.js. Docker is **not** needed; the .NET SDK builds and pu
 What gets created: Static Web App (Free plan; `eastus2`, since Static Web Apps isn't offered in every
 region), Container Apps environment + app (scale 0–3), Azure Container Registry, Storage account
 (private `media` container for files and compiled manifests, tables `Users`, `Albums`, `Media` and
-`Shares` for album details; shared keys off, 7-day soft delete), Log Analytics + Application Insights,
-and a user-assigned managed identity with exactly the roles it needs (AcrPull, Storage Blob Data
-Contributor, Storage Table Data Contributor). The website's address is always allowed by the API's
+`Shares` for album details, queue `resize` for photos waiting for their smaller versions; shared keys
+off, 7-day soft delete), Log Analytics + Application Insights, and a user-assigned managed identity with
+exactly the roles it needs (AcrPull, Storage Blob Data Contributor, Storage Table Data Contributor,
+Storage Queue Data Contributor). The API scales up for web requests and for photos waiting in the queue. The website's address is always allowed by the API's
 CORS settings.
 
 Notes
@@ -144,6 +149,7 @@ Notes
 | `Tables:Provider` (`Local`/`AzureTable`), `Tables:LocalPath` or `Tables:ServiceUri` / `Tables:ConnectionString` | album details |
 | `Storage:Provider` (`FileSystem`/`AzureBlob`), `Storage:BlobServiceUri` or `Storage:ConnectionString` | media bytes |
 | `Graph:TenantId`, `Graph:ClientId`, `Graph:ClientSecret` | Entra user deletion / session revocation |
+| `Resize:Provider` (`Memory`/`AzureQueue`), `Resize:QueueServiceUri` or `Resize:ConnectionString`, `Resize:QueueName`, `Resize:MaxAttempts` | queue of photos waiting for their smaller versions |
 | `Limits:*` | per-kind file size, per-user quota, files per album, albums per user, requests per minute |
 | `Cors:AllowedOrigins` | SPA origins |
 

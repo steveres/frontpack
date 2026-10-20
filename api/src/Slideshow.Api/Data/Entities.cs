@@ -48,6 +48,12 @@ public enum TakenSource { Exif = 0, Video = 1 }
 /// <summary>Whether a photo's preview has been made. Videos stay None (no thumbnails yet).</summary>
 public enum ThumbnailState { None = 0, Ready = 1, Unavailable = 2 }
 
+/// <summary>
+/// Whether a photo's smaller versions have been made (in the background, after upload). None: not asked
+/// for yet (photos uploaded before they existed; videos and music never are).
+/// </summary>
+public enum ResizeState { None = 0, Pending = 1, Ready = 2, Unavailable = 3 }
+
 public sealed class MediaFile
 {
     public Guid Id { get; set; }
@@ -66,6 +72,9 @@ public sealed class MediaFile
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public ThumbnailState ThumbnailState { get; set; }
+    public ResizeState ResizeState { get; set; }
+    /// <summary>The smaller versions made so far (longest edge in pixels), smallest first.</summary>
+    public IReadOnlyList<int> Sizes { get; set; } = [];
 
     internal MediaFile Clone() => (MediaFile)MemberwiseClone();
 }

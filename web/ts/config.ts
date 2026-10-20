@@ -24,3 +24,9 @@ export const OVERLAY_IDLE_MS = 3000; // hide the controls, timeline and buttons 
 export const BACKDROP_CROP = 0.25;  // a photo that would lose more than this to cropping is shown whole, over a blurred copy
 export const VIDEO_NUDGE_MS = 1000; // a video not loaded by then gets a muted play() to start loading (iOS Safari)
 export const MUSIC_FADE_MS = 4000;  // music fade-out when the slideshow ends (Repeat off)
+
+// Which version of a photo to download (the API makes these sizes, longest edge in px, after upload)
+export const PHOTO_SIZES = [720, 1280, 1920] as const;
+export const MAX_PIXEL_RATIO = 2;   // sharper than 2x isn't worth the bytes on a photo that's moving
+export const SLOW_MBPS = 5;         // below this, one size smaller…
+export const VERY_SLOW_MBPS = 1.5;  // …and below this, two

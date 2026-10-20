@@ -38,6 +38,8 @@ export interface MediaInfo {
   playable: boolean;
   /** Why not, when not playable. */
   missing: MissingData[];
+  /** Photos: the smaller versions made so far (longest edge in px), fetched with `?size=` on `url`. */
+  sizes: number[];
   /** Path of the file's bytes on the API. */
   url: string;
   /** Path of a small JPEG preview (photos only), or null. */

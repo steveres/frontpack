@@ -2,6 +2,7 @@
 
 import { APP_CONFIG } from '../config.js';
 import { currentPath, getAuth, justSignedIn, NotSignedInError } from '../auth/auth.js';
+import { recordDownload } from '../utils/network.js';
 
 /** An error response from the API (RFC 7807 problem details). `code` is the API's machine-readable code. */
 export class ApiError extends Error {
@@ -45,6 +46,14 @@ async function failure(status: number, bodyText: string, noRedirect = false): Pr
   return new ApiError(status, problem?.code, problem?.detail ?? problem?.title ?? `Request failed (${status}).`);
 }
 
+/** Reads the body, noting how fast it came (photo sizes are picked by connection speed). */
+async function timedBlob(res: Response): Promise<Blob> {
+  const start = performance.now();
+  const blob = await res.blob();
+  recordDownload(blob.size, performance.now() - start);
+  return blob;
+}
+
 async function send(path: string, options: RequestOptions = {}): Promise<Response> {
   const headers: Record<string, string> = { Authorization: `Bearer ${await token(options.noRedirect)}` };
   let body: BodyInit | undefined;
@@ -69,7 +78,7 @@ export const api = {
   },
   /** Downloads a file (e.g. an image) as a Blob. */
   async blob(path: string): Promise<Blob> {
-    return (await send(path)).blob();
+    return timedBlob(await send(path));
   },
 
   async put<T>(path: string, json: unknown): Promise<T> {
@@ -88,7 +97,7 @@ export const api = {
   async publicBlob(path: string): Promise<Blob> {
     const res = await fetch(`${APP_CONFIG.apiBaseUrl}${path}`);
     if (!res.ok) throw await failure(res.status, await res.text(), true);
-    return res.blob();
+    return timedBlob(res);
   },
 
   /** Uploads a multipart form, reporting progress (0..1). fetch can't report upload progress, so this uses XHR. */

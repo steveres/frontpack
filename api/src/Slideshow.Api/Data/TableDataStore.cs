@@ -176,6 +176,8 @@ public sealed class TableDataStore : IDataStore
         ["Latitude"] = m.Latitude,
         ["Longitude"] = m.Longitude,
         ["ThumbnailState"] = (int)m.ThumbnailState,
+        ["ResizeState"] = (int)m.ResizeState,
+        ["Sizes"] = SizesText(m.Sizes),
     };
 
     private static MediaFile ToMedia(TableEntity e) => new()
@@ -195,7 +197,12 @@ public sealed class TableDataStore : IDataStore
         Latitude = e.GetDouble("Latitude"),
         Longitude = e.GetDouble("Longitude"),
         ThumbnailState = (ThumbnailState)(e.GetInt32("ThumbnailState") ?? 0),
+        ResizeState = (ResizeState)(e.GetInt32("ResizeState") ?? 0),
+        Sizes = e.GetString("Sizes") is { Length: > 0 } sizes ? sizes.Split(',').Select(t => int.Parse(t, CultureInfo.InvariantCulture)).ToList() : [],
     };
+
+    /// <summary>"720,1280": a list can't be a table property.</summary>
+    private static string SizesText(IReadOnlyList<int> sizes) => string.Join(',', sizes.Select(n => n.ToString(CultureInfo.InvariantCulture)));
 
     /// <summary>The owner's partition, or the slice of it whose row keys start with "{album}_".</summary>
     private static string MediaFilter(string ownerId, Guid? albumId) => albumId is { } a
@@ -222,6 +229,9 @@ public sealed class TableDataStore : IDataStore
 
     public Task SetThumbnailStateAsync(string ownerId, Guid albumId, Guid mediaId, ThumbnailState state, CancellationToken ct) =>
         MergeIfExistsAsync(_media, new TableEntity(ownerId, MediaRow(albumId, mediaId)) { ["ThumbnailState"] = (int)state }, ct);
+
+    public Task SetResizeStateAsync(string ownerId, Guid albumId, Guid mediaId, ResizeState state, IReadOnlyList<int> sizes, CancellationToken ct) =>
+        MergeIfExistsAsync(_media, new TableEntity(ownerId, MediaRow(albumId, mediaId)) { ["ResizeState"] = (int)state, ["Sizes"] = SizesText(sizes) }, ct);
 
     // ───────── Shares ─────────
 

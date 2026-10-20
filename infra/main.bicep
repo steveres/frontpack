@@ -1,5 +1,5 @@
 // Slideshow on Azure: website on Static Web Apps; API on Container Apps with Table Storage (album
-// details), Blob Storage (files) and App Insights. deploy.ps1 runs this twice: first with containerImage
+// details), Blob Storage (files), a Storage queue (photos waiting for smaller versions) and App Insights. deploy.ps1 runs this twice: first with containerImage
 // empty (creates the registry etc.), then, after pushing the image, with containerImage set. See api/README.md.
 targetScope = 'resourceGroup'
 
@@ -58,7 +58,10 @@ var roles = {
   acrPull: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
   blobDataContributor: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
   tableDataContributor: '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
+  queueDataContributor: '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
 }
+
+var resizeQueueName = 'resize'
 
 // ───────────── Monitoring ─────────────
 
@@ -153,6 +156,17 @@ resource tables 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-
   name: name
 }]
 
+// Photos waiting for their smaller versions (720/1280/1920px), made by the API in the background.
+resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2023-05-01' = {
+  parent: storage
+  name: 'default'
+}
+
+resource resizeQueue 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-05-01' = {
+  parent: queueService
+  name: resizeQueueName
+}
+
 resource blobContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storage.id, identity.id, roles.blobDataContributor)
   scope: storage
@@ -168,6 +182,16 @@ resource tableContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' =
   scope: storage
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.tableDataContributor)
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource queueContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, identity.id, roles.queueDataContributor)
+  scope: storage
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.queueDataContributor)
     principalId: identity.properties.principalId
     principalType: 'ServicePrincipal'
   }
@@ -211,6 +235,9 @@ var appEnv = concat([
   { name: 'Storage__Provider', value: 'AzureBlob' }
   { name: 'Storage__BlobServiceUri', value: storage.properties.primaryEndpoints.blob }
   { name: 'Storage__ContainerName', value: mediaContainer.name }
+  { name: 'Resize__Provider', value: 'AzureQueue' }
+  { name: 'Resize__QueueServiceUri', value: storage.properties.primaryEndpoints.queue }
+  { name: 'Resize__QueueName', value: resizeQueue.name }
   { name: 'Auth__Authority', value: authAuthority }
   { name: 'Auth__Audiences__0', value: apiClientId }
   { name: 'Auth__Audiences__1', value: 'api://${apiClientId}' }
@@ -224,14 +251,14 @@ var appSecrets = concat(
   [{ name: 'appinsights', value: insights.properties.ConnectionString }],
   empty(graphClientSecret) ? [] : [{ name: 'graph-client-secret', value: graphClientSecret }])
 
-resource app 'Microsoft.App/containerApps@2024-03-01' = if (!empty(containerImage)) {
+resource app 'Microsoft.App/containerApps@2025-01-01' = if (!empty(containerImage)) {
   name: names.app
   location: location
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: { '${identity.id}': {} }
   }
-  dependsOn: [acrPull, blobContributor, tableContributor, tables]
+  dependsOn: [acrPull, blobContributor, tableContributor, queueContributor, tables]
   properties: {
     managedEnvironmentId: environment.id
     configuration: {
@@ -263,7 +290,15 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (!empty(containerImag
       scale: {
         minReplicas: apiMinReplicas
         maxReplicas: 3
-        rules: [{ name: 'http', http: { metadata: { concurrentRequests: '50' } } }]
+        rules: [
+          { name: 'http', http: { metadata: { concurrentRequests: '50' } } }
+          // Photos waiting in the queue start the API too, so their smaller versions get made even
+          // when nobody is using the site (the API scales to zero otherwise).
+          {
+            name: 'resize-queue'
+            azureQueue: { accountName: storage.name, queueName: resizeQueue.name, queueLength: 20, identity: identity.id }
+          }
+        ]
       }
     }
   }

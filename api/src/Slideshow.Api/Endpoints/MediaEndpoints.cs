@@ -25,17 +25,19 @@ public static class MediaEndpoints
             .WithSummary($"Every {what} in the album, in upload order.");
 
         g.MapPost("/", (Guid albumId, IFormFile? file, [FromForm] int? utcOffsetMinutes,
-                HttpContext http, IDataStore store, IBlobStore blobs, IOptions<LimitsOptions> limits, ILogger<Program> log, CancellationToken ct) =>
-                Add(albumId, segment, collection, file, utcOffsetMinutes, http, store, blobs, limits.Value, log, ct))
+                HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue, IOptions<LimitsOptions> limits, ILogger<Program> log, CancellationToken ct) =>
+                Add(albumId, segment, collection, file, utcOffsetMinutes, http, store, blobs, queue, limits.Value, log, ct))
             .WithSummary($"Upload an {what} (multipart/form-data, field \"file\").")
             .DisableAntiforgery() // bearer tokens only, no cookies: nothing for CSRF to ride on
             .Accepts<IFormFile>("multipart/form-data")
             .WithMetadata(new RequestSizeLimitAttribute(maxUploadBytes + MultipartOverhead))
             .WithFormOptions(multipartBodyLengthLimit: maxUploadBytes + MultipartOverhead);
 
-        g.MapGet("/{id:guid}", (Guid albumId, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct) =>
-                GetContent(albumId, id, collection, http, store, blobs, ct))
-            .WithSummary($"The {what}'s bytes (supports Range).");
+        g.MapGet("/{id:guid}", (Guid albumId, Guid id, int? size, HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct) =>
+                GetContent(albumId, id, size, collection, http, store, blobs, queue, log, ct))
+            .WithSummary(collection == MediaCollection.Images
+                ? "The file's bytes (supports Range). Photos: ?size=720, 1280 or 1920 for a smaller version where there is one."
+                : $"The {what}'s bytes (supports Range).");
 
         g.MapGet("/{id:guid}/info", async (Guid albumId, Guid id, HttpContext http, IDataStore store, CancellationToken ct) =>
                 await Find(store, http.User.UserId(), albumId, collection, id, ct) is { } m
@@ -74,7 +76,7 @@ public static class MediaEndpoints
     }
 
     private static async Task<IResult> Add(Guid albumId, string segment, MediaCollection collection, IFormFile? file, int? utcOffsetMinutes,
-        HttpContext http, IDataStore store, IBlobStore blobs, LimitsOptions limits, ILogger log, CancellationToken ct)
+        HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue, LimitsOptions limits, ILogger log, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
         if (!await AlbumExists(store, ownerId, albumId, ct)) return Problems.AlbumNotFound();
@@ -129,6 +131,9 @@ public static class MediaEndpoints
             Longitude = meta.Longitude,
             ThumbnailState = sniffed.Kind != MediaKind.Image ? ThumbnailState.None
                 : thumbnail is null ? ThumbnailState.Unavailable : ThumbnailState.Ready,
+            // Smaller versions are made in the background; a photo with no preview can't be read here, so it won't get them either.
+            ResizeState = sniffed.Kind != MediaKind.Image ? ResizeState.None
+                : thumbnail is null ? ResizeState.Unavailable : ResizeState.Pending,
             BlobName = "",
         };
         media.BlobName = BlobNames.For(ownerId, albumId, media.Id);
@@ -160,15 +165,78 @@ public static class MediaEndpoints
             if (thumbnail is not null) await blobs.DeleteAsync(BlobNames.Thumbnail(media.BlobName), CancellationToken.None);
         }
         log.LogInformation("Stored {Kind} {MediaId} ({Bytes} bytes) in album {AlbumId}", media.Kind, media.Id, media.SizeBytes, albumId);
+        if (media.ResizeState == ResizeState.Pending && !await TryQueueResizeAsync(queue, media, log))
+        {
+            // Not queued: asking for a size later queues it again.
+            await store.SetResizeStateAsync(ownerId, albumId, media.Id, ResizeState.None, [], CancellationToken.None);
+            media.ResizeState = ResizeState.None;
+        }
         var url = ContentUrl(albumId, segment, media.Id);
         return Results.Created(url + "/info", MediaInfoDto.From(media, url));
     }
 
-    private static async Task<IResult> GetContent(Guid albumId, Guid id, MediaCollection collection, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct)
+    private static async Task<IResult> GetContent(Guid albumId, Guid id, int? size, MediaCollection collection, HttpContext http,
+        IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger log, CancellationToken ct)
     {
+        if (InvalidSize(size) is { } problem) return problem;
         var media = await Find(store, http.User.UserId(), albumId, collection, id, ct);
         if (media is null) return Problems.MediaNotFound();
-        return await StreamAsync(http, blobs, media, "private, max-age=31536000, immutable", ct); // a media id's bytes never change
+        return await StreamAsync(http, blobs, store, queue, log, media, size, "private, max-age=31536000, immutable", ct); // a media id's bytes never change
+    }
+
+    /// <summary>`?size=` must be one of the sizes photos are made in.</summary>
+    internal static IResult? InvalidSize(int? size) => size is { } s && !Renditions.Sizes.Contains(s)
+        ? Problems.Validation($"size must be {string.Join(", ", Renditions.Sizes.SkipLast(1))} or {Renditions.Sizes[^1]}.")
+        : null;
+
+    /// <summary>Asks the background worker for the photo's smaller versions; false (and logged) if the queue can't be reached.</summary>
+    private static async Task<bool> TryQueueResizeAsync(IResizeQueue queue, MediaFile media, ILogger log)
+    {
+        try
+        {
+            await queue.EnqueueAsync(new ResizeJob(media.OwnerId, media.AlbumId, media.Id), CancellationToken.None);
+            return true;
+        }
+        catch (Exception e)
+        {
+            log.LogWarning(e, "Couldn't queue {MediaId} for smaller versions", media.Id);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Sends a file's bytes (Range requests supported). With `size` (photos): the smallest of its smaller
+    /// versions at least that big, else the original, which is what a photo no bigger than `size` gets
+    /// anyway. A photo whose versions aren't made yet gets the original, marked not to be cached for long,
+    /// and one from before they existed is queued for them.
+    /// </summary>
+    internal static async Task<IResult> StreamAsync(HttpContext http, IBlobStore blobs, IDataStore store, IResizeQueue queue, ILogger log,
+        MediaFile media, int? size, string cacheControl, CancellationToken ct)
+    {
+        if (size is not { } wanted || media.Kind != MediaKind.Image) return await StreamAsync(http, blobs, media, cacheControl, ct);
+
+        if (media.ResizeState == ResizeState.None)
+        {
+            // Marked first: the worker may finish before a later write, which would then undo its work.
+            await store.SetResizeStateAsync(media.OwnerId, media.AlbumId, media.Id, ResizeState.Pending, [], ct);
+            if (!await TryQueueResizeAsync(queue, media, log))
+                await store.SetResizeStateAsync(media.OwnerId, media.AlbumId, media.Id, ResizeState.None, [], ct);
+        }
+        if (media.ResizeState is ResizeState.None or ResizeState.Pending)
+            cacheControl = "private, no-cache"; // the smaller version replaces it once made
+
+        if (media.Sizes.Where(s => s >= wanted).Order().FirstOrDefault() is > 0 and var pick
+            && await blobs.OpenReadAsync(BlobNames.Sized(media.BlobName, pick), ct) is { } stream)
+        {
+            var headers = http.Response.Headers;
+            headers.CacheControl = cacheControl;
+            headers.ContentDisposition = new ContentDispositionHeaderValue("inline") { FileNameStar = Path.ChangeExtension(media.FileName, ".jpg") }.ToString();
+            return Results.Stream(stream, Renditions.ContentType,
+                lastModified: DateTime.SpecifyKind(media.UploadedAt, DateTimeKind.Utc),
+                entityTag: new EntityTagHeaderValue($"\"{media.Id:N}-{pick}\""),
+                enableRangeProcessing: true);
+        }
+        return await StreamAsync(http, blobs, media, cacheControl, ct);
     }
 
     /// <summary>Sends a file's bytes (Range requests supported).</summary>
@@ -240,7 +308,8 @@ public static class MediaEndpoints
             try
             {
                 await blobs.DeleteAsync(m.BlobName, token);
-                if (m.Kind == MediaKind.Image) await blobs.DeleteAsync(BlobNames.Thumbnail(m.BlobName), token);
+                if (m.Kind == MediaKind.Image)
+                    foreach (var made in BlobNames.MadeFrom(m.BlobName)) await blobs.DeleteAsync(made, token);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
@@ -263,7 +332,8 @@ public static class MediaEndpoints
         try
         {
             await blobs.DeleteAsync(media.BlobName, ct);
-            if (media.Kind == MediaKind.Image) await blobs.DeleteAsync(BlobNames.Thumbnail(media.BlobName), ct);
+            if (media.Kind == MediaKind.Image)
+                foreach (var made in BlobNames.MadeFrom(media.BlobName)) await blobs.DeleteAsync(made, ct);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {

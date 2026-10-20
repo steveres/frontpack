@@ -89,4 +89,6 @@ web/
 
 `mountSlideshow(element)` plays any `SlideshowContents` (slides + music) it is given; it does not know
 where they come from: the folder picker (`media/folder-source.ts`) or an album on the API
-(`media/api-source.ts`, which downloads each file when needed and prefetches the next).
+(`media/api-source.ts`, which downloads each file when needed and prefetches the next). Photos from
+the API come in the size that suits the screen and connection (`media/photo-size.ts`: 720, 1280 or
+1920px, made by the API after upload, or the original on big screens); zooming in loads the original.

@@ -117,7 +117,22 @@ public static class AlbumEndpoints
         var manifest = album.CompiledVersion is null ? null : await ReadManifestAsync(blobs, album, ct);
         if (manifest is null) return Problems.Of(409, "album_not_compiled", "Compile the album first: POST /api/v1/albums/{id}/compile.");
         // The name may have changed since it was compiled (renaming doesn't make the slideshow stale).
+        manifest = await WithCurrentSizesAsync(store, album, manifest, ct);
         return Results.Ok(manifest with { Name = album.Name, IsStale = album.CompiledVersion != album.ContentVersion });
+    }
+
+    /// <summary>
+    /// The manifest with each photo's smaller versions as they are now: they're made in the background,
+    /// usually after the album was compiled.
+    /// </summary>
+    internal static async Task<AlbumManifestDto> WithCurrentSizesAsync(IDataStore store, Album album, AlbumManifestDto manifest, CancellationToken ct)
+    {
+        var sizes = (await store.ListMediaAsync(album.OwnerId, album.Id, ct)).ToDictionary(m => m.Id, m => m.Sizes);
+        return manifest with
+        {
+            Slides = manifest.Slides.Select(s => s with { Sizes = s.Kind == "image" ? sizes.GetValueOrDefault(s.Id, []) : [] }).ToList(),
+            Music = manifest.Music.Select(m => m with { Sizes = [] }).ToList(), // (null in manifests from before sizes existed)
+        };
     }
 
     /// <summary>The album's stored manifest, or null if it has none.</summary>

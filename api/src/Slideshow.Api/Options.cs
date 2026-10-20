@@ -42,6 +42,19 @@ public sealed class StorageOptions
     public string ContainerName { get; set; } = "media";
 }
 
+/// <summary>"Resize" section: the queue of photos waiting for their smaller versions.</summary>
+public sealed class ResizeOptions
+{
+    /// <summary>"AzureQueue" (Azure Storage Queues or Azurite) or "Memory" (lost when the API stops).</summary>
+    public string Provider { get; set; } = "Memory";
+    /// <summary>AzureQueue: e.g. https://account.queue.core.windows.net (managed identity), or a connection string for Azurite.</summary>
+    public string? QueueServiceUri { get; set; }
+    public string? ConnectionString { get; set; }
+    public string QueueName { get; set; } = "resize";
+    /// <summary>Tries per photo before giving up on it (it then stays full size only).</summary>
+    public int MaxAttempts { get; set; } = 5;
+}
+
 /// <summary>"Graph" section: Microsoft Graph access to the customer tenant. Leave TenantId empty to disable.</summary>
 public sealed class GraphOptions
 {

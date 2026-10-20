@@ -23,6 +23,10 @@ public static class BlobNames
     public static string UserPrefix(string ownerId) => $"{ownerId}/";
     /// <summary>A photo's preview, stored next to it (so album and account deletes remove it too).</summary>
     public static string Thumbnail(string blobName) => blobName + ".thumb";
+    /// <summary>A smaller version of a photo (`size`: longest edge in pixels), stored next to it like its preview.</summary>
+    public static string Sized(string blobName, int size) => $"{blobName}.{size}";
+    /// <summary>Everything made from a photo: its preview and every smaller version it may have.</summary>
+    public static IEnumerable<string> MadeFrom(string blobName) => [Thumbnail(blobName), .. Media.Renditions.Sizes.Select(s => Sized(blobName, s))];
     /// <summary>An album's compiled slideshow (JSON), stored with its files (so deleting the album removes it).</summary>
     public static string Manifest(string ownerId, Guid albumId) => AlbumPrefix(ownerId, albumId) + "manifest.json";
 }

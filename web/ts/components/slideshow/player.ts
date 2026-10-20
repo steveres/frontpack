@@ -116,6 +116,34 @@ export class Player {
   /** The element holding the image or video on screen (the wheel/drag zoom moves this, the motion moves what's inside). */
   currentMedia(): HTMLElement | null { return this.layers[this.front].firstElementChild as HTMLElement | null; }
 
+  /** Swaps the photo on screen for its full-size version, if its source gave a smaller one (zooming in). */
+  async showFullSize(): Promise<void> {
+    const item = this.items[this.index], layer = this.front, gen = this.generation;
+    const img = this.layers[layer].querySelector<HTMLImageElement>('img.slideshow__photo');
+    if (!item?.getFullFile || !img || img.dataset.full) return;
+    img.dataset.full = 'loading';
+    let url: string | null = null;
+    try {
+      url = URL.createObjectURL(await item.getFullFile());
+      const full = new Image();
+      full.src = url;
+      await full.decode();
+      if (gen !== this.generation || !this.layers[layer].contains(img)) throw new Error('moved on');
+    } catch {
+      if (url) URL.revokeObjectURL(url);
+      delete img.dataset.full; // try again next time
+      return;
+    }
+    // Same element, so the zoom and the motion carry on undisturbed.
+    img.src = url;
+    const backdrop = this.layers[layer].querySelector<HTMLImageElement>('img.slideshow__backdrop');
+    if (backdrop) backdrop.src = url;
+    const old = this.urls[layer];
+    this.urls[layer] = url;
+    img.dataset.full = 'shown';
+    if (old) URL.revokeObjectURL(old);
+  }
+
   /** Timeline drag: flip straight to item i, leaving the map alone until the drag ends. */
   scrubTo(i: number): void {
     this.scrubbing = true;

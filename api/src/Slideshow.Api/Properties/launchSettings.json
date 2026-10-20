@@ -20,7 +20,9 @@
         "Tables__Provider": "AzureTable",
         "Tables__ConnectionString": "UseDevelopmentStorage=true",
         "Storage__Provider": "AzureBlob",
-        "Storage__ConnectionString": "UseDevelopmentStorage=true"
+        "Storage__ConnectionString": "UseDevelopmentStorage=true",
+        "Resize__Provider": "AzureQueue",
+        "Resize__ConnectionString": "UseDevelopmentStorage=true"
       }
     }
   }

@@ -13,7 +13,8 @@ Status: v1 (implemented in `api/`). The SPA will be moved onto this API in a lat
   fully tested on a laptop with no cloud resources.
 
 Out of scope for v1: HEIC conversion, video thumbnails, video rendering, sharing albums between users.
-Photo previews are made with SkiaSharp (MIT) and stored next to the photo as `{blob}.thumb`.
+Photo previews are made with SkiaSharp (MIT) and stored next to the photo as `{blob}.thumb`; so are
+the smaller versions of each photo (`{blob}.720`, `.1280`, `.1920`), made in the background after upload.
 
 ## 2. Architecture
 
@@ -28,6 +29,7 @@ Photo previews are made with SkiaSharp (MIT) and stored next to the photo as `{b
    ├──► Azure Table Storage                users, albums, media details, share codes
    ├──► Azure Blob Storage (private)      the media bytes: media/{userId}/{albumId}/{mediaId},
    │                                      and each album's compiled manifest next to them
+   ├──► Azure Queue Storage               "resize": photos waiting for their smaller versions
    ├──► Microsoft Graph (customer tenant)  delete user / revoke sessions on account delete & logout
    └──► Application Insights               logs, traces, metrics (OpenTelemetry)
 ```
@@ -61,6 +63,13 @@ Photo previews are made with SkiaSharp (MIT) and stored next to the photo as `{b
 4. Date-taken and GPS are read from the file (EXIF for images; QuickTime metadata for videos).
 5. Bytes go to Blob Storage under a server-generated name; then the metadata row is committed.
    If the DB write fails the blob is deleted.
+6. Photos are put on the `resize` queue. A background worker in the API (`ResizeWorker`, one photo at a
+   time) makes upright JPEGs of at most 720, 1280 and 1920px on the longest edge, only those smaller
+   than the photo, stores them next to it and records them on its row (`sizes`). Undecodable (e.g. AVIF)
+   and animated photos get none. A failure is retried (30 s, 1 min, 2 min, …); after 5 tries the photo
+   stays full size only. Messages that are being worked on are hidden, not deleted, so an API that stops
+   mid-photo (scale-in, restart) leaves it for the next one. Waiting messages also start the API when it
+   has scaled to zero (a queue scale rule). Smaller versions don't count towards the storage quota.
 
 ### Data flow: play
 1. `POST /albums/{id}/compile` takes the photos and videos that have **both** a capture date (EXIF for
@@ -69,7 +78,11 @@ Photo previews are made with SkiaSharp (MIT) and stored next to the photo as `{b
    listings flag them (`playable: false`, `missing: [...]`) so the UI can say why.
 2. SPA `GET /albums/{id}` → manifest (ordered slides with dates + GPS, music list).
 3. SPA fetches each item's bytes with `GET .../images/{id}` (bearer token, `Range` supported) and
-   shows it via an object URL — the same way it handles local `File`s today.
+   shows it via an object URL — the same way it handles local `File`s today. For photos it adds
+   `?size=`: the smallest size at least the screen's longest edge × pixel ratio (capped at 2), one size
+   smaller on a slow connection (< 5 Mbit/s, or 3G) and two on a very slow one (< 1.5 Mbit/s, 2G, or
+   data saver on); no size (the original) for screens bigger than 1920. Speed is measured from the
+   downloads themselves, so it adapts as the show plays. Zooming into a photo loads the original.
 
 ## 3. Authentication & account lifecycle
 
@@ -127,6 +140,7 @@ Base path `/api/v1`. JSON uses camelCase. Errors are RFC 7807 `application/probl
 | `GET /albums/{albumId}/{collection}` | `MediaInfo[]` in upload order. |
 | `POST /albums/{albumId}/{collection}` | multipart: `file` (required), `utcOffsetMinutes` (optional: the uploader's UTC offset, to turn a video's UTC creation time into local time like EXIF). `201` + `MediaInfo`. |
 | `GET /albums/{albumId}/{collection}/{id}` | The bytes, with the sniffed `Content-Type`, `Range`/`ETag` support, `Cache-Control: private, immutable`. |
+| `GET /albums/{albumId}/images/{id}?size=720\|1280\|1920` | A photo's smaller version: the smallest made that is at least `size` (a JPEG), else the original (a photo no bigger than `size` has nothing smaller). While its versions are still being made the original is sent with `Cache-Control: no-cache`; photos uploaded before versions existed are queued on the first such request. Videos ignore `size`. `400` for other sizes. |
 | `GET /albums/{albumId}/{collection}/{id}/info` | `MediaInfo`. |
 | `GET /albums/{albumId}/images/{id}/thumbnail` | A JPEG preview, at most 400px on its longest edge, upright per EXIF orientation. Made at upload; photos uploaded before previews existed get one on first request. `404 no_thumbnail` for videos and photos that can't be decoded (e.g. AVIF). |
 | `DELETE /albums/{albumId}/{collection}/{id}` | `204`. |
@@ -167,6 +181,7 @@ anything; anonymous requests are rate-limited per IP address like everyone else'
   "takenSource": "exif" | "video" | null,         // only real capture dates; file times are never used
   "location": { "lat": 41.9, "lon": 12.5 } | null,
   "thumbnailUrl": "/api/v1/albums/…/images/…/thumbnail" | null,   // photos only
+  "sizes": [720, 1280, 1920],                      // photos: smaller versions made so far (?size=); else []
   "playable": true,                                // shown in the slideshow (music: always true)
   "missing": [] }                                  // otherwise why not: "date" and/or "location"
 
@@ -186,11 +201,14 @@ Albums  PK ownerId · RK albumId          Name · Description · CreatedAt · Up
 Media   PK ownerId · RK albumId_mediaId  AlbumId · MediaId · Collection (Images|Music) · Kind · FileName
                                          ContentType · SizeBytes · BlobName · UploadedAt · TakenAt? (text,
                                          local time) · TakenSource? · Latitude? · Longitude? · ThumbnailState
+                                         ResizeState (None|Pending|Ready|Unavailable) · Sizes ("720,1280,1920")
 Shares  PK share code · RK "share"       OwnerId · AlbumId
 ```
 Everything an owner has is in their partition, so the album list, usage and quota are one query each,
 and one album's media is a row-key range. The compiled manifest is a blob
 (`{userId}/{albumId}/manifest.json`), as it can outgrow a table property (64 KB).
+A manifest stores each photo's `sizes` as they were when it was compiled; serving it fills in the
+current ones (one row-key range query), since they're usually made after compiling.
 `ContentVersion` is bumped on every add/delete (an ETag-checked update, retried if another request
 changed the album meanwhile); an album is stale when it differs from `CompiledVersion`. Deletes go
 media rows → share code → album → user, so a retry after a failure finishes the job.

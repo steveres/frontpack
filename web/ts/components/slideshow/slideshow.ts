@@ -39,7 +39,8 @@ export function mountSlideshow(root: HTMLElement, options: SlideshowOptions = {}
   if (!mapAllowed) query(root, '.settings__show-map').closest('label')!.hidden = true;
   applyMapVisibility();
 
-  const photoZoom = new PhotoZoom(photos, () => player.currentMedia(), () => player.setPlaying(false)); // zooming in pauses
+  // Zooming in pauses, and swaps a smaller version of the photo for the original.
+  const photoZoom = new PhotoZoom(photos, () => player.currentMedia(), () => { player.setPlaying(false); void player.showFullSize(); });
   player.onShow = () => photoZoom.reset();
   const timeline = new Timeline(query(root, '.timeline'),
     i => { photos.classList.add('slideshow__photos--scrubbing'); player.scrubTo(i); },   // flip without cross-fade

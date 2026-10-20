@@ -98,10 +98,11 @@ public static partial class SharingEndpoints
     {
         shared.WithTags("Shared");
         shared.MapGet("/{token}", GetShared).WithSummary("The shared album's slideshow (no sign-in).");
-        shared.MapGet("/{token}/images/{id:guid}", (string token, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct) =>
-            GetSharedFile(token, id, MediaCollection.Images, http, store, blobs, ct)).WithSummary("A photo or video of a shared album.");
-        shared.MapGet("/{token}/music/{id:guid}", (string token, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct) =>
-            GetSharedFile(token, id, MediaCollection.Music, http, store, blobs, ct)).WithSummary("A music track of a shared album.");
+        shared.MapGet("/{token}/images/{id:guid}", (string token, Guid id, int? size, HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct) =>
+                GetSharedFile(token, id, size, MediaCollection.Images, http, store, blobs, queue, log, ct))
+            .WithSummary("A photo or video of a shared album. Photos: ?size=720, 1280 or 1920 for a smaller version where there is one.");
+        shared.MapGet("/{token}/music/{id:guid}", (string token, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct) =>
+            GetSharedFile(token, id, null, MediaCollection.Music, http, store, blobs, queue, log, ct)).WithSummary("A music track of a shared album.");
     }
 
     [GeneratedRegex("^[A-Za-z0-9_-]{22}$")]
@@ -127,6 +128,7 @@ public static partial class SharingEndpoints
         var manifest = album.CompiledVersion == album.ContentVersion ? await AlbumEndpoints.ReadManifestAsync(blobs, album, ct) : null;
         manifest ??= await AlbumEndpoints.CompileAsync(store, blobs, album, ct);
         if (manifest is null) return NotShared(); // deleted meanwhile
+        manifest = await AlbumEndpoints.WithCurrentSizesAsync(store, album, manifest, ct);
 
         var showMap = !album.ShareHideMap;
         MediaInfoDto Shared(MediaInfoDto m, string segment) => m with
@@ -140,14 +142,16 @@ public static partial class SharingEndpoints
             manifest.Music.Select(m => Shared(m, "music")).ToList()));
     }
 
-    private static async Task<IResult> GetSharedFile(string token, Guid id, MediaCollection collection, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct)
+    private static async Task<IResult> GetSharedFile(string token, Guid id, int? size, MediaCollection collection, HttpContext http,
+        IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger log, CancellationToken ct)
     {
+        if (MediaEndpoints.InvalidSize(size) is { } problem) return problem;
         var album = await SharedAlbum(store, token, ct);
         if (album is null) return NotShared();
         var media = await store.GetMediaAsync(album.OwnerId, album.Id, id, ct);
         if (media?.Collection != collection) media = null;
         // Only what the slideshow shows: photos/videos left out of it (no date or location) stay private.
         if (media is null || MediaInfoDto.MissingFor(media).Count > 0) return Problems.MediaNotFound();
-        return await MediaEndpoints.StreamAsync(http, blobs, media, "private, max-age=3600", ct);
+        return await MediaEndpoints.StreamAsync(http, blobs, store, queue, log, media, size, "private, max-age=3600", ct);
     }
 }

@@ -10,6 +10,7 @@ using Slideshow.Api;
 using Slideshow.Api.Data;
 using Slideshow.Api.Endpoints;
 using Slideshow.Api.Identity;
+using Slideshow.Api.Media;
 using Slideshow.Api.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +22,7 @@ services.AddOptions<StorageOptions>().BindConfiguration("Storage");
 services.AddOptions<GraphOptions>().BindConfiguration("Graph");
 services.AddOptions<LimitsOptions>().BindConfiguration("Limits");
 services.AddOptions<CorsOptions>().BindConfiguration("Cors");
+services.AddOptions<ResizeOptions>().BindConfiguration("Resize");
 
 // Signing in to Table and Blob Storage in Azure: the API's managed identity, straight away (no credential
 // chain), and one credential for both so they share one storage token. AZURE_CLIENT_ID picks the identity.
@@ -39,6 +41,14 @@ services.AddSingleton<IBlobStore>(sp =>
     sp.GetRequiredService<IOptions<StorageOptions>>().Value.Provider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase)
         ? ActivatorUtilities.CreateInstance<AzureBlobStore>(sp)
         : ActivatorUtilities.CreateInstance<FileSystemBlobStore>(sp));
+
+// Photos waiting for their smaller versions: an Azure Storage queue in the cloud, memory locally.
+// The worker makes them in the background, one photo at a time.
+services.AddSingleton<IResizeQueue>(sp =>
+    sp.GetRequiredService<IOptions<ResizeOptions>>().Value.Provider.Equals("AzureQueue", StringComparison.OrdinalIgnoreCase)
+        ? ActivatorUtilities.CreateInstance<AzureResizeQueue>(sp)
+        : ActivatorUtilities.CreateInstance<MemoryResizeQueue>(sp));
+services.AddHostedService<ResizeWorker>();
 
 // Entra user operations via Microsoft Graph, when configured.
 services.AddHttpClient<GraphIdentityDirectory>();
@@ -116,8 +126,8 @@ app.MapGroup("/api/v1/shared").AllowAnonymous().MapShared(); // share links: no 
 
 app.Run();
 
-// In Azure the tables and the media container come from main.bicep, so starting up makes no storage
-// calls. The local emulator (Azurite, reached by connection string) starts empty: create them there.
+// In Azure the tables, the media container and the resize queue come from main.bicep, so starting up makes
+// no storage calls. The local emulator (Azurite, reached by connection string) starts empty: create them there.
 static async Task InitializeStorageAsync(IServiceProvider services)
 {
     if (services.GetRequiredService<IDataStore>() is TableDataStore tables
@@ -126,6 +136,9 @@ static async Task InitializeStorageAsync(IServiceProvider services)
     if (services.GetRequiredService<IBlobStore>() is AzureBlobStore azure
         && !string.IsNullOrEmpty(services.GetRequiredService<IOptions<StorageOptions>>().Value.ConnectionString))
         await azure.EnsureContainerAsync(default);
+    if (services.GetRequiredService<IResizeQueue>() is AzureResizeQueue queue
+        && !string.IsNullOrEmpty(services.GetRequiredService<IOptions<ResizeOptions>>().Value.ConnectionString))
+        await queue.EnsureQueueAsync(default);
 }
 
 public partial class Program; // for WebApplicationFactory in tests
