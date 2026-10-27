@@ -204,6 +204,15 @@ public static class MediaEndpoints
         }
     }
 
+    /// <summary>Queues a photo from before smaller versions existed (ResizeState None) for them.</summary>
+    internal static async Task QueueOlderPhotoAsync(IDataStore store, IResizeQueue queue, ILogger log, MediaFile media, CancellationToken ct)
+    {
+        // Marked first: the worker may finish before a later write, which would then undo its work.
+        await store.SetResizeStateAsync(media.OwnerId, media.AlbumId, media.Id, ResizeState.Pending, [], ct);
+        if (!await TryQueueResizeAsync(queue, media, log))
+            await store.SetResizeStateAsync(media.OwnerId, media.AlbumId, media.Id, ResizeState.None, [], ct);
+    }
+
     /// <summary>
     /// Sends a file's bytes (Range requests supported). With `size` (photos): the smallest of its smaller
     /// versions at least that big, else the original, which is what a photo no bigger than `size` gets
@@ -215,13 +224,7 @@ public static class MediaEndpoints
     {
         if (size is not { } wanted || media.Kind != MediaKind.Image) return await StreamAsync(http, blobs, media, cacheControl, ct);
 
-        if (media.ResizeState == ResizeState.None)
-        {
-            // Marked first: the worker may finish before a later write, which would then undo its work.
-            await store.SetResizeStateAsync(media.OwnerId, media.AlbumId, media.Id, ResizeState.Pending, [], ct);
-            if (!await TryQueueResizeAsync(queue, media, log))
-                await store.SetResizeStateAsync(media.OwnerId, media.AlbumId, media.Id, ResizeState.None, [], ct);
-        }
+        if (media.ResizeState == ResizeState.None) await QueueOlderPhotoAsync(store, queue, log, media, ct);
         if (media.ResizeState is ResizeState.None or ResizeState.Pending)
             cacheControl = "private, no-cache"; // the smaller version replaces it once made
 

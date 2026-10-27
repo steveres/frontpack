@@ -124,6 +124,29 @@ public sealed class ResizeTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Opening_an_album_queues_all_its_older_photos()
+    {
+        var (client, album, userId) = await NewAlbumAsync();
+        var photos = new List<JsonElement>();
+        for (var i = 0; i < 3; i++)
+            photos.Add(await UploadAsync(client, album, TestMedia.RealJpeg(1600, 1200, Taken.AddMinutes(i), Rome), $"p{i}.jpg"));
+        foreach (var photo in photos) await WaitForSizesAsync(client, photo, 2);
+        (await client.PostAsync($"/api/v1/albums/{album}/compile", null)).EnsureSuccessStatusCode();
+
+        // Make them all look like uploads from before smaller versions existed.
+        var store = factory.Services.GetRequiredService<IDataStore>();
+        foreach (var photo in photos)
+        {
+            foreach (var size in Renditions.Sizes) File.Delete(SizedFile(userId, album, photo, size));
+            await store.SetResizeStateAsync(userId, Guid.Parse(album), Guid.Parse(photo.GetProperty("id").GetString()!), ResizeState.None, [], CancellationToken.None);
+        }
+
+        // Opening the slideshow queues every photo in it, not only the ones it goes on to show.
+        (await client.GetAsync($"/api/v1/albums/{album}")).EnsureSuccessStatusCode();
+        foreach (var photo in photos) Assert.Equal(new[] { 720, 1280 }, await WaitForSizesAsync(client, photo, 2));
+    }
+
+    [Fact]
     public async Task Unknown_sizes_are_rejected()
     {
         var (client, album, _) = await NewAlbumAsync();

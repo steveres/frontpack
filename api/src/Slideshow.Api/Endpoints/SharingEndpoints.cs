@@ -119,7 +119,7 @@ public static partial class SharingEndpoints
         return album?.ShareToken == token ? album : null;
     }
 
-    private static async Task<IResult> GetShared(string token, IDataStore store, IBlobStore blobs, CancellationToken ct)
+    private static async Task<IResult> GetShared(string token, IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct)
     {
         var album = await SharedAlbum(store, token, ct);
         if (album is null) return NotShared();
@@ -128,7 +128,7 @@ public static partial class SharingEndpoints
         var manifest = album.CompiledVersion == album.ContentVersion ? await AlbumEndpoints.ReadManifestAsync(blobs, album, ct) : null;
         manifest ??= await AlbumEndpoints.CompileAsync(store, blobs, album, ct);
         if (manifest is null) return NotShared(); // deleted meanwhile
-        manifest = await AlbumEndpoints.WithCurrentSizesAsync(store, album, manifest, ct);
+        manifest = await AlbumEndpoints.WithCurrentSizesAsync(store, queue, log, album, manifest, ct);
 
         var showMap = !album.ShareHideMap;
         MediaInfoDto Shared(MediaInfoDto m, string segment) => m with

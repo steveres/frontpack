@@ -110,24 +110,39 @@ public static class AlbumEndpoints
         return album is null ? Problems.AlbumNotFound() : Results.Ok(Info(album, await store.ListMediaAsync(ownerId, albumId, ct)));
     }
 
-    private static async Task<IResult> Get(Guid albumId, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct)
+    private static async Task<IResult> Get(Guid albumId, HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue,
+        ILogger<Program> log, CancellationToken ct)
     {
         var album = await store.GetAlbumAsync(http.User.UserId(), albumId, ct);
         if (album is null) return Problems.AlbumNotFound();
         var manifest = album.CompiledVersion is null ? null : await ReadManifestAsync(blobs, album, ct);
         if (manifest is null) return Problems.Of(409, "album_not_compiled", "Compile the album first: POST /api/v1/albums/{id}/compile.");
         // The name may have changed since it was compiled (renaming doesn't make the slideshow stale).
-        manifest = await WithCurrentSizesAsync(store, album, manifest, ct);
+        manifest = await WithCurrentSizesAsync(store, queue, log, album, manifest, ct);
         return Results.Ok(manifest with { Name = album.Name, IsStale = album.CompiledVersion != album.ContentVersion });
     }
 
     /// <summary>
     /// The manifest with each photo's smaller versions as they are now: they're made in the background,
-    /// usually after the album was compiled.
+    /// usually after the album was compiled. Slides from before smaller versions existed are queued for
+    /// them, so the whole album catches up the first time it's played, not just the photos shown.
     /// </summary>
-    internal static async Task<AlbumManifestDto> WithCurrentSizesAsync(IDataStore store, Album album, AlbumManifestDto manifest, CancellationToken ct)
+    internal static async Task<AlbumManifestDto> WithCurrentSizesAsync(IDataStore store, IResizeQueue queue, ILogger log,
+        Album album, AlbumManifestDto manifest, CancellationToken ct)
     {
-        var sizes = (await store.ListMediaAsync(album.OwnerId, album.Id, ct)).ToDictionary(m => m.Id, m => m.Sizes);
+        var media = (await store.ListMediaAsync(album.OwnerId, album.Id, ct)).ToDictionary(m => m.Id);
+        var older = manifest.Slides
+            .Select(s => media.GetValueOrDefault(s.Id))
+            .Where(m => m is { Kind: MediaKind.Image, ResizeState: ResizeState.None })
+            .ToList();
+        if (older.Count > 0)
+        {
+            await Parallel.ForEachAsync(older, new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = ct },
+                async (m, token) => await MediaEndpoints.QueueOlderPhotoAsync(store, queue, log, m!, token));
+            log.LogInformation("Queued {Count} photos of album {AlbumId} for smaller versions", older.Count, album.Id);
+        }
+
+        var sizes = media.ToDictionary(p => p.Key, p => p.Value.Sizes);
         return manifest with
         {
             Slides = manifest.Slides.Select(s => s with { Sizes = s.Kind == "image" ? sizes.GetValueOrDefault(s.Id, []) : [] }).ToList(),

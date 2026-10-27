@@ -140,7 +140,7 @@ Base path `/api/v1`. JSON uses camelCase. Errors are RFC 7807 `application/probl
 | `GET /albums/{albumId}/{collection}` | `MediaInfo[]` in upload order. |
 | `POST /albums/{albumId}/{collection}` | multipart: `file` (required), `utcOffsetMinutes` (optional: the uploader's UTC offset, to turn a video's UTC creation time into local time like EXIF). `201` + `MediaInfo`. |
 | `GET /albums/{albumId}/{collection}/{id}` | The bytes, with the sniffed `Content-Type`, `Range`/`ETag` support, `Cache-Control: private, immutable`. |
-| `GET /albums/{albumId}/images/{id}?size=720\|1280\|1920` | A photo's smaller version: the smallest made that is at least `size` (a JPEG), else the original (a photo no bigger than `size` has nothing smaller). While its versions are still being made the original is sent with `Cache-Control: no-cache`; photos uploaded before versions existed are queued on the first such request. Videos ignore `size`. `400` for other sizes. |
+| `GET /albums/{albumId}/images/{id}?size=720\|1280\|1920` | A photo's smaller version: the smallest made that is at least `size` (a JPEG), else the original (a photo no bigger than `size` has nothing smaller). While its versions are still being made the original is sent with `Cache-Control: no-cache`; photos uploaded before versions existed are queued on the first such request (and all of an album's are queued when its slideshow is opened: `GET /albums/{id}` or `GET /shared/{token}`). Videos ignore `size`. `400` for other sizes. |
 | `GET /albums/{albumId}/{collection}/{id}/info` | `MediaInfo`. |
 | `GET /albums/{albumId}/images/{id}/thumbnail` | A JPEG preview, at most 400px on its longest edge, upright per EXIF orientation. Made at upload; photos uploaded before previews existed get one on first request. `404 no_thumbnail` for videos and photos that can't be decoded (e.g. AVIF). |
 | `DELETE /albums/{albumId}/{collection}/{id}` | `204`. |
@@ -208,7 +208,8 @@ Everything an owner has is in their partition, so the album list, usage and quot
 and one album's media is a row-key range. The compiled manifest is a blob
 (`{userId}/{albumId}/manifest.json`), as it can outgrow a table property (64 KB).
 A manifest stores each photo's `sizes` as they were when it was compiled; serving it fills in the
-current ones (one row-key range query), since they're usually made after compiling.
+current ones (one row-key range query), since they're usually made after compiling. The same read
+finds slides from before smaller versions existed and queues them, so an album catches up on its first play.
 `ContentVersion` is bumped on every add/delete (an ETag-checked update, retried if another request
 changed the album meanwhile); an album is stale when it differs from `CompiledVersion`. Deletes go
 media rows → share code → album → user, so a retry after a failure finishes the job.
