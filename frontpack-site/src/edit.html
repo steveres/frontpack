@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Tour - Front Pack</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/images/favicon.png">
+    
+    <!-- CSS imports -->
+    <link rel="stylesheet" href="/css/base/reset.css">
+    <link rel="stylesheet" href="/css/base/variables.css">
+    <link rel="stylesheet" href="/css/components/navigation.css">
+    <link rel="stylesheet" href="/css/components/route-edit.css">
+    
+    <!-- JavaScript imports -->
+    <script src="/js/components/navigation.js" defer></script>
+    <script src="/js/utils/file-helpers.js" defer></script>
+    <script src="/js/api/auth-api.js" defer></script>
+    <script src="/js/api/routes-api.js" defer></script>
+    <script src="/js/components/route-edit.js" defer></script>
+</head>
+<body>
+    <!-- Navigation placeholder -->
+    <div id="navigation-placeholder"></div>
+
+    <!-- Main content -->
+    <main class="main-content">
+        <div class="route-edit">
+
+            <form id="route-edit-form" class="route-edit-form" novalidate>
+                <div id="loading-overlay" class="loading-overlay hidden">
+                    <div class="loading-container">
+                        <img src="/images/spinningtire.gif" alt="Loading..." class="loading-spinner">
+                    </div>
+                </div>
+
+                <!-- Tabs navigation -->
+                <div class="route-edit-tabs">
+                    <button type="button" class="tab-button active" data-tab="info">Info</button>
+                    <button type="button" class="tab-button" data-tab="itinerary">Itinerary</button>
+                    <button type="button" class="tab-button" data-tab="branding">Branding</button>
+                    <button type="button" class="tab-button" data-tab="tags">Tags</button>
+                </div>
+
+                <!-- Info tab -->
+                <div class="tab-content active" id="info-tab">
+                    <div class="form-group">
+                        <label for="tour-name">Name</label>
+                        <input type="text" id="tour-name" name="name" class="form-input" required minlength="10" 
+                            oninvalid="this.setCustomValidity('Name must be at least 10 characters long')"
+                            oninput="this.setCustomValidity('')">
+                        <div class="error-message" id="name-error"></div>`
+                    </div>
+                    <div class="form-group">
+                        <label for="tour-description">Description</label>
+                        <textarea id="tour-description" name="description" class="form-textarea" rows="5"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="tour-privacy">Privacy</label>
+                        <select id="tour-privacy" name="privacy" class="form-select">
+                            <option value="public">Public</option>
+                            <option value="private">Private</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Itinerary tab -->
+                <div class="tab-content" id="itinerary-tab">
+                    <div class="form-group">
+                        <div class="file-upload-container">
+                            <input type="file" id="route-file" name="routeFile" accept=".gpx,.kml" class="form-file">
+                            <img id="route-preview" alt="Route preview" class="preview-image hidden">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="section-header">
+                            <div class="header-with-button">
+                                <label>Route Sections</label>
+                                <button type="button" id="add-section" class="add-button">+</button>
+                            </div>
+                        </div>
+                        <div id="route-sections" class="route-sections">
+                            <!-- Route sections will be added here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Branding tab -->
+                <div class="tab-content" id="branding-tab">
+                    <div class="form-group file-upload-group">
+                        <label for="logo-file">Logo Image</label>
+                        <div class="file-upload-container">
+                            <input type="file" id="logo-file" name="logoFile" accept=".png,.jpg,.gif" class="form-file">
+                            <img id="logo-preview" class="preview-image hidden" alt="Logo preview">
+                        </div>
+                    </div>
+                    <div class="form-group file-upload-group">
+                        <label for="cover-file">Cover Image</label>
+                        <div class="file-upload-container">
+                            <input type="file" id="cover-file" name="coverFile" accept=".png,.jpg,.gif" class="form-file">
+                            <img id="cover-preview" class="preview-image hidden" alt="Cover preview">
+                        </div>
+                    </div>
+                    <div class="form-group file-upload-group">
+                        <label for="catalog-file">Catalog Image</label>
+                        <div class="file-upload-container">
+                            <input type="file" id="catalog-file" name="catalogFile" accept=".png,.jpg,.gif" class="form-file">
+                            <img id="catalog-preview" class="preview-image hidden" alt="Catalog preview">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tags tab -->
+                <div class="tab-content" id="tags-tab">
+                    <div class="form-group">
+                        <div class="section-header">
+                            <div class="header-with-button">
+                                <label>Tags</label>
+                                <button type="button" id="add-tag" class="add-button">+</button>
+                            </div>
+                        </div>
+                        <div id="tags-container" class="tags-container">
+                            <!-- Tags will be added here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form controls -->
+                <div class="form-controls">
+                    <button type="button" class="save-button">Save</button>
+                    <div id="status-message" class="status-message hidden"></div>
+                    <button type="button" class="delete-button-large">Delete</button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+</body>
+</html>

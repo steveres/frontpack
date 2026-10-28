@@ -1,0 +1,215 @@
+/* css/components/routes-list.css */
+
+.routes-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.routes-controls {
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.filters-container {
+    display: flex;
+    gap: 1rem;
+    flex-grow: 1;
+    max-width: 700px;
+}
+
+.tag-filter {
+    padding: 0.5rem;
+    border: 1px solid var(--color-grey);
+    border-radius: var(--border-radius-sm);
+    font-size: 1rem;
+    background-color: white;
+    min-width: 200px;
+}
+
+.search-filter {
+    padding: 0.5rem;
+    border: 1px solid var(--color-grey);
+    border-radius: var(--border-radius-sm);
+    font-size: 1rem;
+    background-color: white;
+    flex-grow: 1;
+}
+
+.tag-filter:focus,
+.search-filter:focus {
+    outline: none;
+    border-color: var(--color-light-blue);
+    box-shadow: 0 0 0 2px rgba(44, 172, 227, 0.2);
+}
+
+.routes-list {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+}
+
+/* Route card styles */
+.route-card {
+    background: var(--color-white);
+    border: 1px solid var(--color-grey);
+    border-radius: var(--border-radius-md);
+    padding: 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;  /* For absolute positioning of edit icon */
+}
+
+.route-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.route-card__content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.route-card__title {
+    font-size: 1.125rem;
+    font-weight: bold;
+    color: var(--color-dark-grey);
+}
+
+.route-card__description {
+    font-size: 0.875rem;
+    color: var(--color-dark-grey);
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Limit to 2 lines */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.route-card__image {
+    display: none; /* Hide image on mobile */
+}
+
+.route-card__edit-icon {
+    position: absolute;
+    top: -10px;  /* Pull up to overlap the border */
+    right: -10px;  /* Pull right to overlap the border */
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    background: white;  /* Match card background */
+    padding: 4px;  /* Add some padding around the icon */
+    border-radius: 50%;  /* Make it circular */
+    border: 1px solid var(--color-grey);  /* Match card border */
+    box-shadow: var(--shadow-sm);  /* Add subtle shadow */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.route-card__edit-icon:hover {
+    transform: scale(1.1);
+    box-shadow: var(--shadow-md);
+}
+
+/* Loading and error states */
+.loading-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    text-align: center;
+}
+
+.loading-spinner {
+    width: 100px;
+    height: 100px;
+}
+
+.error-state {
+    text-align: center;
+    padding: 2rem;
+    color: #ef4444;
+}
+
+.no-results {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-dark-grey);
+    font-style: italic;
+}
+
+.hidden {
+    display: none;
+}
+
+.add-icon {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.add-icon:hover {
+    opacity: 0.8;
+}
+
+/* Desktop styles */
+@media (min-width: 768px) {
+    .routes-list {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .route-card {
+        display: grid;
+        grid-template-columns: 100px 1fr;
+        gap: 1rem;
+        padding: 1.5rem;
+    }
+
+    .route-card__image {
+        display: block; /* Show image on desktop */
+        height: 100px;
+        object-fit: cover;
+        border-radius: var(--border-radius-sm);
+    }
+
+    .route-card__description {
+        -webkit-line-clamp: 3; /* Allow 3 lines on desktop */
+    }
+
+    /* Update the add icon styles */
+    .add-icon {
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        display: inline-block;
+        vertical-align: middle;
+        color: var(--color-dark-grey); /* Icon color */
+    }
+
+    .add-icon:hover {
+        color: var(--color-light-blue); /* Hover color */
+    }
+}
+
+/* Mobile styles */
+@media (max-width: 767px) {
+    .filters-container {
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+    }
+    
+    .tag-filter, 
+    .search-filter {
+        width: 100%;
+    }
+    
+    .add-icon {
+        display: none; /* Hide add icon on mobile */
+    }
+}

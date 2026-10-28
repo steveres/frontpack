@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/images/favicon.png">
+    <title>Verify Email - Front Pack</title>
+    
+    <!-- CSS imports -->
+    <link rel="stylesheet" href="/css/base/reset.css">
+    <link rel="stylesheet" href="/css/base/variables.css">
+    <link rel="stylesheet" href="/css/components/navigation.css">
+    <link rel="stylesheet" href="/css/components/verify-email.css">
+    
+    <!-- JavaScript imports -->
+    <script src="/js/components/navigation.js" defer></script>
+    <script src="/js/api/auth-api.js" defer></script>
+    <script src="/js/components/verify-email.js" defer></script>
+</head>
+<body>
+    <!-- Navigation placeholder -->
+    <div id="navigation-placeholder"></div>
+
+    <!-- Main content -->
+    <main class="main-content">
+        <div class="verify-container">
+            <h1 class="verify-title">Email Verification</h1>
+            
+            <!-- Message container -->
+            <div id="message-container" class="message" role="alert" aria-live="polite">
+                <span id="message-text"></span>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
