@@ -9,6 +9,8 @@ album's MP3s as background music.
 | [api/](api/) | The API that stores each user's albums ([api/README.md](api/README.md)) |
 | [infra/](infra/) | Azure infrastructure (Bicep) and deploy script |
 | [docs/](docs/) | Design documents ([API design](docs/api-design.md)) |
+| [frontpack-site/](frontpack-site/) | The FrontPack website's pages, imported with their history, being ported into `web/` (not built or deployed) |
+| [.github/workflows/](.github/workflows/) | CI: API tests, website build and Bicep check on every pull request (deploys nothing) |
 | `prepare.bat`, `prepare.ps1` | Optional, Windows: prepare a local photo folder (HEIC → JPEG, date order) |
 
 ## Website
