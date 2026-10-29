@@ -22,19 +22,19 @@ if (shareCode) await playShared(shareCode);
 else if (albumId) await playAlbum(albumId);
 else await playFolder();
 
-/** Anyone with the link: no sign-in, no way into the owner's account; back goes to the home page. */
+/** Anyone with the link: no sign-in, no way into the owner's account; back goes to the Slideshows page. */
 async function playShared(code: string): Promise<void> {
   const message = query(start, '.start-screen__message');
   query(start, '.start-screen__actions').hidden = true;
   query(root, '.settings__change').hidden = true;
-  back.href = '/';
-  back.setAttribute('aria-label', 'Go to the Slideshow home page');
+  back.href = '/slideshows.html';
+  back.setAttribute('aria-label', 'Go to the Slideshows page');
   message.textContent = 'Loading slideshow…';
   try {
     const shared = await SharingApi.shared(code);
     document.title = `${shared.name} - Slideshow`;
     query(start, '.start-screen__title').textContent = shared.name;
-    backLabel.textContent = 'Slideshow';
+    backLabel.textContent = 'Slideshows';
     if (!shared.slides.length) { message.textContent = 'This slideshow has no photos to show yet.'; return; }
     const slideshow = mountSlideshow(root, { mapAllowed: shared.showMap });
     start.hidden = true;
@@ -80,8 +80,8 @@ async function playAlbum(id: string): Promise<void> {
 }
 
 async function playFolder(): Promise<void> {
-  back.href = '/';
-  back.setAttribute('aria-label', 'Back to the home page');
+  back.href = '/slideshows.html';
+  back.setAttribute('aria-label', 'Back to the Slideshows page');
   let picker: { show(): void } | undefined;
   const slideshow = mountSlideshow(root, { onChangeSource: () => picker?.show() });
   picker = await mountFolderPicker(start, contents => slideshow.play(contents));

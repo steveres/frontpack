@@ -1,0 +1,26 @@
+/* css/components/about.css */
+
+.about__title { text-align: center; }
+.about__title::after { content: ''; display: block; width: 100px; height: 4px; margin: var(--spacing-md) auto 0; border-radius: 2px; background: var(--color-lamp); }
+
+/* One chapter: text card beside a photo, alternating sides */
+.about__chapter { display: flex; align-items: center; gap: var(--spacing-xl); padding: var(--spacing-lg) 0; transition: opacity .6s ease, transform .6s ease; }
+.about__chapter--reverse { flex-direction: row-reverse; }
+.about__chapter--waiting { opacity: 0; transform: translateY(20px); } /* until scrolled into view (about-page.ts) */
+.about__text { flex: 1; }
+.about__text p { margin: 0; font-size: 1.1rem; line-height: 1.7; }
+.about__tag { margin: 0 0 var(--spacing-sm); font: 700 1.5rem/1.2 var(--font-display); color: var(--color-lamp); }
+
+/* Photos as prints: white border, slightly tilted, straightened on hover */
+.about__photo { flex: 1; min-width: 0; width: 100%; height: auto; border: 10px solid #fff; border-radius: var(--radius-md); background: #fff; box-shadow: 0 10px 25px rgba(0, 0, 0, .45); transform: rotate(-2deg); transition: transform .3s ease; }
+.about__chapter--reverse .about__photo { transform: rotate(2deg); }
+.about__photo:hover { transform: none; }
+
+@media (max-width: 768px) {
+  .about__chapter, .about__chapter--reverse { flex-direction: column; align-items: stretch; }
+  .about__photo { flex: none; max-width: 500px; margin: 0 auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about__chapter, .about__photo { transition: none; }
+}

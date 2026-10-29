@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Slideshow</title>
+    <title>FrontPack</title>
 
-    <!-- Favicon (browser tab, bookmarks, phone home screen) -->
-    <link rel="icon" type="image/png" href="/images/icon.png">
-    <link rel="apple-touch-icon" href="/images/icon.png">
+    <link rel="icon" type="image/png" href="/images/favicon.png">
 
     <link rel="stylesheet" href="/css/base/reset.css">
     <link rel="stylesheet" href="/css/base/variables.css">
@@ -20,13 +18,20 @@
 <body>
     <div id="navigation-placeholder"></div>
 
-    <main class="main-content home">
-        <p class="notice home__deleted" hidden>Your account and everything in it have been deleted.</p>
-        <h1 class="home__title">Slideshow</h1>
-        <p class="home__hello"></p>
-        <div class="home__actions">
-            <a class="button button--primary home__primary" href="/login.html">Sign in</a>
-            <a class="button" href="/slideshow.html">Play a folder on this computer</a>
+    <main class="home">
+        <!-- Cycling photos that cross-fade behind the welcome (index-page.ts) -->
+        <div class="home__background" aria-hidden="true"></div>
+        <div class="home__background" aria-hidden="true"></div>
+
+        <div class="card home__welcome">
+            <h1>Welcome to FrontPack.</h1>
+            <p>
+                Around the block or around the world, FrontPack keeps cyclists connected.
+                Beginning in 2019, we partnered with <a href="https://www.adventurecycling.org/">Adventure Cycling</a>
+                to deliver their <a href="https://www.adventurecycling.org/routes-and-maps/adventure-cycling-route-network/">iconic maps</a>
+                through our co-branded mobile apps. By 2024, we helped cyclists navigate over 25,000,000 miles of epic adventure!
+            </p>
+            <p>Curious? <a href="/about.html">Read our story</a>.</p>
         </div>
     </main>
 </body>

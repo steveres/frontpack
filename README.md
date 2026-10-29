@@ -1,7 +1,7 @@
-# Slideshow
+# FrontPack
 
-Plays albums of photos and videos, draws the route between them on a Google map, and plays the
-album's MP3s as background music.
+The FrontPack website (www.thefrontpack.com) and its Slideshow app, which plays albums of photos and
+videos, draws the route between them on a Google map, and plays the album's MP3s as background music.
 
 | Folder | What |
 |---|---|
@@ -9,7 +9,6 @@ album's MP3s as background music.
 | [api/](api/) | The API that stores each user's albums ([api/README.md](api/README.md)) |
 | [infra/](infra/) | Azure infrastructure (Bicep) and deploy script |
 | [docs/](docs/) | Design documents ([API design](docs/api-design.md)) |
-| [frontpack-site/](frontpack-site/) | The FrontPack website's pages, imported with their history, being ported into `web/` (not built or deployed) |
 | [.github/workflows/](.github/workflows/) | CI: API tests, website build and Bicep check on every pull request (deploys nothing) |
 | `prepare.bat`, `prepare.ps1` | Optional, Windows: prepare a local photo folder (HEIC → JPEG, date order) |
 
@@ -47,7 +46,9 @@ Pages:
 
 | Page | What |
 |---|---|
-| `index.html` | Home |
+| `index.html` | FrontPack home: the welcome, over rotating cycling photos |
+| `about.html` | The FrontPack story |
+| `slideshows.html` | Slideshow start page: sign in, your albums, or play a folder |
 | `login.html` | Sign in; the first sign-in registers the account with the API |
 | `albums.html` | Your albums (with cover photos); create one |
 | `album.html?id=…` | Upload photos, videos and MP3s (drag and drop); file list with previews, showing which files the slideshow will show; play; delete |
@@ -60,7 +61,7 @@ Pages:
 the video's own creation date) and a location (GPS), in date order. Anything missing either is kept in
 the album but left out of the slideshow, and the album page marks it with the reason.
 
-**Playing a local folder:** open http://localhost:3000 in Chrome or Edge and choose the folder. The
+**Playing a local folder:** open http://localhost:3000/slideshow.html in Chrome or Edge and choose the folder. The
 folder and settings are remembered. Optionally run `prepare.bat` on the folder first (drag the folder
 onto it): it converts HEIC files to JPEG and writes `slideshow.json`, which puts the slideshow in
 date-taken order and supplies the dates on the timeline.
