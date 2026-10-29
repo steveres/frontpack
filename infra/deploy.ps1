@@ -7,13 +7,16 @@
     5. Packages the website with production settings and uploads it to Static Web Apps.
   Usage:   .\infra\deploy.ps1 -ResourceGroup slideshow-rg -Location eastus
            .\infra\deploy.ps1 -ResourceGroup slideshow-rg -Location eastus -SkipApi    (website only)
+           .\infra\deploy.ps1 -ResourceGroup slideshow-rg -SkipProviders   (GitHub Actions: its identity has
+                                                                           rights on the resource group only)
   Needs:   Azure CLI (az login done), .NET 9 SDK, Node.js; infra\main.bicepparam and web\app.config.azure.json.
   Written for Windows PowerShell 5.1.
 #>
 param(
   [Parameter(Mandatory = $true)][string]$ResourceGroup,
   [string]$Location = 'eastus',
-  [switch]$SkipApi
+  [switch]$SkipApi,
+  [switch]$SkipProviders
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -37,13 +40,17 @@ function Invoke-Native([string]$Exe, [string[]]$Arguments) {
 }
 function Invoke-Az { return Invoke-Native 'az' $args }
 
-Write-Host '1/5 Resource providers...'
-foreach ($ns in 'Microsoft.App', 'Microsoft.ContainerRegistry', 'Microsoft.Storage', 'Microsoft.OperationalInsights',
-                'Microsoft.Insights', 'Microsoft.ManagedIdentity', 'Microsoft.Web') {
-  $state = Invoke-Az provider show --namespace $ns --query registrationState --output tsv
-  if ($state -ne 'Registered') {
-    Write-Host "  registering $ns (can take a few minutes)"
-    Invoke-Az provider register --namespace $ns --wait --output none | Out-Null
+if ($SkipProviders) {
+  Write-Host '1/5 Skipping the resource providers (-SkipProviders): registered by an earlier deploy.'
+} else {
+  Write-Host '1/5 Resource providers...'
+  foreach ($ns in 'Microsoft.App', 'Microsoft.ContainerRegistry', 'Microsoft.Storage', 'Microsoft.OperationalInsights',
+                  'Microsoft.Insights', 'Microsoft.ManagedIdentity', 'Microsoft.Web') {
+    $state = Invoke-Az provider show --namespace $ns --query registrationState --output tsv
+    if ($state -ne 'Registered') {
+      Write-Host "  registering $ns (can take a few minutes)"
+      Invoke-Az provider register --namespace $ns --wait --output none | Out-Null
+    }
   }
 }
 

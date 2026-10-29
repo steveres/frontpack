@@ -1,0 +1,55 @@
+# Deploys to Azure with infra/deploy.ps1 (the same script as a manual deploy) once CI has passed on main,
+# i.e. after every merged pull request. Also runs from the Actions tab ("Run workflow") for main as it is.
+#
+# Signs in to Azure with OpenID Connect: no stored password. Set up once (api/README.md, "Deploy
+# automatically from GitHub"): an app registration with a federated credential for this repo's
+# "production" environment, and these settings on that environment in GitHub:
+#   variables  AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP, AZURE_LOCATION
+#   secret     GOOGLE_MAPS_API_KEY
+# To approve each deploy before it starts, add a required reviewer to the environment.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # the OpenID Connect token for signing in to Azure
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # never stop a deploy halfway; the next one waits
+
+jobs:
+  deploy:
+    name: Deploy to Azure
+    # After CI: only when it passed, and only for pushes to main (not pull requests from branches named main).
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: windows-latest # deploy.ps1 is written for Windows PowerShell 5.1
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }} # exactly the commit CI tested
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy
+        shell: powershell
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: .\infra\deploy.ps1 -ResourceGroup '${{ vars.AZURE_RESOURCE_GROUP }}' -Location '${{ vars.AZURE_LOCATION }}' -SkipProviders
