@@ -148,14 +148,19 @@ passes on `main` (every merged pull request), or from the Actions tab (**Deploy 
 signs in to Azure with OpenID Connect, so no password is stored in GitHub. Set it up once, after a first
 manual deploy (which registers the resource providers and creates the resource group):
 
-1. In PowerShell, signed in to the Azure tenant that holds the subscription (`az login`; not the
-   Entra External ID tenant used for sign-in). You need rights to create app registrations, and Owner
-   on the resource group:
+1. Run these in PowerShell (they print the values GitHub needs in step 2), signed in to the Azure
+   tenant that holds the subscription (`az login`; not the Entra External ID tenant used for sign-in)
+   and to GitHub (`gh auth login`). You need rights to create app registrations, and Owner on the
+   resource group:
    ```powershell
    $rg     = 'slideshow-rg'
    $repo   = 'steveres/frontpack'
    $sub    = az account show --query id --output tsv
    $tenant = az account show --query tenantId --output tsv
+   # How GitHub names this repository to Azure: newer repositories include the account and repository
+   # ids ("repo:steveres@3514811/frontpack@1405865751"), older ones just the names ("repo:steveres/frontpack").
+   $prefix = gh api "repos/$repo/actions/oidc/customization/sub" --jq .sub_claim_prefix
+   if (-not $prefix) { $prefix = "repo:$repo" }
 
    # The identity GitHub deploys as
    $appId = az ad app create --display-name 'FrontPack GitHub deploy' --query appId --output tsv
@@ -163,7 +168,7 @@ manual deploy (which registers the resource providers and creates the resource g
 
    # Trust GitHub, but only for this repository's "production" environment
    @{ name = 'github-production'; issuer = 'https://token.actions.githubusercontent.com'
-      subject = "repo:${repo}:environment:production"; audiences = @('api://AzureADTokenExchange') } |
+      subject = "${prefix}:environment:production"; audiences = @('api://AzureADTokenExchange') } |
      ConvertTo-Json | Set-Content -Encoding ascii federated-credential.json
    az ad app federated-credential create --id $appId --parameters federated-credential.json --output none
    Remove-Item federated-credential.json
@@ -178,12 +183,29 @@ manual deploy (which registers the resource providers and creates the resource g
    "AZURE_RESOURCE_GROUP=$rg"; "AZURE_LOCATION=$(az group show --name $rg --query location --output tsv)"
    ```
 2. In GitHub: **Settings → Environments → New environment** named `production`. On it, add the five
-   values printed above as **environment variables**, and the Google Maps key as the **environment
-   secret** `GOOGLE_MAPS_API_KEY`. To approve each deploy before it starts, tick **Required reviewers**
-   and add yourself.
+   lines printed above as **environment variables**: the part before `=` is the name (e.g.
+   `AZURE_CLIENT_ID`), the part after is the value (e.g. a GUID). Add the Google Maps key as the
+   **environment secret** `GOOGLE_MAPS_API_KEY`. To approve each deploy before it starts, tick
+   **Required reviewers** and add yourself. Or, in the same PowerShell window:
+   ```powershell
+   gh variable set AZURE_CLIENT_ID       --repo $repo --env production --body $appId
+   gh variable set AZURE_TENANT_ID       --repo $repo --env production --body $tenant
+   gh variable set AZURE_SUBSCRIPTION_ID --repo $repo --env production --body $sub
+   gh variable set AZURE_RESOURCE_GROUP  --repo $repo --env production --body $rg
+   gh variable set AZURE_LOCATION        --repo $repo --env production --body (az group show --name $rg --query location --output tsv)
+   gh secret set GOOGLE_MAPS_API_KEY     --repo $repo --env production   # asks for the key
+   ```
 
 Each run deploys everything (infrastructure, API, website) from the commit CI tested, one at a time.
 It skips the resource provider check (`-SkipProviders`): that needs rights on the whole subscription.
+
+If the **Azure login** step fails:
+- *"Ensure 'client-id' and 'tenant-id' are supplied"*: the variables are missing or misnamed; check
+  them under **Settings → Environments → production**.
+- *"AADSTS700213: No matching federated identity record"*: the trust's subject doesn't match what
+  GitHub sent (the error shows it). Compare with
+  `az ad app federated-credential list --id <AZURE_CLIENT_ID>` and update it with
+  `az ad app federated-credential update`.
 
 ## Configuration reference
 
