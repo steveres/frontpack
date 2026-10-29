@@ -2,14 +2,25 @@
 <header class="header">
     <nav class="nav" aria-label="Main navigation">
         <a href="/" class="nav__brand"><img src="/images/frontpack-logo-nav.png" alt="FrontPack" class="nav__logo" width="200" height="80"></a>
-        <ul class="nav__menu">
-            <li><a href="/albums.html" class="nav__link" data-also="/album.html">Albums</a></li>
-            <li><a href="/about.html" class="nav__link">About</a></li>
-        </ul>
-        <div class="nav__auth">
-            <a href="/login.html" class="nav__link nav__sign-in" hidden>Sign in</a>
-            <a href="/account.html" class="nav__link nav__account" hidden></a>
-            <button type="button" class="nav__sign-out button button--quiet" hidden>Sign out</button>
+        <!-- Small screens: the links and sign-in fold into the panel this button opens -->
+        <button type="button" class="nav__toggle" aria-expanded="false" aria-controls="nav-panel" aria-label="Menu">
+            <svg class="nav__toggle-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+            <svg class="nav__toggle-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18"/>
+            </svg>
+        </button>
+        <div class="nav__panel" id="nav-panel">
+            <ul class="nav__menu">
+                <li><a href="/albums.html" class="nav__link" data-also="/album.html">Albums</a></li>
+                <li><a href="/about.html" class="nav__link">About</a></li>
+            </ul>
+            <div class="nav__auth">
+                <a href="/login.html" class="nav__link nav__sign-in" hidden>Sign in</a>
+                <a href="/account.html" class="nav__link nav__account" hidden></a>
+                <button type="button" class="nav__sign-out button button--quiet" hidden>Sign out</button>
+            </div>
         </div>
     </nav>
 </header>
