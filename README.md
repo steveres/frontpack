@@ -9,7 +9,7 @@ videos, draws the route between them on a Google map, and plays the album's MP3s
 | [api/](api/) | The API that stores each user's albums ([api/README.md](api/README.md)) |
 | [infra/](infra/) | Azure infrastructure (Bicep) and deploy script |
 | [docs/](docs/) | Design documents ([API design](docs/api-design.md)) |
-| [.github/workflows/](.github/workflows/) | CI: API tests, website build and Bicep check on every pull request (deploys nothing) |
+| [.github/workflows/](.github/workflows/) | CI: API tests, website build and Bicep check on every pull request. Deploy: to Azure once CI passes on `main` ([setup](api/README.md#deploy-automatically-from-github)) |
 | `prepare.bat`, `prepare.ps1` | Optional, Windows: prepare a local photo folder (HEIC → JPEG, date order) |
 
 ## Website

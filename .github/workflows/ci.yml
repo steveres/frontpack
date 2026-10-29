@@ -1,5 +1,5 @@
 # Checks every pull request (and main): the API tests, the website build and the infrastructure template.
-# It deploys nothing; deploys stay manual (infra/deploy.ps1).
+# It deploys nothing itself; when it passes on main, deploy.yml deploys to Azure.
 name: CI
 
 on:

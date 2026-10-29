@@ -141,6 +141,50 @@ Notes
   in `main.bicepparam` to keep one instance warm (costs more).
 - Restrict the Google Maps key to the website's address in the Google Cloud console.
 
+### Deploy automatically from GitHub
+
+[.github/workflows/deploy.yml](../.github/workflows/deploy.yml) runs the same `deploy.ps1` after CI
+passes on `main` (every merged pull request), or from the Actions tab (**Deploy → Run workflow**). It
+signs in to Azure with OpenID Connect, so no password is stored in GitHub. Set it up once, after a first
+manual deploy (which registers the resource providers and creates the resource group):
+
+1. In PowerShell, signed in to the Azure tenant that holds the subscription (`az login`; not the
+   Entra External ID tenant used for sign-in). You need rights to create app registrations, and Owner
+   on the resource group:
+   ```powershell
+   $rg     = 'slideshow-rg'
+   $repo   = 'steveres/frontpack'
+   $sub    = az account show --query id --output tsv
+   $tenant = az account show --query tenantId --output tsv
+
+   # The identity GitHub deploys as
+   $appId = az ad app create --display-name 'FrontPack GitHub deploy' --query appId --output tsv
+   az ad sp create --id $appId --output none
+
+   # Trust GitHub, but only for this repository's "production" environment
+   @{ name = 'github-production'; issuer = 'https://token.actions.githubusercontent.com'
+      subject = "repo:${repo}:environment:production"; audiences = @('api://AzureADTokenExchange') } |
+     ConvertTo-Json | Set-Content -Encoding ascii federated-credential.json
+   az ad app federated-credential create --id $appId --parameters federated-credential.json --output none
+   Remove-Item federated-credential.json
+
+   # Rights on the resource group only: change resources, and give the API's identity its roles (main.bicep does)
+   $scope = az group show --name $rg --query id --output tsv
+   az role assignment create --assignee $appId --role 'Contributor' --scope $scope --output none
+   az role assignment create --assignee $appId --role 'Role Based Access Control Administrator' --scope $scope --output none
+
+   # What to enter in GitHub (step 2)
+   "AZURE_CLIENT_ID=$appId"; "AZURE_TENANT_ID=$tenant"; "AZURE_SUBSCRIPTION_ID=$sub"
+   "AZURE_RESOURCE_GROUP=$rg"; "AZURE_LOCATION=$(az group show --name $rg --query location --output tsv)"
+   ```
+2. In GitHub: **Settings → Environments → New environment** named `production`. On it, add the five
+   values printed above as **environment variables**, and the Google Maps key as the **environment
+   secret** `GOOGLE_MAPS_API_KEY`. To approve each deploy before it starts, tick **Required reviewers**
+   and add yourself.
+
+Each run deploys everything (infrastructure, API, website) from the commit CI tested, one at a time.
+It skips the resource provider check (`-SkipProviders`): that needs rights on the whole subscription.
+
 ## Configuration reference
 
 | Setting | Meaning |
