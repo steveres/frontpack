@@ -51,7 +51,7 @@ confirmBtn.onclick = async () => {
   try {
     await AccountApi.remove();
     await (await getAuth()).signOut();
-    location.assign('/?deleted=1');
+    location.assign('/slideshows.html?deleted=1');
   } catch (err) {
     showError(err);
     confirmBtn.disabled = false;

@@ -1,7 +1,8 @@
 /* css/components/home.css */
 
-.home { padding-top: 12vh; }
-.home__title { font-size: clamp(2.6rem, 8vw, 4.4rem); margin-bottom: var(--spacing-md); }
-.home__hello { color: var(--color-muted); max-width: 40ch; margin: 0 0 var(--spacing-lg); }
-.home__actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
-.home__deleted { margin-bottom: var(--spacing-xl); }
+.home { position: relative; overflow: hidden; min-height: calc(100vh - var(--header-height)); padding: 10vh var(--spacing-md) var(--spacing-xl); }
+.home__background { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 1s ease; }
+.home__background--shown { opacity: .8; }
+.home__welcome { position: relative; max-width: 40rem; margin: 0 auto; }
+.home__welcome p { margin: 0 0 var(--spacing-md); line-height: 1.6; }
+.home__welcome p:last-child { margin-bottom: 0; }

@@ -1,0 +1,7 @@
+/* css/components/slideshows.css */
+
+.slideshows { padding-top: 12vh; }
+.slideshows__title { font-size: clamp(2.6rem, 8vw, 4.4rem); margin-bottom: var(--spacing-md); }
+.slideshows__hello { color: var(--color-muted); max-width: 40ch; margin: 0 0 var(--spacing-lg); }
+.slideshows__actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+.slideshows__deleted { margin-bottom: var(--spacing-xl); }

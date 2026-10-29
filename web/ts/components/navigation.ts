@@ -9,9 +9,10 @@ export async function mountNavigation(): Promise<void> {
   if (!placeholder) return;
   placeholder.innerHTML = await (await fetch('/components/navigation.html')).text();
 
-  // Mark the link for the current page.
+  // Mark the link for the current page (data-also: other pages in the same section).
   for (const link of placeholder.querySelectorAll<HTMLAnchorElement>('.nav__link')) {
-    if (link.pathname === location.pathname) link.setAttribute('aria-current', 'page');
+    const pages = [link.pathname, ...(link.dataset.also?.split(' ') ?? [])];
+    if (pages.includes(location.pathname)) link.setAttribute('aria-current', 'page');
   }
 
   const auth = await getAuth();
