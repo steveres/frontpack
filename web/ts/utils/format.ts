@@ -25,10 +25,11 @@ export function formatTaken(taken: string): string {
 /** "1 photo", "3 photos" */
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-/** "12 photos · 2 videos · 3 tracks · 45 MB" */
-export function albumSummary(a: { imageCount: number; videoCount: number; musicCount: number; totalBytes: number }): string {
+/** "12 photos · 2 videos · 3 tracks · 45 MB" (no size when there's no `totalBytes`) */
+export function albumSummary(a: { imageCount: number; videoCount: number; musicCount: number; totalBytes?: number }): string {
   const parts = [plural(a.imageCount, 'photo'), plural(a.videoCount, 'video'), plural(a.musicCount, 'track')];
-  return `${parts.join(' · ')} · ${formatBytes(a.totalBytes)}`;
+  if (a.totalBytes !== undefined) parts.push(formatBytes(a.totalBytes));
+  return parts.join(' · ');
 }
 
 /** An error as a sentence for the page. */

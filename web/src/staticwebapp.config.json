@@ -5,6 +5,7 @@
     "X-Frame-Options": "DENY"
   },
   "routes": [
+    { "route": "/slideshows.html", "redirect": "/albums.html", "statusCode": 301 },
     { "route": "/js/*", "headers": { "Cache-Control": "no-cache" } },
     { "route": "/css/*", "headers": { "Cache-Control": "no-cache" } }
   ],

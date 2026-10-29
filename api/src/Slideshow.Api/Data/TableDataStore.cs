@@ -9,6 +9,7 @@ namespace Slideshow.Api.Data;
 /// <summary>
 /// Azure Table Storage (or Azurite). Four tables, each partitioned so a query reads one partition:
 /// Users (user id / "user"), Albums (owner / album), Media (owner / "album_media"), Shares (code / "share").
+/// The one exception is the list of public albums, which looks across all owners.
 /// </summary>
 public sealed class TableDataStore : IDataStore
 {
@@ -113,6 +114,7 @@ public sealed class TableDataStore : IDataStore
         ["CompiledAt"] = Utc(a.CompiledAt),
         ["ShareToken"] = a.ShareToken,
         ["ShareHideMap"] = a.ShareHideMap,
+        ["IsPublic"] = a.IsPublic,
     };
 
     private static Album ToAlbum(TableEntity e) => new()
@@ -128,6 +130,7 @@ public sealed class TableDataStore : IDataStore
         CompiledAt = Utc(e, "CompiledAt"),
         ShareToken = e.GetString("ShareToken"),
         ShareHideMap = e.GetBoolean("ShareHideMap") ?? false,
+        IsPublic = e.GetBoolean("IsPublic") ?? false,
         ETag = e.ETag.ToString(),
     };
 
@@ -156,6 +159,10 @@ public sealed class TableDataStore : IDataStore
     }
 
     public Task<bool> DeleteAlbumAsync(string ownerId, Guid albumId, CancellationToken ct) => DeleteAsync(_albums, ownerId, Key(albumId), ct);
+
+    /// <summary>Scans every partition of Albums; fine while there are thousands of albums, not millions.</summary>
+    public async Task<IReadOnlyList<Album>> ListPublicAlbumsAsync(CancellationToken ct) =>
+        (await QueryAsync(_albums, TableClient.CreateQueryFilter($"IsPublic eq {true}"), ct)).Select(ToAlbum).ToList();
 
     // ───────── Media ─────────
 

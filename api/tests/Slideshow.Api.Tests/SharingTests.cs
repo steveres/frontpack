@@ -162,6 +162,73 @@ public sealed class SharingTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.True((await owner.GetFromJsonAsync<JsonElement>($"/api/v1/albums/{album}/share")).GetProperty("enabled").GetBoolean());
     }
 
+    private async Task<JsonElement[]> PublicAlbumsAsync() =>
+        (await factory.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/public-albums")).EnumerateArray().ToArray();
+
+    private static JsonElement? Listed(JsonElement[] albums, string album) =>
+        albums.Where(a => a.GetProperty("id").GetString() == album).Cast<JsonElement?>().SingleOrDefault();
+
+    [Fact]
+    public async Task Public_albums_are_listed_for_everyone_with_only_their_slideshow()
+    {
+        var (owner, album, _, hidden, _) = await SharedAlbumAsync();
+        var first = await UploadAsync(owner, album, TestMedia.RealJpeg(200, 200, new DateTime(2026, 6, 30, 9, 0, 0), (45.0, 9.0)), "first.jpg");
+        await ShareAsync(owner, album, new { enabled = true });
+        Assert.Null(Listed(await PublicAlbumsAsync(), album)); // shared by link is not public
+
+        var share = await ShareAsync(owner, album, new { isPublic = true });
+        Assert.True(share.GetProperty("isPublic").GetBoolean());
+        Assert.True((await owner.GetFromJsonAsync<JsonElement>($"/api/v1/albums/{album}/info")).GetProperty("isPublic").GetBoolean());
+
+        var listed = Listed(await PublicAlbumsAsync(), album)!.Value;
+        var token = share.GetProperty("token").GetString();
+        Assert.Equal("Shared trip", listed.GetProperty("name").GetString());
+        Assert.Equal(token, listed.GetProperty("shareToken").GetString());
+        Assert.Equal(2, listed.GetProperty("imageCount").GetInt32()); // the photo without a date or place isn't counted
+        Assert.Equal(1, listed.GetProperty("musicCount").GetInt32());
+        Assert.False(listed.TryGetProperty("totalBytes", out _));
+
+        var anonymous = factory.CreateClient();
+        var cover = listed.GetProperty("coverThumbnailUrl").GetString();
+        Assert.Equal($"/api/v1/shared/{token}/images/{FileId(first)}/thumbnail", cover);
+        Assert.Equal("image/jpeg", (await anonymous.GetAsync(cover)).Content.Headers.ContentType?.MediaType);
+        Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync($"/api/v1/shared/{token}/images/{FileId(hidden)}/thumbnail")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Making_an_album_public_shares_it_and_turning_sharing_off_makes_it_private()
+    {
+        var (owner, album, _, _, _) = await SharedAlbumAsync();
+        var share = await ShareAsync(owner, album, new { isPublic = true });
+        Assert.True(share.GetProperty("enabled").GetBoolean());
+        Assert.NotNull(Listed(await PublicAlbumsAsync(), album));
+
+        // A new link keeps it public, under the new link.
+        var reset = await owner.PostAsync($"/api/v1/albums/{album}/share/reset", null);
+        var token = (await reset.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("token").GetString();
+        Assert.Equal(token, Listed(await PublicAlbumsAsync(), album)!.Value.GetProperty("shareToken").GetString());
+
+        var off = await ShareAsync(owner, album, new { enabled = false });
+        Assert.False(off.GetProperty("isPublic").GetBoolean());
+        Assert.Null(Listed(await PublicAlbumsAsync(), album));
+        Assert.False((await ShareAsync(owner, album, new { enabled = true })).GetProperty("isPublic").GetBoolean()); // sharing again isn't public again
+
+        var conflicting = await owner.PutAsJsonAsync($"/api/v1/albums/{album}/share", new { enabled = false, isPublic = true });
+        Assert.Equal(HttpStatusCode.BadRequest, conflicting.StatusCode);
+    }
+
+    [Fact]
+    public async Task Public_albums_are_listed_newest_first()
+    {
+        var owner = await factory.RegisteredClientAsync(Guid.NewGuid().ToString());
+        var older = await CreateAlbumAsync(owner, "Older");
+        var newer = await CreateAlbumAsync(owner, "Newer");
+        await ShareAsync(owner, newer, new { isPublic = true });
+        await ShareAsync(owner, older, new { isPublic = true });
+        var ids = (await PublicAlbumsAsync()).Select(a => a.GetProperty("id").GetString()).Where(id => id == older || id == newer);
+        Assert.Equal([newer, older], ids);
+    }
+
     [Fact]
     public async Task Deleting_the_album_ends_the_link()
     {

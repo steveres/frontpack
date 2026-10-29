@@ -47,7 +47,7 @@ public static class AlbumEndpoints
             media.Sum(m => m.SizeBytes),
             a.CompiledAt,
             a.CompiledVersion == null || a.CompiledVersion != a.ContentVersion,
-            a.ShareToken != null,
+            a.ShareToken != null, a.IsPublic,
             cover);
     }
 
@@ -90,7 +90,7 @@ public static class AlbumEndpoints
         var now = DateTime.UtcNow;
         var album = new Album { Id = Guid.CreateVersion7(), OwnerId = ownerId, Name = name!, Description = description, CreatedAt = now, UpdatedAt = now };
         await store.AddAlbumAsync(album, ct);
-        var info = new AlbumInfoDto(album.Id, album.Name, album.Description, now, now, 0, 0, 0, 0, 0, null, true, false, null);
+        var info = new AlbumInfoDto(album.Id, album.Name, album.Description, now, now, 0, 0, 0, 0, 0, null, true, false, false, null);
         return Results.Created($"/api/v1/albums/{album.Id}/info", info);
     }
 

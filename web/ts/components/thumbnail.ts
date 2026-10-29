@@ -1,8 +1,8 @@
 // Photo previews. They need the access token, so they can't be plain <img src>: each is fetched when
 // it scrolls into view, a few at a time, and remembered (previews never change) so re-rendering a
-// list doesn't download them again.
+// list doesn't download them again. Previews of shared albums are fetched the same way, without signing in.
 
-import { MediaApi } from '../api/albums-api.js';
+import { MediaApi, SharingApi } from '../api/albums-api.js';
 
 const MAX_PARALLEL = 6;
 const loaded = new Map<string, Promise<string>>(); // preview URL -> object URL
@@ -17,10 +17,10 @@ function pump(): void {
   }
 }
 
-function objectUrl(url: string): Promise<string> {
+function objectUrl(url: string, shared: boolean): Promise<string> {
   let p = loaded.get(url);
   if (!p) {
-    p = MediaApi.download(url).then(blob => URL.createObjectURL(blob));
+    p = (shared ? SharingApi.download(url) : MediaApi.download(url)).then(blob => URL.createObjectURL(blob));
     p.catch(() => loaded.delete(url)); // try again next time
     loaded.set(url, p);
   }
@@ -34,7 +34,7 @@ const observer = new IntersectionObserver(entries => {
     const img = entry.target as HTMLImageElement;
     queue.push(async () => {
       try {
-        img.src = await objectUrl(img.dataset.src!);
+        img.src = await objectUrl(img.dataset.src!, img.dataset.shared === 'true');
         img.closest('.thumb')?.classList.add('thumb--loaded');
       } catch {
         img.closest('.thumb')?.classList.add('thumb--failed');
@@ -46,9 +46,9 @@ const observer = new IntersectionObserver(entries => {
 
 /**
  * A preview box: the photo when `url` is set, otherwise a placeholder (▶ for videos).
- * Size and shape come from CSS (`.thumb` plus the given class).
+ * Size and shape come from CSS (`.thumb` plus the given class). `shared`: a shared album's preview (no sign-in).
  */
-export function thumbnail(url: string | null, kind: 'image' | 'video' | 'audio', className = ''): HTMLElement {
+export function thumbnail(url: string | null, kind: 'image' | 'video' | 'audio', className = '', shared = false): HTMLElement {
   const box = document.createElement('span');
   box.className = `thumb ${className}`.trim();
   if (url) {
@@ -56,6 +56,7 @@ export function thumbnail(url: string | null, kind: 'image' | 'video' | 'audio',
     img.alt = '';
     img.decoding = 'async';
     img.dataset.src = url;
+    if (shared) img.dataset.shared = 'true';
     box.append(img);
     observer.observe(img);
   } else {

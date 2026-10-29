@@ -22,6 +22,8 @@ public interface IDataStore
     Task<bool> TryUpdateAlbumAsync(Album album, CancellationToken ct);
     /// <summary>Deletes the album row only (not its media); false if there was none.</summary>
     Task<bool> DeleteAlbumAsync(string ownerId, Guid albumId, CancellationToken ct);
+    /// <summary>Everyone's public albums, in no particular order: the one query across owners.</summary>
+    Task<IReadOnlyList<Album>> ListPublicAlbumsAsync(CancellationToken ct);
 
     /// <summary>The owner's media, all of it or one album's, in no particular order.</summary>
     Task<IReadOnlyList<MediaFile>> ListMediaAsync(string ownerId, Guid? albumId, CancellationToken ct);

@@ -1,5 +1,6 @@
 // The album page's Share panel: turn "anyone with the link can watch" on or off, copy or share the
-// link (the device's own share sheet where there is one), show/hide the map, or replace the link.
+// link (the device's own share sheet where there is one), show/hide the map, make it public (listed on
+// the Albums page for everyone), or replace the link.
 
 import { shareLink, SharingApi, type ShareInfo } from '../api/albums-api.js';
 import { query } from '../utils/dom.js';
@@ -12,24 +13,27 @@ export function mountSharePanel(panel: HTMLElement, toggle: HTMLButtonElement, a
   const copy = query<HTMLButtonElement>(panel, '.share__copy');
   const native = query<HTMLButtonElement>(panel, '.share__native');
   const map = query<HTMLInputElement>(panel, '.share__map');
+  const isPublic = query<HTMLInputElement>(panel, '.share__public');
   const reset = query<HTMLButtonElement>(panel, '.share__reset');
   const errorEl = query(panel, '.share__error');
   let loaded = false;
 
+  const label = (s: ShareInfo) => s.isPublic ? 'Public ✓' : s.enabled ? 'Shared ✓' : 'Share…';
   const render = (s: ShareInfo) => {
     enabled.checked = s.enabled;
     map.checked = s.showMap;
+    isPublic.checked = s.isPublic;
     details.hidden = !s.enabled;
     link.value = s.token ? shareLink(s.token) : '';
-    toggle.textContent = s.enabled ? 'Shared ✓' : 'Share…';
+    toggle.textContent = label(s);
   };
   /** Runs an API call with the panel's controls disabled, showing any error. */
   const run = async (call: () => Promise<ShareInfo>) => {
     errorEl.hidden = true;
-    for (const c of [enabled, map, reset]) c.disabled = true;
+    for (const c of [enabled, map, isPublic, reset]) c.disabled = true;
     try { render(await call()); }
     catch (err) { errorEl.textContent = errorMessage(err); errorEl.hidden = false; }
-    finally { for (const c of [enabled, map, reset]) c.disabled = false; }
+    finally { for (const c of [enabled, map, isPublic, reset]) c.disabled = false; }
   };
 
   toggle.onclick = async () => {
@@ -40,6 +44,7 @@ export function mountSharePanel(panel: HTMLElement, toggle: HTMLButtonElement, a
   };
   enabled.onchange = () => run(() => SharingApi.update(albumId, { enabled: enabled.checked }));
   map.onchange = () => run(() => SharingApi.update(albumId, { showMap: map.checked }));
+  isPublic.onchange = () => run(() => SharingApi.update(albumId, { isPublic: isPublic.checked }));
   reset.onclick = () => {
     if (confirm('Get a new link? The current link will stop working for everyone who has it.')) void run(() => SharingApi.newLink(albumId));
   };
@@ -60,5 +65,5 @@ export function mountSharePanel(panel: HTMLElement, toggle: HTMLButtonElement, a
   }
 
   // The button shows whether the album is shared even before the panel is opened.
-  void SharingApi.get(albumId).then(s => { toggle.textContent = s.enabled ? 'Shared ✓' : 'Share…'; }).catch(() => undefined);
+  void SharingApi.get(albumId).then(s => { toggle.textContent = label(s); }).catch(() => undefined);
 }

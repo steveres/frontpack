@@ -15,16 +15,32 @@ export interface AlbumInfo {
   coverThumbnailUrl: string | null;
   /** Anyone with the link can watch. */
   isShared: boolean;
+  /** Listed on the Albums page for everyone (always shared too). */
+  isPublic: boolean;
 }
 
-/** Link sharing for an album. `token` goes in the share link; null when not shared. */
-export interface ShareInfo { enabled: boolean; token: string | null; showMap: boolean; }
+/** Link sharing for an album. `token` goes in the share link; null when not shared. `isPublic`: listed for everyone. */
+export interface ShareInfo { enabled: boolean; token: string | null; showMap: boolean; isPublic: boolean; }
+
+/** Someone's public album, as anyone sees it. Counts are of what its slideshow shows; `shareToken` plays it. */
+export interface PublicAlbum {
+  id: string; name: string; description: string | null; createdAt: string; updatedAt: string;
+  imageCount: number; videoCount: number; musicCount: number;
+  shareToken: string;
+  /** Preview of the slideshow's first photo (no sign-in needed), or null. */
+  coverThumbnailUrl: string | null;
+}
 
 /** What a share link gives: the slideshow only. */
 export interface SharedAlbum { name: string; showMap: boolean; slides: MediaInfo[]; music: MediaInfo[]; }
 
 /** The address to send people: plays the album without signing in. */
 export const shareLink = (token: string) => `${location.origin}/slideshow.html?share=${encodeURIComponent(token)}`;
+
+/** Where Play goes: your own album, or a shared one by its code. */
+export const playLink = (album: { albumId: string } | { shareToken: string }) => 'albumId' in album
+  ? `/slideshow.html?album=${encodeURIComponent(album.albumId)}`
+  : `/slideshow.html?share=${encodeURIComponent(album.shareToken)}`;
 
 export type MissingData = 'date' | 'location';
 
@@ -85,12 +101,15 @@ export const AlbumsApi = {
 
 export const SharingApi = {
   get: (albumId: string) => api.get<ShareInfo>(`${at(albumId)}/share`),
-  update: (albumId: string, changes: { enabled?: boolean; showMap?: boolean }) => api.put<ShareInfo>(`${at(albumId)}/share`, changes),
+  /** Making it public shares it too; turning sharing off makes it private again. */
+  update: (albumId: string, changes: { enabled?: boolean; showMap?: boolean; isPublic?: boolean }) => api.put<ShareInfo>(`${at(albumId)}/share`, changes),
   async newLink(albumId: string): Promise<ShareInfo> {
     return (await api.post<ShareInfo>(`${at(albumId)}/share/reset`))!;
   },
   /** For viewers: no sign-in. */
   shared: (token: string) => api.publicGet<SharedAlbum>(`/api/v1/shared/${encodeURIComponent(token)}`),
+  /** Everyone's public albums, newest first. No sign-in. */
+  publicAlbums: () => api.publicGet<PublicAlbum[]>('/api/v1/public-albums'),
   download: (url: string) => api.publicBlob(url),
 };
 

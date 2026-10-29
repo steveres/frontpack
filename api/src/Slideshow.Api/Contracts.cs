@@ -29,7 +29,7 @@ public sealed record DeleteMediaResult(int Deleted);
 public sealed record AlbumInfoDto(
     Guid Id, string Name, string? Description, DateTime CreatedAt, DateTime UpdatedAt,
     int ImageCount, int VideoCount, int MusicCount, int ExcludedCount, long TotalBytes, DateTime? CompiledAt, bool IsStale,
-    bool IsShared,
+    bool IsShared, bool IsPublic,
     [property: JsonIgnore] Guid? CoverId)
 {
     public string? CoverThumbnailUrl => CoverId is { } c ? $"/api/v1/albums/{Id}/images/{c}/thumbnail" : null;
@@ -77,10 +77,21 @@ public sealed record AlbumManifestDto(
     IReadOnlyList<MediaInfoDto> Slides, IReadOnlyList<MediaInfoDto> Music, int ExcludedCount);
 
 /// <param name="Token">The secret code for the share link (the website builds the link); null when not shared.</param>
-public sealed record ShareDto(bool Enabled, string? Token, bool ShowMap);
+/// <param name="IsPublic">Listed on the Albums page for everyone (only while shared).</param>
+public sealed record ShareDto(bool Enabled, string? Token, bool ShowMap, bool IsPublic);
 
-/// <summary>Turn link sharing on/off and choose whether viewers see the map. Omitted fields stay as they are.</summary>
-public sealed record UpdateShareRequest(bool? Enabled, bool? ShowMap);
+/// <summary>
+/// Turn link sharing on/off, choose whether viewers see the map, and list the album for everyone (public).
+/// Omitted fields stay as they are. Making it public shares it; turning sharing off makes it private again.
+/// </summary>
+public sealed record UpdateShareRequest(bool? Enabled, bool? ShowMap, bool? IsPublic);
+
+/// <summary>A public album as anyone sees it: what's in its slideshow, and the share code that plays it.</summary>
+/// <param name="ImageCount">Photos in the slideshow (photos without a date or location stay private, so aren't counted).</param>
+/// <param name="CoverThumbnailUrl">Preview of the slideshow's first photo, under /api/v1/shared/{token}; null when there is none.</param>
+public sealed record PublicAlbumDto(
+    Guid Id, string Name, string? Description, DateTime CreatedAt, DateTime UpdatedAt,
+    int ImageCount, int VideoCount, int MusicCount, string ShareToken, string? CoverThumbnailUrl);
 
 /// <summary>What anonymous viewers of a share link get: the slideshow only, with file URLs under /api/v1/shared/{token}.</summary>
 public sealed record SharedAlbumDto(string Name, bool ShowMap, IReadOnlyList<MediaInfoDto> Slides, IReadOnlyList<MediaInfoDto> Music);

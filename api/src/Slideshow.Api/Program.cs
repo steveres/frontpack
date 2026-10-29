@@ -123,6 +123,7 @@ var api = app.MapGroup("/api/v1").RequireAuthorization(Auth.ApiPolicy);
 api.MapAccount();
 api.MapAlbums(app.Services.GetRequiredService<IOptions<LimitsOptions>>().Value.MaxUploadBytes);
 app.MapGroup("/api/v1/shared").AllowAnonymous().MapShared(); // share links: no sign-in
+app.MapGroup("/api/v1/public-albums").AllowAnonymous().MapPublicAlbums(); // the albums anyone can watch
 
 app.Run();
 

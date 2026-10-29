@@ -98,6 +98,9 @@ public sealed class LocalDataStore : IDataStore
     public Task<bool> DeleteAlbumAsync(string ownerId, Guid albumId, CancellationToken ct) =>
         Task.FromResult(Write(s => s.Albums.Remove(AlbumKey(ownerId, albumId))));
 
+    public Task<IReadOnlyList<Album>> ListPublicAlbumsAsync(CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Album>>(Read(s => s.Albums.Values.Where(a => a.IsPublic).Select(a => a.Clone()).ToList()));
+
     public Task<IReadOnlyList<MediaFile>> ListMediaAsync(string ownerId, Guid? albumId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<MediaFile>>(Read(s => s.Media.Values
             .Where(m => m.OwnerId == ownerId && (albumId is null || m.AlbumId == albumId))

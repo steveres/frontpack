@@ -30,6 +30,8 @@ public sealed class Album
     public string? ShareToken { get; set; }
     /// <summary>Viewers of the share link don't see the map (or the photos' locations). Default: they do.</summary>
     public bool ShareHideMap { get; set; }
+    /// <summary>Listed on the Albums page for everyone. Only while shared by link: the share link is how they play it.</summary>
+    public bool IsPublic { get; set; }
 
     /// <summary>The stored row's version when read; an update fails if the row changed since (not stored itself).</summary>
     public string? ETag { get; set; }

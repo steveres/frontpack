@@ -152,15 +152,21 @@ can carry script).
 ### Sharing (anyone with the link can watch)
 | Method & path | Result |
 |---|---|
-| `GET /albums/{albumId}/share` | `{ enabled, token, showMap }`; `token` is the secret code in the share link (null when not shared). |
-| `PUT /albums/{albumId}/share` `{ enabled?, showMap? }` | Turn link sharing on/off (turning it on again issues a new code); choose whether viewers see the map. |
-| `POST /albums/{albumId}/share/reset` | New code; the old link stops working. `409 album_not_shared` if sharing is off. |
+| `GET /albums/{albumId}/share` | `{ enabled, token, showMap, isPublic }`; `token` is the secret code in the share link (null when not shared). |
+| `PUT /albums/{albumId}/share` `{ enabled?, showMap?, isPublic? }` | Turn link sharing on/off (turning it on again issues a new code); choose whether viewers see the map; make the album public. `isPublic: true` turns sharing on if it's off; turning sharing off makes the album private again. `400` for `{ enabled: false, isPublic: true }`. |
+| `POST /albums/{albumId}/share/reset` | New code; the old link stops working (a public album stays public, under the new code). `409 album_not_shared` if sharing is off. |
 | `GET /shared/{token}` | **No sign-in.** `{ name, showMap, slides, music }`: the current slideshow (compiled on demand), with file URLs under `/shared/{token}/…`; locations removed when `showMap` is false. |
 | `GET /shared/{token}/images/{id}`, `GET /shared/{token}/music/{id}` | **No sign-in.** Only files in the slideshow (photos without a date or location stay private). |
+| `GET /shared/{token}/images/{id}/thumbnail` | **No sign-in.** A slideshow photo's preview (public albums' covers). |
+| `GET /public-albums` | **No sign-in.** `PublicAlbum[]`, newest first: `{ id, name, description, createdAt, updatedAt, imageCount, videoCount, musicCount, shareToken, coverThumbnailUrl }`. The counts and the cover include only what the slideshow shows. |
 
 The code is 128 random bits (22 URL-safe characters), unrelated to the album id. Wrong, revoked and
 malformed codes all return `404 share_not_found`. Viewers can't list files, see other albums or change
 anything; anonymous requests are rate-limited per IP address like everyone else's.
+
+**Public albums** are shared albums their owner also chose to list: `GET /public-albums` gives anyone their
+share codes, so it's an opt-in, separate from sharing by link (which stays unlisted). Listing them is the
+one query across owners (a scan of the Albums table, filtered on `IsPublic`).
 
 ### Shapes
 ```jsonc
@@ -197,7 +203,7 @@ anything; anonymous requests are rate-limited per IP address like everyone else'
 ```
 Users   PK userId · RK "user"            DisplayName · Email · CreatedAt · TokensValidAfter?
 Albums  PK ownerId · RK albumId          Name · Description · CreatedAt · UpdatedAt · ContentVersion
-                                         CompiledVersion? · CompiledAt? · ShareToken? · ShareHideMap
+                                         CompiledVersion? · CompiledAt? · ShareToken? · ShareHideMap · IsPublic
 Media   PK ownerId · RK albumId_mediaId  AlbumId · MediaId · Collection (Images|Music) · Kind · FileName
                                          ContentType · SizeBytes · BlobName · UploadedAt · TakenAt? (text,
                                          local time) · TakenSource? · Latitude? · Longitude? · ThumbnailState

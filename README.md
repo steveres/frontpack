@@ -48,9 +48,8 @@ Pages:
 |---|---|
 | `index.html` | FrontPack home: the welcome, over rotating cycling photos |
 | `about.html` | The FrontPack story |
-| `slideshows.html` | Slideshow start page: sign in, your albums, or play a folder |
 | `login.html` | Sign in; the first sign-in registers the account with the API |
-| `albums.html` | Your albums (with cover photos); create one |
+| `albums.html` | Slideshow start page (the nav's **Albums**): your albums, then everyone's public albums, with cover photos and Play; create an album; play a folder on this computer |
 | `album.html?id=…` | Upload photos, videos and MP3s (drag and drop); file list with previews, showing which files the slideshow will show; play; delete |
 | `slideshow.html?album=…` | Play an album (compiles it first if it changed) |
 | `slideshow.html?share=…` | Play a shared album: anyone with the link, no sign-in (album page → **Share…**) |

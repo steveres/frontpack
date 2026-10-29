@@ -257,11 +257,16 @@ public static class MediaEndpoints
             enableRangeProcessing: true);
     }
 
-    /// <summary>The photo's preview; made now (and kept) if it was uploaded before previews existed.</summary>
     private static async Task<IResult> GetThumbnail(Guid albumId, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct)
     {
         var media = await Find(store, http.User.UserId(), albumId, MediaCollection.Images, id, ct);
-        if (media is null) return Problems.MediaNotFound();
+        return media is null ? Problems.MediaNotFound()
+            : await ThumbnailAsync(http, store, blobs, media, "private, max-age=31536000, immutable", ct); // a photo's preview never changes
+    }
+
+    /// <summary>The photo's preview; made now (and kept) if it was uploaded before previews existed.</summary>
+    internal static async Task<IResult> ThumbnailAsync(HttpContext http, IDataStore store, IBlobStore blobs, MediaFile media, string cacheControl, CancellationToken ct)
+    {
         var noThumbnail = Problems.Of(404, "no_thumbnail", "This file has no preview.");
         if (media.Kind != MediaKind.Image || media.ThumbnailState == ThumbnailState.Unavailable) return noThumbnail;
 
@@ -282,7 +287,7 @@ public static class MediaEndpoints
             stream = new MemoryStream(bytes);
         }
 
-        http.Response.Headers.CacheControl = "private, max-age=31536000, immutable"; // a photo's preview never changes
+        http.Response.Headers.CacheControl = cacheControl;
         return Results.Stream(stream, Thumbnails.ContentType, entityTag: new EntityTagHeaderValue($"\"{media.Id:N}-thumb\""));
     }
 

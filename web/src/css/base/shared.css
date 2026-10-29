@@ -34,6 +34,7 @@ a { color: var(--color-lamp); }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .8rem; white-space: nowrap; }
 .badge--ok { color: var(--color-ok); background: rgba(143, 207, 154, .12); }
 .badge--warning { color: var(--color-lamp); background: rgba(242, 184, 75, .14); }
+.badge--muted { color: var(--color-muted); background: rgba(139, 147, 160, .12); }
 
 /* Photo previews (components/thumbnail.ts): fade in when loaded; placeholder when there's none */
 .thumb { display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-sm); background: var(--color-field); color: var(--color-muted); font-size: 1.2rem; }

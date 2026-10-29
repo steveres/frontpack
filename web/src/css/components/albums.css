@@ -3,12 +3,24 @@
 .albums__new { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: var(--spacing-md); align-items: end; margin-bottom: var(--spacing-xl); }
 @media (max-width: 640px) { .albums__new { grid-template-columns: 1fr; } }
 
+.albums__section { margin-bottom: var(--spacing-xl); }
+.albums__heading { margin: 0 0 var(--spacing-md); font: 400 1.75rem/1.2 var(--font-display); }
 .albums__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--spacing-md); margin: 0; padding: 0; list-style: none; }
-.albums__loading, .albums__empty { color: var(--color-muted); }
+.albums__loading, .albums__empty, .albums__sign-in, .albums__folder-note { color: var(--color-muted); }
+.albums__folder-note { margin: 0 0 var(--spacing-md); }
+.albums__deleted { margin-bottom: var(--spacing-xl); }
 
-.album-card { display: grid; align-content: start; gap: var(--spacing-xs); height: 100%; overflow: hidden; color: inherit; text-decoration: none; transition: border-color var(--transition-fast), transform var(--transition-fast); }
+/* The name's link is stretched over the whole card; Play sits above it, at the bottom. */
+.album-card { position: relative; display: flex; flex-direction: column; gap: var(--spacing-xs); overflow: hidden; transition: border-color var(--transition-fast), transform var(--transition-fast); }
 .album-card:hover { border-color: var(--color-lamp); transform: translateY(-2px); }
-.thumb--cover { width: calc(100% + 2 * var(--spacing-lg)); aspect-ratio: 16 / 9; margin: calc(-1 * var(--spacing-lg)) calc(-1 * var(--spacing-lg)) var(--spacing-sm); border-radius: 0; }
+.album-card:has(.album-card__link:focus-visible) { outline: 2px solid var(--color-lamp); outline-offset: 2px; }
+.thumb--cover { flex: none; width: calc(100% + 2 * var(--spacing-lg)); aspect-ratio: 16 / 9; margin: calc(-1 * var(--spacing-lg)) calc(-1 * var(--spacing-lg)) var(--spacing-sm); border-radius: 0; }
 .album-card__name { margin: 0; font: 400 1.5rem/1.2 var(--font-display); }
+.album-card__link { color: inherit; text-decoration: none; }
+.album-card__link::after { content: ""; position: absolute; inset: 0; }
+.album-card__link:focus-visible { outline: none; }
 .album-card__description { margin: 0; color: var(--color-paper); opacity: .85; }
 .album-card__summary, .album-card__meta { margin: 0; color: var(--color-muted); font-size: .9rem; }
+.album-card__play { position: relative; z-index: 1; align-self: flex-start; margin-top: auto; }
+.album-card__meta { margin-bottom: var(--spacing-sm); }
+.album-card__play[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
