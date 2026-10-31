@@ -49,7 +49,7 @@ public static class Auth
         var oid = ctx.Principal?.FindFirstValue("oid");
         if (string.IsNullOrEmpty(oid)) { ctx.Fail("Token has no oid claim."); return; }
 
-        var store = ctx.HttpContext.RequestServices.GetRequiredService<IDataStore>();
+        var store = ctx.HttpContext.RequestServices.GetRequiredService<IUserStore>();
         var account = await store.GetUserAsync(oid, ctx.HttpContext.RequestAborted);
         if (account?.TokensValidAfter is { } cutoff)
         {

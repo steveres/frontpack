@@ -31,10 +31,15 @@ services.AddSingleton<TokenCredential>(_ => builder.Configuration["AZURE_CLIENT_
     : new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
 
 // Users, albums and media details: Azure Table Storage in the cloud, memory (saved to a file) locally and in tests.
-services.AddSingleton<IDataStore>(sp =>
+// One store holds both for now; FrontPack (users) and Slideshow (albums, media, shares) each see only their part.
+services.AddSingleton<IUserStore>(sp =>
     sp.GetRequiredService<IOptions<TablesOptions>>().Value.Provider.Equals("AzureTable", StringComparison.OrdinalIgnoreCase)
         ? ActivatorUtilities.CreateInstance<TableDataStore>(sp)
         : ActivatorUtilities.CreateInstance<LocalDataStore>(sp));
+services.AddSingleton(sp => (ISlideshowStore)sp.GetRequiredService<IUserStore>());
+
+// Each service's part of an account: usage on the account page, and what deleting the account deletes.
+services.AddScoped<IServiceAccountData, SlideshowAccountData>();
 
 // Media bytes: Azure Blob Storage in the cloud, a folder locally.
 services.AddSingleton<IBlobStore>(sp =>
@@ -131,7 +136,7 @@ app.Run();
 // no storage calls. The local emulator (Azurite, reached by connection string) starts empty: create them there.
 static async Task InitializeStorageAsync(IServiceProvider services)
 {
-    if (services.GetRequiredService<IDataStore>() is TableDataStore tables
+    if (services.GetRequiredService<IUserStore>() is TableDataStore tables
         && !string.IsNullOrEmpty(services.GetRequiredService<IOptions<TablesOptions>>().Value.ConnectionString))
         await tables.EnsureTablesAsync(default);
     if (services.GetRequiredService<IBlobStore>() is AzureBlobStore azure

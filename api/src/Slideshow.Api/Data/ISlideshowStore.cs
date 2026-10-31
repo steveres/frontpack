@@ -1,19 +1,12 @@
 namespace Slideshow.Api.Data;
 
 /// <summary>
-/// Users, albums, media details and share links: Azure Table Storage in the cloud, memory (optionally
+/// Slideshow's albums, media details and share links: Azure Table Storage in the cloud, memory (optionally
 /// saved to a file) locally and in tests. Everything is keyed by owner, so each query reads one partition.
 /// Reads return copies: changing one changes nothing until it is written back.
 /// </summary>
-public interface IDataStore
+public interface ISlideshowStore
 {
-    Task<User?> GetUserAsync(string userId, CancellationToken ct);
-    /// <summary>Adds the user; false if one with that id already exists.</summary>
-    Task<bool> TryAddUserAsync(User user, CancellationToken ct);
-    /// <summary>Logout: tokens issued before `cutoff` are rejected. Nothing happens for an unknown user.</summary>
-    Task SetTokensValidAfterAsync(string userId, DateTime cutoff, CancellationToken ct);
-    Task DeleteUserAsync(string userId, CancellationToken ct);
-
     /// <summary>The owner's albums, in no particular order.</summary>
     Task<IReadOnlyList<Album>> ListAlbumsAsync(string ownerId, CancellationToken ct);
     Task<Album?> GetAlbumAsync(string ownerId, Guid albumId, CancellationToken ct);
@@ -50,7 +43,7 @@ public static class DataStoreExtensions
     /// Reads the album, applies `change` and writes it back, starting again if someone else changed it
     /// meanwhile. Returns the album as written, or null if it doesn't exist.
     /// </summary>
-    public static async Task<Album?> UpdateAlbumAsync(this IDataStore store, string ownerId, Guid albumId, Action<Album> change, CancellationToken ct)
+    public static async Task<Album?> UpdateAlbumAsync(this ISlideshowStore store, string ownerId, Guid albumId, Action<Album> change, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)
         {
@@ -63,6 +56,6 @@ public static class DataStoreExtensions
     }
 
     /// <summary>Marks the album's contents changed (media added or deleted), so its manifest is stale.</summary>
-    public static Task<Album?> BumpVersionAsync(this IDataStore store, string ownerId, Guid albumId, DateTime now, CancellationToken ct) =>
+    public static Task<Album?> BumpVersionAsync(this ISlideshowStore store, string ownerId, Guid albumId, DateTime now, CancellationToken ct) =>
         store.UpdateAlbumAsync(ownerId, albumId, a => { a.ContentVersion++; a.UpdatedAt = now; }, ct);
 }

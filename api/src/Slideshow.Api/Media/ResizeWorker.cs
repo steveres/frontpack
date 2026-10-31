@@ -8,7 +8,7 @@ namespace Slideshow.Api.Media;
 /// Makes the smaller versions of uploaded photos, one photo at a time, from the resize queue. A photo
 /// that keeps failing is given up on after Resize:MaxAttempts tries and stays full size only.
 /// </summary>
-public sealed class ResizeWorker(IResizeQueue queue, IDataStore store, IBlobStore blobs, IOptions<ResizeOptions> options, ILogger<ResizeWorker> log)
+public sealed class ResizeWorker(IResizeQueue queue, ISlideshowStore store, IBlobStore blobs, IOptions<ResizeOptions> options, ILogger<ResizeWorker> log)
     : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

@@ -14,7 +14,8 @@ namespace Slideshow.Api.Tests;
 /// </summary>
 public sealed class DataStoreTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
-    private IDataStore Store => factory.Services.GetRequiredService<IDataStore>();
+    private ISlideshowStore Store => factory.Services.GetRequiredService<ISlideshowStore>();
+    private IUserStore Users => factory.Services.GetRequiredService<IUserStore>();
 
     [Fact]
     public async Task Concurrent_album_updates_are_all_kept()
@@ -59,7 +60,7 @@ public sealed class DataStoreTests(ApiFactory factory) : IClassFixture<ApiFactor
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync("/api/v1/account")).StatusCode);
 
         var ct = CancellationToken.None;
-        Assert.Null(await Store.GetUserAsync(userId, ct));
+        Assert.Null(await Users.GetUserAsync(userId, ct));
         Assert.Empty(await Store.ListAlbumsAsync(userId, ct));
         Assert.Empty(await Store.ListMediaAsync(userId, null, ct));
         Assert.Null(await Store.ResolveShareAsync(token, ct));
@@ -86,7 +87,7 @@ public sealed class DataStoreTests(ApiFactory factory) : IClassFixture<ApiFactor
         Assert.Null(await Store.ResolveShareAsync(second, ct));
 
         // Registration can't claim a taken id, and a share code can't be claimed twice.
-        Assert.False(await Store.TryAddUserAsync(new User { Id = userId, CreatedAt = DateTime.UtcNow }, ct));
+        Assert.False(await Users.TryAddUserAsync(new User { Id = userId, CreatedAt = DateTime.UtcNow }, ct));
         Assert.True(await Store.TryAddShareAsync("abcdefghijklmnopqrstuv", userId, Guid.Parse(album), ct));
         Assert.False(await Store.TryAddShareAsync("abcdefghijklmnopqrstuv", userId, Guid.Parse(album), ct));
         await Store.DeleteShareAsync("abcdefghijklmnopqrstuv", ct);

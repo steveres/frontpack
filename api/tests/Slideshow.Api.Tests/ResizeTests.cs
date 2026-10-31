@@ -111,7 +111,7 @@ public sealed class ResizeTests(ApiFactory factory) : IClassFixture<ApiFactory>
         // Make it look like an upload from before smaller versions existed.
         foreach (var size in Renditions.Sizes) File.Delete(SizedFile(userId, album, photo, size));
         var id = Guid.Parse(photo.GetProperty("id").GetString()!);
-        await factory.Services.GetRequiredService<IDataStore>()
+        await factory.Services.GetRequiredService<ISlideshowStore>()
             .SetResizeStateAsync(userId, Guid.Parse(album), id, ResizeState.None, [], CancellationToken.None);
 
         var url = photo.GetProperty("url").GetString()!;
@@ -134,7 +134,7 @@ public sealed class ResizeTests(ApiFactory factory) : IClassFixture<ApiFactory>
         (await client.PostAsync($"/api/v1/albums/{album}/compile", null)).EnsureSuccessStatusCode();
 
         // Make them all look like uploads from before smaller versions existed.
-        var store = factory.Services.GetRequiredService<IDataStore>();
+        var store = factory.Services.GetRequiredService<ISlideshowStore>();
         foreach (var photo in photos)
         {
             foreach (var size in Renditions.Sizes) File.Delete(SizedFile(userId, album, photo, size));

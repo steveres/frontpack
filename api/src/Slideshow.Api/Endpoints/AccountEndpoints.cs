@@ -2,7 +2,6 @@ using System.Security.Claims;
 using Microsoft.Extensions.Options;
 using Slideshow.Api.Data;
 using Slideshow.Api.Identity;
-using Slideshow.Api.Storage;
 
 namespace Slideshow.Api.Endpoints;
 
@@ -18,9 +17,9 @@ public static class AccountEndpoints
         g.MapDelete("/", Delete).WithSummary("Delete the account, all albums and files, and the Entra user.");
     }
 
-    private static async Task<IResult> Register(HttpContext http, IDataStore store, IOptions<LimitsOptions> limits, ILogger<Program> log, CancellationToken ct)
+    private static async Task<IResult> Register(HttpContext http, IUserStore store, IEnumerable<IServiceAccountData> services, IOptions<LimitsOptions> limits, ILogger<Program> log, CancellationToken ct)
     {
-        if (http.Account() is { } existing) return Results.Ok(await ToDto(store, existing, limits.Value, ct));
+        if (http.Account() is { } existing) return Results.Ok(await ToDto(services, existing, limits.Value, ct));
 
         var user = new User
         {
@@ -33,16 +32,16 @@ public static class AccountEndpoints
         {
             // Two registrations raced; the other one won.
             var winner = await store.GetUserAsync(user.Id, ct) ?? throw new InvalidOperationException("Registration conflict, but no user.");
-            return Results.Ok(await ToDto(store, winner, limits.Value, ct));
+            return Results.Ok(await ToDto(services, winner, limits.Value, ct));
         }
         log.LogInformation("Registered user {UserId}", user.Id);
-        return Results.Created("/api/v1/account", await ToDto(store, user, limits.Value, ct));
+        return Results.Created("/api/v1/account", await ToDto(services, user, limits.Value, ct));
     }
 
-    private static async Task<IResult> Get(HttpContext http, IDataStore store, IOptions<LimitsOptions> limits, CancellationToken ct) =>
-        http.Account() is { } user ? Results.Ok(await ToDto(store, user, limits.Value, ct)) : Problems.NotRegistered();
+    private static async Task<IResult> Get(HttpContext http, IEnumerable<IServiceAccountData> services, IOptions<LimitsOptions> limits, CancellationToken ct) =>
+        http.Account() is { } user ? Results.Ok(await ToDto(services, user, limits.Value, ct)) : Problems.NotRegistered();
 
-    private static async Task<IResult> Logout(HttpContext http, IDataStore store, IIdentityDirectory directory, ILogger<Program> log, CancellationToken ct)
+    private static async Task<IResult> Logout(HttpContext http, IUserStore store, IIdentityDirectory directory, ILogger<Program> log, CancellationToken ct)
     {
         var userId = http.User.UserId();
         await store.SetTokensValidAfterAsync(userId, DateTime.UtcNow, ct);
@@ -56,18 +55,12 @@ public static class AccountEndpoints
     }
 
     /// <summary>Data first, identity last: if any step fails the user can still sign in and retry.</summary>
-    private static async Task<IResult> Delete(HttpContext http, IDataStore store, IBlobStore blobs, IIdentityDirectory directory, ILogger<Program> log, CancellationToken ct)
+    private static async Task<IResult> Delete(HttpContext http, IUserStore store, IEnumerable<IServiceAccountData> services, IIdentityDirectory directory, ILogger<Program> log, CancellationToken ct)
     {
         var userId = http.User.UserId();
-        // Media rows, then share links and albums, then the user: a retry after a failure picks up where it stopped.
-        await store.DeleteAllMediaAsync(userId, null, ct);
-        foreach (var album in await store.ListAlbumsAsync(userId, ct))
-        {
-            if (album.ShareToken is { } token) await store.DeleteShareAsync(token, ct);
-            await store.DeleteAlbumAsync(userId, album.Id, ct);
-        }
+        // Each service's data, then the user: a retry after a failure picks up where it stopped.
+        foreach (var service in services) await service.DeleteUserDataAsync(userId, ct);
         await store.DeleteUserAsync(userId, ct);
-        await blobs.DeletePrefixAsync(BlobNames.UserPrefix(userId), ct);
 
         try { await directory.DeleteUserAsync(userId, ct); }
         catch (Exception e) when (e is not OperationCanceledException)
@@ -79,12 +72,13 @@ public static class AccountEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<AccountDto> ToDto(IDataStore store, User u, LimitsOptions limits, CancellationToken ct)
+    /// <summary>Usage is totalled across the services; the quota covers all of them.</summary>
+    private static async Task<AccountDto> ToDto(IEnumerable<IServiceAccountData> services, User u, LimitsOptions limits, CancellationToken ct)
     {
-        var albums = await store.ListAlbumsAsync(u.Id, ct);
-        var files = await store.ListMediaAsync(u.Id, null, ct);
+        var usage = await Task.WhenAll(services.Select(s => s.GetUsageAsync(u.Id, ct)));
+        long Count(string kind) => usage.Sum(x => x.Counts.GetValueOrDefault(kind));
         return new AccountDto(u.Id, u.DisplayName, u.Email, u.CreatedAt,
-            new UsageDto(albums.Count, files.Count, files.Sum(m => m.SizeBytes), limits.QuotaBytesPerUser));
+            new UsageDto((int)Count("albums"), (int)Count("files"), usage.Sum(x => x.Bytes), limits.QuotaBytesPerUser));
     }
 
     private static string? Truncate(string? s, int max) => s is null ? null : s.Length <= max ? s : s[..max];

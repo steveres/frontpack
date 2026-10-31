@@ -8,7 +8,7 @@ namespace Slideshow.Api.Data;
 /// to that JSON file after every change. Behaves like the table store: copies in and out, ETags on
 /// albums, and inserts that fail when the key is taken.
 /// </summary>
-public sealed class LocalDataStore : IDataStore
+public sealed class LocalDataStore : IUserStore, ISlideshowStore
 {
     private sealed class State
     {
