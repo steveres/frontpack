@@ -1,17 +1,22 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
-using Slideshow.Api.Data;
 
-namespace Slideshow.Api.Identity;
+namespace FrontPack.ServiceDefaults;
 
+/// <summary>
+/// Sign-in for every service: Entra External ID tokens, checked against the caller's FrontPack account
+/// (which also carries the sign-out-everywhere cut-off).
+/// </summary>
 public static class Auth
 {
-    public const string ApiPolicy = "SlideshowApi";
-    private const string AccountItem = "slideshow.account";
+    public const string ApiPolicy = "FrontPackApi";
+    private const string AccountItem = "frontpack.account";
 
-    public static IServiceCollection AddSlideshowAuth(this IServiceCollection services)
+    public static IServiceCollection AddFrontPackAuth(this IServiceCollection services)
     {
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
