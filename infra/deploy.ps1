@@ -91,6 +91,7 @@ if (-not $apiUrl) {
 }
 $webName = $out.webName.value
 $webUrl = $out.webUrl.value
+$customUrl = $out.customUrl.value
 
 Write-Host "5/5 Website -> $webUrl ..."
 $staging = Join-Path ([IO.Path]::GetTempPath()) 'slideshow-web-package'
@@ -112,6 +113,10 @@ Write-Host ''
 Write-Host "Website:          $webUrl"
 Write-Host "API:              $apiUrl"
 Write-Host "Sign-in redirect: $webUrl/login.html  (must be listed on the 'Slideshow Website' app registration)"
+if ($customUrl) {
+  Write-Host "Custom domain:    $customUrl"
+  Write-Host "Sign-in redirect: $customUrl/login.html  (likewise)"
+}
 try {
   $health = Invoke-RestMethod "$apiUrl/healthz" -TimeoutSec 120
   Write-Host "API health:       $($health.status)"
