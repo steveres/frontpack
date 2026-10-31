@@ -1,0 +1,6 @@
+{
+  "nav": [
+    { "label": "About", "href": "/about.html", "order": 90 }
+  ],
+  "routes": []
+}

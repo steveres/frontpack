@@ -1,0 +1,5 @@
+{
+  "//": "Marks this part of the website as ES modules for TypeScript; built by web/build.mjs.",
+  "private": true,
+  "type": "module"
+}

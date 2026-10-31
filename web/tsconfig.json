@@ -1,6 +1,10 @@
 {
-  // ts/ compiles 1:1 into src/js/, which the browser loads as native ES modules (no bundler).
-  // "nodenext" makes the compiler insist on explicit ".js" import paths, which browsers require.
+  // The website's TypeScript lives in parts: shared/web/ts (the site shell: sign-in, nav, API client)
+  // and services/<name>/web/ts (each service's pages). "rootDirs" lets each part import the others as if
+  // they were one folder (e.g. a Slideshow page's "../utils/dom.js" is shared/web/ts/utils/dom.ts), which
+  // is how the browser sees them: build.mjs serves and packages the compiled parts as one /js folder.
+  // They compile 1:1 into .build/js/<part path>/ (native ES modules, no bundler). "nodenext" makes the
+  // compiler insist on explicit ".js" import paths, which browsers require.
   "compilerOptions": {
     "target": "ES2022",
     "module": "nodenext",
@@ -9,9 +13,12 @@
     "strict": true,
     "noUnusedLocals": true,
     "noImplicitReturns": true,
-    "rootDir": "ts",
-    "outDir": "src/js",
-    "sourceMap": true
+    "rootDir": "..",
+    "rootDirs": ["../shared/web/ts", "../services/frontpack/web/ts", "../services/slideshow/web/ts"],
+    "outDir": ".build/js",
+    "sourceMap": true,
+    // Types only (the script itself is copied to /vendor): the parts are outside this folder's node_modules.
+    "paths": { "@azure/msal-browser": ["./node_modules/@azure/msal-browser/types/index.d.ts"] }
   },
-  "include": ["ts"]
+  "include": ["../shared/web/ts", "../services/*/web/ts"]
 }
