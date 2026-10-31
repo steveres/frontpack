@@ -41,6 +41,9 @@ param allowedOrigins array = []
 @maxValue(3)
 param apiMinReplicas int = 0
 
+@description('Custom domain for the website, e.g. www.example.com. Its CNAME must already point to the Static Web App. Empty: none.')
+param customDomain string = ''
+
 var suffix = uniqueString(resourceGroup().id)
 var names = {
   logs: '${appName}-logs'
@@ -222,9 +225,18 @@ resource web 'Microsoft.Web/staticSites@2023-12-01' = {
   properties: {} // content is uploaded by deploy.ps1, not built from a repository
 }
 
+// Azure checks the CNAME and issues and renews the certificate itself.
+resource webDomain 'Microsoft.Web/staticSites/customDomains@2023-12-01' = if (!empty(customDomain)) {
+  parent: web
+  name: empty(customDomain) ? 'none' : customDomain
+  properties: { validationMethod: 'cname-delegation' }
+}
+
 var webOrigin = 'https://${web.properties.defaultHostname}'
-// The website is always allowed (slot 0); any extra origins follow.
-var extraCorsEnv = [for (origin, i) in allowedOrigins: { name: 'Cors__AllowedOrigins__${i + 1}', value: origin }]
+var customOrigin = empty(customDomain) ? '' : 'https://${customDomain}'
+// The website is always allowed (slot 0), then its custom domain; any extra origins follow.
+var extraOrigins = concat(empty(customOrigin) ? [] : [customOrigin], allowedOrigins)
+var extraCorsEnv = [for (origin, i) in extraOrigins: { name: 'Cors__AllowedOrigins__${i + 1}', value: origin }]
 var corsEnv = concat([{ name: 'Cors__AllowedOrigins__0', value: webOrigin }], extraCorsEnv)
 
 var appEnv = concat([
@@ -311,3 +323,4 @@ output identityPrincipalId string = identity.properties.principalId
 output apiUrl string = empty(containerImage) ? '' : 'https://${app!.properties.configuration.ingress.fqdn}'
 output webName string = web.name
 output webUrl string = webOrigin
+output customUrl string = customOrigin
