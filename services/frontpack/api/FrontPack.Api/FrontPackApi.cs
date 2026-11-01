@@ -9,10 +9,20 @@ namespace FrontPack.Api;
 /// </summary>
 public static class FrontPackApi
 {
-    public static IServiceCollection AddFrontPack(this IServiceCollection services)
+    /// <param name="configuration">"Services": the services running as APIs of their own (a service in the same
+    /// host registers its IServiceAccountData itself).</param>
+    public static IServiceCollection AddFrontPack(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<GraphOptions>().BindConfiguration("Graph");
         services.AddOptions<AccountOptions>().BindConfiguration("Limits");
+
+        foreach (var endpoint in configuration.GetSection("Services").Get<ServiceEndpoint[]>() ?? [])
+        {
+            var name = RemoteServiceAccountData.ClientName(endpoint.Name);
+            services.AddHttpClient(name, c => c.BaseAddress = new Uri(endpoint.InternalUrl.TrimEnd('/') + "/"));
+            services.AddScoped<IServiceAccountData>(sp =>
+                new RemoteServiceAccountData(endpoint.Name, sp.GetRequiredService<IHttpClientFactory>().CreateClient(name)));
+        }
 
         // Entra user operations via Microsoft Graph, when configured.
         services.AddHttpClient<GraphIdentityDirectory>();
