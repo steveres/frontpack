@@ -11,6 +11,8 @@
                                          before the cut-over: the platform only, next to the running single API
            .\infra\deploy-services.ps1 -SkipProviders      GitHub Actions: its identity has rights on the
                                                            resource groups only
+           .\infra\deploy-services.ps1 -SkipCustomDomain   the website without its custom domain (e.g. while
+                                                           the domain's CNAME doesn't point to it yet)
   Needs:   Azure CLI (az login done), .NET 9 SDK, Node.js; services\*\infra\main.bicepparam and
            web\app.config.azure.json. Written for Windows PowerShell 5.1.
 #>
@@ -20,6 +22,7 @@ param(
   [string]$Location = 'eastus',
   [switch]$SkipSlideshow,
   [string]$SlideshowApiUrl = '',
+  [switch]$SkipCustomDomain,
   [switch]$SkipProviders
 )
 $ErrorActionPreference = 'Stop'
@@ -47,6 +50,7 @@ function Invoke-Az { return Invoke-Native 'az' $args }
 function Deploy-Template([string]$ResourceGroup, [string]$Service, [string]$DeploymentName, [string]$Image = '') {
   $dir = Join-Path $root "services\$Service\infra"
   $extra = if ($Image) { @('--parameters', "containerImage=$Image") } else { @() }
+  if ($SkipCustomDomain -and $Service -eq 'frontpack') { $extra += @('--parameters', 'customDomain=') }
   $arguments = @('deployment', 'group', 'create', '--resource-group', $ResourceGroup, '--name', $DeploymentName,
     '--template-file', (Join-Path $dir 'main.bicep'), '--parameters', (Join-Path $dir 'main.bicepparam')) + $extra +
     @('--query', 'properties.outputs', '--output', 'json')

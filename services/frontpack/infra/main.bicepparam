@@ -11,9 +11,9 @@ param graphClientId = ''          // set once the Graph app is set up; empty = s
 param allowedOrigins = []
 param webLocation = 'eastus2'      // Static Web Apps region (not offered in eastus)
 
-// Empty until the cut-over: www.thefrontpack.com stays on slideshow-web (infra/main.bicep) until then. At the
-// cut-over the www CNAME (DNS at GoDaddy) moves to this Static Web App and this becomes 'www.thefrontpack.com'.
-param customDomain = ''
+// The www CNAME (DNS at GoDaddy) points to this Static Web App. Also a sign-in redirect on the website's app
+// registration, and an allowed address on the Google Maps key.
+param customDomain = 'www.thefrontpack.com'
 
 // 0 = free, but the first request after ~5 idle minutes waits about 20 s; 1 = always instant, about US$10/month.
 param apiMinReplicas = 1
