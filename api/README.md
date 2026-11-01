@@ -3,24 +3,31 @@
 ASP.NET Core 9 API that stores each user's albums (photos, videos, music) and serves them to the
 slideshow SPA. Design and endpoint reference: [docs/api-design.md](../docs/api-design.md).
 
+The API is built from libraries, one per service, that a host runs. Today one host, `Combined.Host`,
+runs FrontPack and Slideshow together as the `slideshow-api` container app. Each service will get a host
+of its own (see the microservices plan).
+
 ```
-api/
-  src/Slideshow.Api/            the API
-    Endpoints/                  account, albums, images + music
-    Identity/                   token validation, logout cut-off, Microsoft Graph
+FrontPack.sln                   every API project and the tests
+shared/api/FrontPack.ServiceDefaults/   what every service shares: token validation + logout cut-off,
+                                the FrontPack accounts (Users: Table Storage; in memory / JSON file locally),
+                                CORS, rate limits, security headers, /healthz, telemetry
+services/frontpack/api/FrontPack.Api/   the account endpoints, development sign-in, Microsoft Graph
+services/slideshow/api/Slideshow.Api/   the Slideshow service
+    Endpoints/                  albums, images + music, sharing
     Media/                      file-type sniffing, EXIF/video date + GPS, natural sort, previews,
                                 smaller versions of photos + the background worker that makes them
     Storage/                    Azure Blob / local folder; resize queue (Azure Storage queue / memory)
     Data/                       entities + data store (Table Storage; in memory / JSON file locally)
-  tests/Slideshow.Api.Tests/    integration + unit tests
+services/slideshow/api/Slideshow.Api.Tests/   integration + unit tests (run against Combined.Host)
+hosts/Combined.Host/            FrontPack + Slideshow in one API (Program.cs, appsettings, launch profiles)
 infra/                          Bicep template, parameters, deploy script
 ```
 
 ## Run the tests
 
 ```powershell
-cd api
-dotnet test
+dotnet test FrontPack.sln
 ```
 No Azure, database server or emulator needed: the tests run the real app with its data in memory and
 files in a temp folder, with tokens signed by a test key.
@@ -37,14 +44,14 @@ Two launch profiles, both on http://localhost:5160:
 
 | Profile | Album details | Media storage | Needs |
 |---|---|---|---|
-| `local` (default) | memory, saved to `App_Data/data.json` | folder `App_Data/media` | nothing |
+| `local` (default) | memory, saved to `App_Data/data.json` (accounts: `App_Data/users.json`) | folder `App_Data/media` | nothing |
 | `local-azure` | Azurite (Table Storage emulator) | Azurite (Blob Storage emulator) | Node.js |
 
 Photos waiting for their smaller versions are queued in memory with `local` (lost when the API stops:
 photos still waiting then stay full size) and in Azurite's queue service with `local-azure`.
 
 ```powershell
-cd api\src\Slideshow.Api
+cd hosts\Combined.Host
 dotnet run                               # or: dotnet run --launch-profile local-azure
 ```
 
@@ -60,7 +67,7 @@ Open http://localhost:5160 (Development only). It redirects to an API explorer (
 every endpoint, where you can send requests and upload files.
 
 Every `/api/v1` call needs a token. Locally, make one with the .NET SDK's `user-jwts` tool (run in
-`api\src\Slideshow.Api`):
+`hosts\Combined.Host`):
 ```powershell
 dotnet user-jwts create --scope Slideshow.Access --claim oid=11111111-2222-3333-4444-555555555555 --claim name="Local Dev" --output token
 ```
