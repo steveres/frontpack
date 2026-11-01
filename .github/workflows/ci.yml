@@ -43,3 +43,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: az bicep build --file infra/main.bicep --stdout > /dev/null
+      # The platform and each service (deployed by infra/deploy-services.ps1 from the cut-over on)
+      - run: az bicep build-params --file services/frontpack/infra/main.bicepparam --stdout > /dev/null
+      - run: az bicep build-params --file services/slideshow/infra/main.bicepparam --stdout > /dev/null
