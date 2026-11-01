@@ -4,11 +4,9 @@ build/
 
 # Contains the Google Maps API key - never commit
 apikey.txt
-web/src/app-config.json
 
-# Website build output (compiled from web/ts; vendor files copied from node_modules)
-web/src/js/
-web/src/vendor/
+# Website build output (compiled from shared/web/ts and services/*/web/ts; vendor files copied from node_modules)
+web/.build/
 web/app.config.local.json
 
 # .NET API build output and local data

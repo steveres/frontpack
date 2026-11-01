@@ -96,7 +96,8 @@ $customUrl = $out.customUrl.value
 Write-Host "5/5 Website -> $webUrl ..."
 $staging = Join-Path ([IO.Path]::GetTempPath()) 'slideshow-web-package'
 $siteConfig = Get-Content (Join-Path $web 'app.config.azure.json') -Raw | ConvertFrom-Json
-$siteConfig | Add-Member -NotePropertyName apiBaseUrl -NotePropertyValue $apiUrl -Force
+# One API serves FrontPack and Slideshow for now; each gets its own address once they are separate services.
+$siteConfig | Add-Member -NotePropertyName services -NotePropertyValue ([ordered]@{ frontpack = $apiUrl; slideshow = $apiUrl }) -Force
 $env:APP_CONFIG = $siteConfig | ConvertTo-Json -Depth 5 -Compress
 Push-Location $web
 try {

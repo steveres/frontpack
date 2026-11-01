@@ -32,11 +32,11 @@ public static partial class SharingEndpoints
     private static string NewToken() =>
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(16)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
-    private static async Task<IResult> Get(Guid albumId, HttpContext http, IDataStore store, CancellationToken ct) =>
+    private static async Task<IResult> Get(Guid albumId, HttpContext http, ISlideshowStore store, CancellationToken ct) =>
         await store.GetAlbumAsync(http.User.UserId(), albumId, ct) is { } album ? Results.Ok(ToDto(album)) : Problems.AlbumNotFound();
 
     /// <summary>A new code, recorded in the share lookup for the album (codes are random, so a clash is near-impossible).</summary>
-    private static async Task<string> ClaimTokenAsync(IDataStore store, string ownerId, Guid albumId, CancellationToken ct)
+    private static async Task<string> ClaimTokenAsync(ISlideshowStore store, string ownerId, Guid albumId, CancellationToken ct)
     {
         while (true)
         {
@@ -50,7 +50,7 @@ public static partial class SharingEndpoints
     /// new code is recorded first, so a live link never points nowhere; if the album has gone meanwhile it is
     /// released. An album that isn't shared is never public.
     /// </summary>
-    private static async Task<Album?> SetTokenAsync(IDataStore store, string ownerId, Guid albumId, bool share, Action<Album> change, CancellationToken ct)
+    private static async Task<Album?> SetTokenAsync(ISlideshowStore store, string ownerId, Guid albumId, bool share, Action<Album> change, CancellationToken ct)
     {
         var newToken = share ? await ClaimTokenAsync(store, ownerId, albumId, ct) : null;
         string? oldToken = null;
@@ -66,7 +66,7 @@ public static partial class SharingEndpoints
         return album;
     }
 
-    private static async Task<IResult> Update(Guid albumId, UpdateShareRequest body, HttpContext http, IDataStore store, ILogger<Program> log, CancellationToken ct)
+    private static async Task<IResult> Update(Guid albumId, UpdateShareRequest body, HttpContext http, ISlideshowStore store, ILogger<Program> log, CancellationToken ct)
     {
         if (body.Enabled == false && body.IsPublic == true) return Problems.Validation("A public album has to be shared by link.");
         var ownerId = http.User.UserId();
@@ -92,7 +92,7 @@ public static partial class SharingEndpoints
         return Results.Ok(ToDto(album));
     }
 
-    private static async Task<IResult> Reset(Guid albumId, HttpContext http, IDataStore store, CancellationToken ct)
+    private static async Task<IResult> Reset(Guid albumId, HttpContext http, ISlideshowStore store, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
         var album = await store.GetAlbumAsync(ownerId, albumId, ct);
@@ -108,10 +108,10 @@ public static partial class SharingEndpoints
     {
         shared.WithTags("Shared");
         shared.MapGet("/{token}", GetShared).WithSummary("The shared album's slideshow (no sign-in).");
-        shared.MapGet("/{token}/images/{id:guid}", (string token, Guid id, int? size, HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct) =>
+        shared.MapGet("/{token}/images/{id:guid}", (string token, Guid id, int? size, HttpContext http, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct) =>
                 GetSharedFile(token, id, size, MediaCollection.Images, http, store, blobs, queue, log, ct))
             .WithSummary("A photo or video of a shared album. Photos: ?size=720, 1280 or 1920 for a smaller version where there is one.");
-        shared.MapGet("/{token}/music/{id:guid}", (string token, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct) =>
+        shared.MapGet("/{token}/music/{id:guid}", (string token, Guid id, HttpContext http, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct) =>
             GetSharedFile(token, id, null, MediaCollection.Music, http, store, blobs, queue, log, ct)).WithSummary("A music track of a shared album.");
         shared.MapGet("/{token}/images/{id:guid}/thumbnail", GetSharedThumbnail).WithSummary("A small JPEG preview of a photo in a shared album's slideshow.");
     }
@@ -123,14 +123,14 @@ public static partial class SharingEndpoints
     private static IResult NotShared() => Problems.Of(404, "share_not_found", "This slideshow isn't shared, or the link is wrong.");
 
     /// <summary>The album the code points to, if the album still has that code (a turned-off link finds nothing).</summary>
-    private static async Task<Album?> SharedAlbum(IDataStore store, string token, CancellationToken ct)
+    private static async Task<Album?> SharedAlbum(ISlideshowStore store, string token, CancellationToken ct)
     {
         if (!TokenFormat().IsMatch(token) || await store.ResolveShareAsync(token, ct) is not { } share) return null;
         var album = await store.GetAlbumAsync(share.OwnerId, share.AlbumId, ct);
         return album?.ShareToken == token ? album : null;
     }
 
-    private static async Task<IResult> GetShared(string token, IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct)
+    private static async Task<IResult> GetShared(string token, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct)
     {
         var album = await SharedAlbum(store, token, ct);
         if (album is null) return NotShared();
@@ -154,13 +154,13 @@ public static partial class SharingEndpoints
     }
 
     /// <summary>A photo of the album's slideshow, or null: those left out of it (no date or location) stay private.</summary>
-    private static async Task<MediaFile?> SlideshowFile(IDataStore store, Album album, Guid id, MediaCollection collection, CancellationToken ct)
+    private static async Task<MediaFile?> SlideshowFile(ISlideshowStore store, Album album, Guid id, MediaCollection collection, CancellationToken ct)
     {
         var media = await store.GetMediaAsync(album.OwnerId, album.Id, id, ct);
         return media?.Collection == collection && MediaInfoDto.MissingFor(media).Count == 0 ? media : null;
     }
 
-    private static async Task<IResult> GetSharedThumbnail(string token, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct)
+    private static async Task<IResult> GetSharedThumbnail(string token, Guid id, HttpContext http, ISlideshowStore store, IBlobStore blobs, CancellationToken ct)
     {
         var album = await SharedAlbum(store, token, ct);
         if (album is null) return NotShared();
@@ -169,7 +169,7 @@ public static partial class SharingEndpoints
     }
 
     private static async Task<IResult> GetSharedFile(string token, Guid id, int? size, MediaCollection collection, HttpContext http,
-        IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger log, CancellationToken ct)
+        ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, ILogger log, CancellationToken ct)
     {
         if (MediaEndpoints.InvalidSize(size) is { } problem) return problem;
         var album = await SharedAlbum(store, token, ct);
@@ -187,7 +187,7 @@ public static partial class SharingEndpoints
         g.MapGet("/", ListPublic).WithSummary("Albums their owners made public, newest first, with the share code to play each (no sign-in).");
     }
 
-    private static async Task<IResult> ListPublic(IDataStore store, CancellationToken ct)
+    private static async Task<IResult> ListPublic(ISlideshowStore store, CancellationToken ct)
     {
         var albums = (await store.ListPublicAlbumsAsync(ct)).Where(a => a.ShareToken is not null).OrderByDescending(a => a.CreatedAt).ToList();
         var media = await Task.WhenAll(albums.Select(a => store.ListMediaAsync(a.OwnerId, a.Id, ct)));

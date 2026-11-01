@@ -11,7 +11,7 @@ namespace Slideshow.Api.Data;
 /// Users (user id / "user"), Albums (owner / album), Media (owner / "album_media"), Shares (code / "share").
 /// The one exception is the list of public albums, which looks across all owners.
 /// </summary>
-public sealed class TableDataStore : IDataStore
+public sealed class TableDataStore : IUserStore, ISlideshowStore
 {
     private const string UserRow = "user", ShareRow = "share";
     private readonly TableClient _users, _albums, _media, _shares;

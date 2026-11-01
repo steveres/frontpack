@@ -1,0 +1,123 @@
+// Every call to a FrontPack API (FrontPack itself or a service) goes through here: base URL, access token, errors, expired sign-ins.
+
+import { APP_CONFIG } from '../config.js';
+import type { ServiceName } from '../app-config-types.js';
+import { currentPath, getAuth, justSignedIn, NotSignedInError } from '../auth/auth.js';
+import { recordDownload } from '../utils/network.js';
+
+/** An error response from the API (RFC 7807 problem details). `code` is the API's machine-readable code. */
+export class ApiError extends Error {
+  constructor(readonly status: number, readonly code: string | undefined, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+interface RequestOptions {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  json?: unknown;
+  form?: FormData;
+  /** Don't send the user to sign in on 401 (the caller handles it). */
+  noRedirect?: boolean;
+}
+
+/** The access token, or (when there is none) a trip to the login page. */
+async function token(noRedirect = false): Promise<string> {
+  const auth = await getAuth();
+  try {
+    return await auth.getAccessToken();
+  } catch (err) {
+    if (err instanceof NotSignedInError && !noRedirect) await auth.signIn(currentPath());
+    throw err;
+  }
+}
+
+/** Turns a failed response into an ApiError, or into a sign-in trip for 401 (expired or revoked token). */
+async function failure(status: number, bodyText: string, noRedirect = false): Promise<Error> {
+  // Turned away straight after signing in: another trip to sign in would only end up here again.
+  if (status === 401 && !noRedirect && justSignedIn()) {
+    return new ApiError(401, 'sign_in_rejected', "Your sign-in wasn't accepted. Wait a minute and reload the page, or sign in again.");
+  }
+  if (status === 401 && !noRedirect) {
+    await (await getAuth()).signIn(currentPath());
+    return new NotSignedInError();
+  }
+  let problem: { detail?: string; title?: string; code?: string } | null = null;
+  try { problem = JSON.parse(bodyText); } catch { /* not JSON */ }
+  return new ApiError(status, problem?.code, problem?.detail ?? problem?.title ?? `Request failed (${status}).`);
+}
+
+/** Reads the body, noting how fast it came (photo sizes are picked by connection speed). */
+async function timedBlob(res: Response): Promise<Blob> {
+  const start = performance.now();
+  const blob = await res.blob();
+  recordDownload(blob.size, performance.now() - start);
+  return blob;
+}
+
+async function send(url: string, options: RequestOptions = {}): Promise<Response> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${await token(options.noRedirect)}` };
+  let body: BodyInit | undefined;
+  if (options.json !== undefined) { headers['Content-Type'] = 'application/json'; body = JSON.stringify(options.json); }
+  else if (options.form) body = options.form; // the browser sets the multipart boundary
+
+  const res = await fetch(url, { method: options.method ?? 'GET', headers, body });
+  if (res.ok) return res;
+  throw await failure(res.status, await res.text(), options.noRedirect);
+}
+
+/** The client for one service's API, e.g. apiFor('slideshow').get('/api/v1/albums'). */
+export function apiFor(service: ServiceName) {
+  const base = APP_CONFIG.services[service];
+  return {
+    async get<T>(path: string, options?: RequestOptions): Promise<T> {
+      return (await send(base + path, options)).json() as Promise<T>;
+    },
+    async post<T>(path: string, json?: unknown, options?: RequestOptions): Promise<T | undefined> {
+      const res = await send(base + path, { ...options, method: 'POST', json });
+      return res.status === 204 ? undefined : res.json() as Promise<T>;
+    },
+    async delete(path: string, options?: RequestOptions): Promise<void> {
+      await send(base + path, { ...options, method: 'DELETE' });
+    },
+    /** Downloads a file (e.g. an image) as a Blob. */
+    async blob(path: string): Promise<Blob> {
+      return timedBlob(await send(base + path));
+    },
+
+    async put<T>(path: string, json: unknown): Promise<T> {
+      return (await send(base + path, { method: 'PUT', json })).json() as Promise<T>;
+    },
+    async patch<T>(path: string, json: unknown): Promise<T> {
+      return (await send(base + path, { method: 'PATCH', json })).json() as Promise<T>;
+    },
+    /** GET without signing in (share links). */
+    async publicGet<T>(path: string): Promise<T> {
+      const res = await fetch(`${base}${path}`);
+      if (!res.ok) throw await failure(res.status, await res.text(), true);
+      return res.json() as Promise<T>;
+    },
+    /** Downloads a file without signing in (share links). */
+    async publicBlob(path: string): Promise<Blob> {
+      const res = await fetch(`${base}${path}`);
+      if (!res.ok) throw await failure(res.status, await res.text(), true);
+      return timedBlob(res);
+    },
+
+    /** Uploads a multipart form, reporting progress (0..1). fetch can't report upload progress, so this uses XHR. */
+    async upload<T>(path: string, form: FormData, onProgress?: (fraction: number) => void): Promise<T> {
+      const bearer = await token();
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${base}${path}`);
+      xhr.setRequestHeader('Authorization', `Bearer ${bearer}`);
+      if (onProgress) xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+      await new Promise<void>((resolve, reject) => {
+        xhr.onload = () => resolve();
+        xhr.onerror = () => reject(new TypeError('Network error during upload.'));
+        xhr.send(form);
+      });
+      if (xhr.status >= 200 && xhr.status < 300) return JSON.parse(xhr.responseText) as T;
+      throw await failure(xhr.status, xhr.responseText);
+    },
+  };
+}

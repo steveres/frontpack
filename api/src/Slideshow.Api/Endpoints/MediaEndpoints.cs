@@ -21,11 +21,11 @@ public static class MediaEndpoints
         var g = albums.MapGroup($"/{{albumId:guid}}/{segment}").WithTags(collection == MediaCollection.Images ? "Images" : "Music");
         var what = collection == MediaCollection.Images ? "image or video" : "music track";
 
-        g.MapGet("/", (Guid albumId, HttpContext http, IDataStore store, CancellationToken ct) => List(albumId, segment, collection, http, store, ct))
+        g.MapGet("/", (Guid albumId, HttpContext http, ISlideshowStore store, CancellationToken ct) => List(albumId, segment, collection, http, store, ct))
             .WithSummary($"Every {what} in the album, in upload order.");
 
         g.MapPost("/", (Guid albumId, IFormFile? file, [FromForm] int? utcOffsetMinutes,
-                HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue, IOptions<LimitsOptions> limits, ILogger<Program> log, CancellationToken ct) =>
+                HttpContext http, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, IOptions<LimitsOptions> limits, ILogger<Program> log, CancellationToken ct) =>
                 Add(albumId, segment, collection, file, utcOffsetMinutes, http, store, blobs, queue, limits.Value, log, ct))
             .WithSummary($"Upload an {what} (multipart/form-data, field \"file\").")
             .DisableAntiforgery() // bearer tokens only, no cookies: nothing for CSRF to ride on
@@ -33,39 +33,39 @@ public static class MediaEndpoints
             .WithMetadata(new RequestSizeLimitAttribute(maxUploadBytes + MultipartOverhead))
             .WithFormOptions(multipartBodyLengthLimit: maxUploadBytes + MultipartOverhead);
 
-        g.MapGet("/{id:guid}", (Guid albumId, Guid id, int? size, HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct) =>
+        g.MapGet("/{id:guid}", (Guid albumId, Guid id, int? size, HttpContext http, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, ILogger<Program> log, CancellationToken ct) =>
                 GetContent(albumId, id, size, collection, http, store, blobs, queue, log, ct))
             .WithSummary(collection == MediaCollection.Images
                 ? "The file's bytes (supports Range). Photos: ?size=720, 1280 or 1920 for a smaller version where there is one."
                 : $"The {what}'s bytes (supports Range).");
 
-        g.MapGet("/{id:guid}/info", async (Guid albumId, Guid id, HttpContext http, IDataStore store, CancellationToken ct) =>
+        g.MapGet("/{id:guid}/info", async (Guid albumId, Guid id, HttpContext http, ISlideshowStore store, CancellationToken ct) =>
                 await Find(store, http.User.UserId(), albumId, collection, id, ct) is { } m
                     ? Results.Ok(MediaInfoDto.From(m, ContentUrl(albumId, segment, m.Id)))
                     : Problems.MediaNotFound())
             .WithSummary($"The {what}'s details.");
 
-        g.MapDelete("/{id:guid}", (Guid albumId, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, ILogger<Program> log, CancellationToken ct) =>
+        g.MapDelete("/{id:guid}", (Guid albumId, Guid id, HttpContext http, ISlideshowStore store, IBlobStore blobs, ILogger<Program> log, CancellationToken ct) =>
                 Delete(albumId, id, collection, http, store, blobs, log, ct))
             .WithSummary($"Delete the {what}.");
 
-        g.MapPost("/delete", (Guid albumId, DeleteMediaRequest body, HttpContext http, IDataStore store, IBlobStore blobs, ILogger<Program> log, CancellationToken ct) =>
+        g.MapPost("/delete", (Guid albumId, DeleteMediaRequest body, HttpContext http, ISlideshowStore store, IBlobStore blobs, ILogger<Program> log, CancellationToken ct) =>
                 DeleteMany(albumId, body, collection, http, store, blobs, log, ct))
             .WithSummary($"Delete several files at once (body: {{ \"ids\": [...] }}); ids not in the album are skipped.");
 
         if (collection == MediaCollection.Images)
-            g.MapGet("/{id:guid}/thumbnail", (Guid albumId, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct) =>
+            g.MapGet("/{id:guid}/thumbnail", (Guid albumId, Guid id, HttpContext http, ISlideshowStore store, IBlobStore blobs, CancellationToken ct) =>
                     GetThumbnail(albumId, id, http, store, blobs, ct))
                 .WithSummary("A small JPEG preview of a photo (videos have none yet).");
     }
 
-    private static async Task<MediaFile?> Find(IDataStore store, string ownerId, Guid albumId, MediaCollection collection, Guid id, CancellationToken ct) =>
+    private static async Task<MediaFile?> Find(ISlideshowStore store, string ownerId, Guid albumId, MediaCollection collection, Guid id, CancellationToken ct) =>
         await store.GetMediaAsync(ownerId, albumId, id, ct) is { } m && m.Collection == collection ? m : null;
 
-    private static async Task<bool> AlbumExists(IDataStore store, string ownerId, Guid albumId, CancellationToken ct) =>
+    private static async Task<bool> AlbumExists(ISlideshowStore store, string ownerId, Guid albumId, CancellationToken ct) =>
         await store.GetAlbumAsync(ownerId, albumId, ct) is not null;
 
-    private static async Task<IResult> List(Guid albumId, string segment, MediaCollection collection, HttpContext http, IDataStore store, CancellationToken ct)
+    private static async Task<IResult> List(Guid albumId, string segment, MediaCollection collection, HttpContext http, ISlideshowStore store, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
         if (!await AlbumExists(store, ownerId, albumId, ct)) return Problems.AlbumNotFound();
@@ -76,7 +76,7 @@ public static class MediaEndpoints
     }
 
     private static async Task<IResult> Add(Guid albumId, string segment, MediaCollection collection, IFormFile? file, int? utcOffsetMinutes,
-        HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue, LimitsOptions limits, ILogger log, CancellationToken ct)
+        HttpContext http, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, LimitsOptions limits, ILogger log, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
         if (!await AlbumExists(store, ownerId, albumId, ct)) return Problems.AlbumNotFound();
@@ -176,7 +176,7 @@ public static class MediaEndpoints
     }
 
     private static async Task<IResult> GetContent(Guid albumId, Guid id, int? size, MediaCollection collection, HttpContext http,
-        IDataStore store, IBlobStore blobs, IResizeQueue queue, ILogger log, CancellationToken ct)
+        ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, ILogger log, CancellationToken ct)
     {
         if (InvalidSize(size) is { } problem) return problem;
         var media = await Find(store, http.User.UserId(), albumId, collection, id, ct);
@@ -205,7 +205,7 @@ public static class MediaEndpoints
     }
 
     /// <summary>Queues a photo from before smaller versions existed (ResizeState None) for them.</summary>
-    internal static async Task QueueOlderPhotoAsync(IDataStore store, IResizeQueue queue, ILogger log, MediaFile media, CancellationToken ct)
+    internal static async Task QueueOlderPhotoAsync(ISlideshowStore store, IResizeQueue queue, ILogger log, MediaFile media, CancellationToken ct)
     {
         // Marked first: the worker may finish before a later write, which would then undo its work.
         await store.SetResizeStateAsync(media.OwnerId, media.AlbumId, media.Id, ResizeState.Pending, [], ct);
@@ -219,7 +219,7 @@ public static class MediaEndpoints
     /// anyway. A photo whose versions aren't made yet gets the original, marked not to be cached for long,
     /// and one from before they existed is queued for them.
     /// </summary>
-    internal static async Task<IResult> StreamAsync(HttpContext http, IBlobStore blobs, IDataStore store, IResizeQueue queue, ILogger log,
+    internal static async Task<IResult> StreamAsync(HttpContext http, IBlobStore blobs, ISlideshowStore store, IResizeQueue queue, ILogger log,
         MediaFile media, int? size, string cacheControl, CancellationToken ct)
     {
         if (size is not { } wanted || media.Kind != MediaKind.Image) return await StreamAsync(http, blobs, media, cacheControl, ct);
@@ -257,7 +257,7 @@ public static class MediaEndpoints
             enableRangeProcessing: true);
     }
 
-    private static async Task<IResult> GetThumbnail(Guid albumId, Guid id, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct)
+    private static async Task<IResult> GetThumbnail(Guid albumId, Guid id, HttpContext http, ISlideshowStore store, IBlobStore blobs, CancellationToken ct)
     {
         var media = await Find(store, http.User.UserId(), albumId, MediaCollection.Images, id, ct);
         return media is null ? Problems.MediaNotFound()
@@ -265,7 +265,7 @@ public static class MediaEndpoints
     }
 
     /// <summary>The photo's preview; made now (and kept) if it was uploaded before previews existed.</summary>
-    internal static async Task<IResult> ThumbnailAsync(HttpContext http, IDataStore store, IBlobStore blobs, MediaFile media, string cacheControl, CancellationToken ct)
+    internal static async Task<IResult> ThumbnailAsync(HttpContext http, ISlideshowStore store, IBlobStore blobs, MediaFile media, string cacheControl, CancellationToken ct)
     {
         var noThumbnail = Problems.Of(404, "no_thumbnail", "This file has no preview.");
         if (media.Kind != MediaKind.Image || media.ThumbnailState == ThumbnailState.Unavailable) return noThumbnail;
@@ -292,7 +292,7 @@ public static class MediaEndpoints
     }
 
     private static async Task<IResult> DeleteMany(Guid albumId, DeleteMediaRequest body, MediaCollection collection,
-        HttpContext http, IDataStore store, IBlobStore blobs, ILogger log, CancellationToken ct)
+        HttpContext http, ISlideshowStore store, IBlobStore blobs, ILogger log, CancellationToken ct)
     {
         var ids = body.Ids?.Distinct().ToHashSet() ?? [];
         if (ids.Count == 0) return Problems.Validation("Give the ids of the files to delete.");
@@ -328,7 +328,7 @@ public static class MediaEndpoints
         return Results.Ok(new DeleteMediaResult(deleted.Count));
     }
 
-    private static async Task<IResult> Delete(Guid albumId, Guid id, MediaCollection collection, HttpContext http, IDataStore store, IBlobStore blobs, ILogger log, CancellationToken ct)
+    private static async Task<IResult> Delete(Guid albumId, Guid id, MediaCollection collection, HttpContext http, ISlideshowStore store, IBlobStore blobs, ILogger log, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
         var media = await Find(store, ownerId, albumId, collection, id, ct);

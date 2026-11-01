@@ -51,7 +51,7 @@ public static class AlbumEndpoints
             cover);
     }
 
-    private static async Task<IResult> List(HttpContext http, IDataStore store, CancellationToken ct)
+    private static async Task<IResult> List(HttpContext http, ISlideshowStore store, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
         var albums = await store.ListAlbumsAsync(ownerId, ct);
@@ -59,7 +59,7 @@ public static class AlbumEndpoints
         return Results.Ok(albums.OrderByDescending(a => a.CreatedAt).Select(a => Info(a, media[a.Id].ToList())));
     }
 
-    private static async Task<IResult> GetInfo(Guid albumId, HttpContext http, IDataStore store, CancellationToken ct)
+    private static async Task<IResult> GetInfo(Guid albumId, HttpContext http, ISlideshowStore store, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
         var album = await store.GetAlbumAsync(ownerId, albumId, ct);
@@ -77,7 +77,7 @@ public static class AlbumEndpoints
 
     private static string? CleanDescription(string? d) => string.IsNullOrWhiteSpace(d) ? null : d.Trim();
 
-    private static async Task<IResult> Create(CreateAlbumRequest body, HttpContext http, IDataStore store, IOptions<LimitsOptions> limits, CancellationToken ct)
+    private static async Task<IResult> Create(CreateAlbumRequest body, HttpContext http, ISlideshowStore store, IOptions<LimitsOptions> limits, CancellationToken ct)
     {
         var name = body.Name?.Trim();
         var description = CleanDescription(body.Description);
@@ -94,7 +94,7 @@ public static class AlbumEndpoints
         return Results.Created($"/api/v1/albums/{album.Id}/info", info);
     }
 
-    private static async Task<IResult> Update(Guid albumId, UpdateAlbumRequest body, HttpContext http, IDataStore store, CancellationToken ct)
+    private static async Task<IResult> Update(Guid albumId, UpdateAlbumRequest body, HttpContext http, ISlideshowStore store, CancellationToken ct)
     {
         var name = body.Name?.Trim();
         var description = body.Description is null ? null : CleanDescription(body.Description) ?? "";
@@ -110,7 +110,7 @@ public static class AlbumEndpoints
         return album is null ? Problems.AlbumNotFound() : Results.Ok(Info(album, await store.ListMediaAsync(ownerId, albumId, ct)));
     }
 
-    private static async Task<IResult> Get(Guid albumId, HttpContext http, IDataStore store, IBlobStore blobs, IResizeQueue queue,
+    private static async Task<IResult> Get(Guid albumId, HttpContext http, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue,
         ILogger<Program> log, CancellationToken ct)
     {
         var album = await store.GetAlbumAsync(http.User.UserId(), albumId, ct);
@@ -127,7 +127,7 @@ public static class AlbumEndpoints
     /// usually after the album was compiled. Slides from before smaller versions existed are queued for
     /// them, so the whole album catches up the first time it's played, not just the photos shown.
     /// </summary>
-    internal static async Task<AlbumManifestDto> WithCurrentSizesAsync(IDataStore store, IResizeQueue queue, ILogger log,
+    internal static async Task<AlbumManifestDto> WithCurrentSizesAsync(ISlideshowStore store, IResizeQueue queue, ILogger log,
         Album album, AlbumManifestDto manifest, CancellationToken ct)
     {
         var media = (await store.ListMediaAsync(album.OwnerId, album.Id, ct)).ToDictionary(m => m.Id);
@@ -157,7 +157,7 @@ public static class AlbumEndpoints
         return stream is null ? null : await JsonSerializer.DeserializeAsync<AlbumManifestDto>(stream, ManifestJson, ct);
     }
 
-    private static async Task<IResult> Compile(Guid albumId, HttpContext http, IDataStore store, IBlobStore blobs, CancellationToken ct)
+    private static async Task<IResult> Compile(Guid albumId, HttpContext http, ISlideshowStore store, IBlobStore blobs, CancellationToken ct)
     {
         var album = await store.GetAlbumAsync(http.User.UserId(), albumId, ct);
         if (album is null) return Problems.AlbumNotFound();
@@ -165,7 +165,7 @@ public static class AlbumEndpoints
     }
 
     /// <summary>Orders the album's playable slides and stores the manifest; null if the album was deleted meanwhile.</summary>
-    internal static async Task<AlbumManifestDto?> CompileAsync(IDataStore store, IBlobStore blobs, Album album, CancellationToken ct)
+    internal static async Task<AlbumManifestDto?> CompileAsync(ISlideshowStore store, IBlobStore blobs, Album album, CancellationToken ct)
     {
         // The version is the one read before the media: anything added meanwhile leaves the album marked stale.
         var version = album.ContentVersion;
@@ -194,7 +194,7 @@ public static class AlbumEndpoints
         return updated is null ? null : manifest;
     }
 
-    private static async Task<IResult> Delete(Guid albumId, HttpContext http, IDataStore store, IBlobStore blobs, ILogger<Program> log, CancellationToken ct)
+    private static async Task<IResult> Delete(Guid albumId, HttpContext http, ISlideshowStore store, IBlobStore blobs, ILogger<Program> log, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
         var album = await store.GetAlbumAsync(ownerId, albumId, ct);

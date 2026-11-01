@@ -1,18 +1,5 @@
 namespace Slideshow.Api.Data;
 
-public sealed class User
-{
-    /// <summary>The Entra object id ("oid" claim).</summary>
-    public required string Id { get; set; }
-    public string? DisplayName { get; set; }
-    public string? Email { get; set; }
-    public DateTime CreatedAt { get; set; }
-    /// <summary>Tokens issued before this (UTC) are rejected: set by logout.</summary>
-    public DateTime? TokensValidAfter { get; set; }
-
-    internal User Clone() => (User)MemberwiseClone();
-}
-
 public sealed class Album
 {
     public Guid Id { get; set; }

@@ -5,7 +5,9 @@ videos, draws the route between them on a Google map, and plays the album's MP3s
 
 | Folder | What |
 |---|---|
-| [web/](web/) | The website (TypeScript + CSS, no framework, no bundler) |
+| [shared/](shared/) | What every service shares: the website shell (`web/`: sign-in, nav, API client, base CSS) and the API set-up (`api/FrontPack.ServiceDefaults`: sign-in, CORS, rate limits, health) |
+| [services/](services/) | Each service's website pages: `frontpack/web` (Home, About, Login, Account), `slideshow/web` (Albums, Album, Slideshow) |
+| [web/](web/) | Builds the website from `shared/web` and `services/*/web` (TypeScript + CSS, no framework, no bundler) |
 | [api/](api/) | The API that stores each user's albums ([api/README.md](api/README.md)) |
 | [infra/](infra/) | Azure infrastructure (Bicep) and deploy script |
 | [docs/](docs/) | Design documents ([API design](docs/api-design.md)) |
@@ -29,6 +31,9 @@ and serve).
 needs the **Maps JavaScript API** enabled. It is visible to anyone who loads the page (that's how
 Maps keys work), so in the Google Cloud console restrict it to your site's addresses, e.g.
 `http://localhost:3000/*` and the production URL.
+
+**API addresses:** `"services"` in `web/app.config.json` gives each service's API address
+(`"frontpack"`, `"slideshow"`). For now one API serves both, so both point to it.
 
 **Sign-in:** chosen in `web/app.config.json` (committed defaults; put personal overrides in the
 git-ignored `app.config.local.json`, or pass `APP_CONFIG` as JSON in CI):
@@ -67,27 +72,40 @@ date-taken order and supplies the dates on the timeline.
 
 ### Layout
 
-Modelled on the frontpack website: one HTML file per page in `src/`, styles split into base and
-component sheets, code split into pages, components, data sources and utilities.
+The site is put together from parts: the shell in `shared/web` and each service's pages in
+`services/<name>/web`. Each part has `site/` (HTML pages, CSS, images, served from the site root) and
+`ts/` (compiled into `/js`), laid out as if they were one folder, so the URLs are the same whichever part
+a file is in. A Slideshow page imports `../utils/dom.js` as before; TypeScript's `rootDirs` finds it in
+`shared/web/ts`. The build stops if two parts have a file at the same address.
 
 ```
-web/
-  src/                          the site as served (deployed as-is)
-    slideshow.html              page markup
-    css/base/                   reset, variables
-    css/components/             one stylesheet per component
-    js/                         compiled from ts/ (git-ignored)
-  ts/                           TypeScript source → src/js/, loaded as native ES modules
-    pages/                      one entry module per HTML page
-    components/                 navigation, thumbnail (lazy previews); slideshow/ (mount, player, map, timeline, zoom, music, folder picker)
-    api/                        api-client (token, errors, 401 → sign in, upload progress), account-api, albums-api
+shared/web/                     the shell every page uses
+  site/                         components/navigation.html, css/base/, css/components/navigation.css, logo, icons, staticwebapp.config.json
+  ts/
+    api/                        api-client (apiFor(service): token, errors, 401 → sign in, upload progress), account-api
     auth/                       auth (provider interface), dev-auth, entra-auth (MSAL), session (sign in/out flows)
+    components/navigation.ts    the header; menu links from each service's service.json
+    utils/                      DOM helpers, formatting, connection speed
+    config.ts                   per-environment settings (/app-config.json)
+services/frontpack/web/         Home, About, Login, Account (site/ + ts/pages/), service.json
+services/slideshow/web/         Albums, Album, Slideshow, service.json (menu link, /slideshows.html redirect)
+  ts/
+    pages/                      one entry module per HTML page
+    components/                 thumbnail (lazy previews), media viewer, share panel; slideshow/ (mount, player, map, timeline, zoom, music, folder picker)
+    api/albums-api.ts           the Slideshow API
     media/                      media types, GPS readers, local-folder source, API album source
-    utils/                      DOM helpers, settings, formatting
-    config.ts                   per-environment settings (generated) + tunable constants
-  build.mjs                     tsc + Maps key → ts/generated/
-  server.js                     local dev server (Express)
+    utils/settings.ts           the slideshow's saved settings
+    slideshow-config.ts         tunable constants
+web/
+  parts.mjs                     finds the parts
+  build.mjs                     tsc into .build/ (git-ignored), app-config.json (with the menu), --out: the parts as one site
+  server.js                     local dev server (Express): serves the parts laid over one another
+  tsconfig.json                 lists each part's ts/ in rootDirs (add a new service there)
 ```
+
+Each part has a small `package.json` saying it is ES modules (TypeScript needs that). A new service's
+pages go in `services/<name>/web` with a `service.json`; add its `ts/` to `rootDirs` in
+`web/tsconfig.json` and its API address to `"services"`.
 
 `mountSlideshow(element)` plays any `SlideshowContents` (slides + music) it is given; it does not know
 where they come from: the folder picker (`media/folder-source.ts`) or an album on the API

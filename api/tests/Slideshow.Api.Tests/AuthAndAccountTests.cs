@@ -1,8 +1,13 @@
+using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Slideshow.Api.Data;
 using Slideshow.Api.Tests.Infrastructure;
 
 namespace Slideshow.Api.Tests;
@@ -144,6 +149,36 @@ public sealed class AuthAndAccountTests(ApiFactory factory) : IClassFixture<ApiF
         // Registering again starts from nothing.
         (await client.PostAsync("/api/v1/account", null)).EnsureSuccessStatusCode();
         Assert.Empty(await client.GetFromJsonAsync<JsonElement[]>("/api/v1/albums") ?? []);
+    }
+
+    [Fact]
+    public async Task Account_totals_every_service_and_deletes_from_each()
+    {
+        var other = new FakeServiceAccountData();
+        using var f = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IServiceAccountData>(other)));
+        var oid = NewUser();
+        var client = f.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiFactory.Token(oid));
+        (await client.PostAsync("/api/v1/account", null)).EnsureSuccessStatusCode();
+        var album = await AlbumTests.CreateAlbumAsync(client, "Mine");
+        (await client.PostAsync($"/api/v1/albums/{album}/images", TestMedia.Form(TestMedia.Jpeg(), "a.jpg"))).EnsureSuccessStatusCode();
+
+        var usage = (await client.GetFromJsonAsync<JsonElement>("/api/v1/account")).GetProperty("usage");
+        Assert.Equal(1 + 2, usage.GetProperty("albums").GetInt32());   // slideshow's + the other service's
+        Assert.Equal(1, usage.GetProperty("files").GetInt32());
+        Assert.Equal(TestMedia.Jpeg().Length + 1000, usage.GetProperty("bytes").GetInt64());
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync("/api/v1/account")).StatusCode);
+        Assert.Contains(oid, other.Deleted);
+    }
+
+    private sealed class FakeServiceAccountData : IServiceAccountData
+    {
+        public ConcurrentQueue<string> Deleted { get; } = new();
+        public string Service => "other";
+        public Task<ServiceUsage> GetUsageAsync(string userId, CancellationToken ct) =>
+            Task.FromResult(new ServiceUsage(new Dictionary<string, long> { ["albums"] = 2 }, 1000));
+        public Task DeleteUserDataAsync(string userId, CancellationToken ct) { Deleted.Enqueue(userId); return Task.CompletedTask; }
     }
 
     [Fact]

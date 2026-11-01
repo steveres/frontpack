@@ -1,4 +1,7 @@
 {
-  "apiBaseUrl": "http://localhost:5160",
+  "services": {
+    "frontpack": "http://localhost:5160",
+    "slideshow": "http://localhost:5160"
+  },
   "auth": { "mode": "dev" }
 }

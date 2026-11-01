@@ -1,0 +1,8 @@
+{
+  "nav": [
+    { "label": "Albums", "href": "/albums.html", "also": ["/album.html"], "order": 10 }
+  ],
+  "routes": [
+    { "route": "/slideshows.html", "redirect": "/albums.html", "statusCode": 301 }
+  ]
+}

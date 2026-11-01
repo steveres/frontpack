@@ -83,7 +83,7 @@ public sealed class ThumbnailTests(ApiFactory factory) : IClassFixture<ApiFactor
         var thumbFile = Path.Combine(factory.MediaRoot, userId, Guid.Parse(album).ToString("N"), id.ToString("N") + ".thumb");
         Assert.True(File.Exists(thumbFile));
         File.Delete(thumbFile);
-        await factory.Services.GetRequiredService<IDataStore>()
+        await factory.Services.GetRequiredService<ISlideshowStore>()
             .SetThumbnailStateAsync(userId, Guid.Parse(album), id, ThumbnailState.None, CancellationToken.None);
 
         Assert.Equal(new SKSizeI(400, 400), await ThumbnailSizeAsync(client, info.GetProperty("thumbnailUrl").GetString()!));

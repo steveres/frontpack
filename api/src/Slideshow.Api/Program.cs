@@ -1,8 +1,5 @@
-using System.Security.Claims;
-using System.Threading.RateLimiting;
 using Azure.Core;
 using Azure.Identity;
-using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using Scalar.AspNetCore;
@@ -16,12 +13,13 @@ using Slideshow.Api.Storage;
 var builder = WebApplication.CreateBuilder(args);
 var services = builder.Services;
 
-services.AddOptions<AuthOptions>().BindConfiguration("Auth");
+// Sign-in, CORS, rate limiting, security headers, /healthz and telemetry: the same in every FrontPack service.
+services.AddServiceDefaults(builder.Configuration);
+
 services.AddOptions<TablesOptions>().BindConfiguration("Tables");
 services.AddOptions<StorageOptions>().BindConfiguration("Storage");
 services.AddOptions<GraphOptions>().BindConfiguration("Graph");
 services.AddOptions<LimitsOptions>().BindConfiguration("Limits");
-services.AddOptions<CorsOptions>().BindConfiguration("Cors");
 services.AddOptions<ResizeOptions>().BindConfiguration("Resize");
 
 // Signing in to Table and Blob Storage in Azure: the API's managed identity, straight away (no credential
@@ -31,10 +29,15 @@ services.AddSingleton<TokenCredential>(_ => builder.Configuration["AZURE_CLIENT_
     : new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
 
 // Users, albums and media details: Azure Table Storage in the cloud, memory (saved to a file) locally and in tests.
-services.AddSingleton<IDataStore>(sp =>
+// One store holds both for now; FrontPack (users) and Slideshow (albums, media, shares) each see only their part.
+services.AddSingleton<IUserStore>(sp =>
     sp.GetRequiredService<IOptions<TablesOptions>>().Value.Provider.Equals("AzureTable", StringComparison.OrdinalIgnoreCase)
         ? ActivatorUtilities.CreateInstance<TableDataStore>(sp)
         : ActivatorUtilities.CreateInstance<LocalDataStore>(sp));
+services.AddSingleton(sp => (ISlideshowStore)sp.GetRequiredService<IUserStore>());
+
+// Each service's part of an account: usage on the account page, and what deleting the account deletes.
+services.AddScoped<IServiceAccountData, SlideshowAccountData>();
 
 // Media bytes: Azure Blob Storage in the cloud, a folder locally.
 services.AddSingleton<IBlobStore>(sp =>
@@ -57,8 +60,6 @@ services.AddScoped<IIdentityDirectory>(sp => sp.GetRequiredService<IOptions<Grap
     ? sp.GetRequiredService<GraphIdentityDirectory>()
     : sp.GetRequiredService<NoOpIdentityDirectory>());
 
-services.AddSlideshowAuth();
-services.AddProblemDetails();
 services.AddOpenApi(o => o.AddDocumentTransformer((doc, _, _) =>
 {
     // Lets the API explorer send "Authorization: Bearer <token>".
@@ -71,44 +72,12 @@ services.AddOpenApi(o => o.AddDocumentTransformer((doc, _, _) =>
     });
     return Task.CompletedTask;
 }));
-services.AddCors();
-services.AddRateLimiter(o =>
-{
-    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
-    {
-        var perMinute = http.RequestServices.GetRequiredService<IOptions<LimitsOptions>>().Value.RequestsPerMinute;
-        var key = http.User.FindFirstValue("oid") ?? "ip:" + http.Connection.RemoteIpAddress;
-        return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions { PermitLimit = perMinute, Window = TimeSpan.FromMinutes(1) });
-    });
-});
-if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
-    services.AddOpenTelemetry().UseAzureMonitor();
 
 var app = builder.Build();
 
 await InitializeStorageAsync(app.Services);
 
-app.UseExceptionHandler();
-app.UseStatusCodePages();
-app.Use((http, next) =>
-{
-    var h = http.Response.Headers;
-    h.XContentTypeOptions = "nosniff";
-    h["Referrer-Policy"] = "no-referrer";
-    // API responses are JSON or media bytes; neither should ever be interpreted as a page.
-    // (The development-only API explorer under /scalar is a page, so it's left out.)
-    if (!http.Request.Path.StartsWithSegments("/scalar"))
-        h.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'; sandbox";
-    return next();
-});
-var cors = app.Services.GetRequiredService<IOptions<CorsOptions>>().Value;
-app.UseCors(p => p.WithOrigins(cors.AllowedOrigins).AllowAnyHeader().AllowAnyMethod()
-    .WithExposedHeaders("Location", "Content-Disposition", "Content-Range", "Accept-Ranges", "ETag")
-    .SetPreflightMaxAge(TimeSpan.FromHours(1)));
-app.UseAuthentication();
-app.UseRateLimiter();
-app.UseAuthorization();
+app.UseServiceDefaults();
 
 if (app.Environment.IsDevelopment())
 {
@@ -117,7 +86,6 @@ if (app.Environment.IsDevelopment())
     app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
 }
 app.MapDevTokens(); // Development only: website sign-in without an Entra tenant
-app.MapGet("/healthz", () => Results.Ok(new { status = "ok" })).AllowAnonymous().DisableRateLimiting().ExcludeFromDescription();
 
 var api = app.MapGroup("/api/v1").RequireAuthorization(Auth.ApiPolicy);
 api.MapAccount();
@@ -131,7 +99,7 @@ app.Run();
 // no storage calls. The local emulator (Azurite, reached by connection string) starts empty: create them there.
 static async Task InitializeStorageAsync(IServiceProvider services)
 {
-    if (services.GetRequiredService<IDataStore>() is TableDataStore tables
+    if (services.GetRequiredService<IUserStore>() is TableDataStore tables
         && !string.IsNullOrEmpty(services.GetRequiredService<IOptions<TablesOptions>>().Value.ConnectionString))
         await tables.EnsureTablesAsync(default);
     if (services.GetRequiredService<IBlobStore>() is AzureBlobStore azure
