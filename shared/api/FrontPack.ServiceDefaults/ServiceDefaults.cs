@@ -5,7 +5,10 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi.Models;
+using Scalar.AspNetCore;
 
 namespace FrontPack.ServiceDefaults;
 
@@ -17,6 +20,7 @@ public static class ServiceDefaults
         services.AddOptions<AuthOptions>().BindConfiguration("Auth");
         services.AddOptions<CorsOptions>().BindConfiguration("Cors");
         services.AddOptions<RateLimitOptions>().BindConfiguration("Limits");
+        services.AddOptions<InternalOptions>().BindConfiguration("Internal");
 
         services.AddUserStore();
         services.AddFrontPackAuth();
@@ -32,13 +36,28 @@ public static class ServiceDefaults
                 return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions { PermitLimit = perMinute, Window = TimeSpan.FromMinutes(1) });
             });
         });
+        services.AddOpenApi(o => o.AddDocumentTransformer((doc, _, _) =>
+        {
+            // Lets the API explorer send "Authorization: Bearer <token>".
+            var scheme = new OpenApiSecurityScheme { Type = SecuritySchemeType.Http, Scheme = "bearer", BearerFormat = "JWT" };
+            doc.Components ??= new OpenApiComponents();
+            doc.Components.SecuritySchemes["Bearer"] = scheme;
+            doc.SecurityRequirements.Add(new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" } }] = [],
+            });
+            return Task.CompletedTask;
+        }));
         if (!string.IsNullOrEmpty(configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
             services.AddOpenTelemetry().UseAzureMonitor();
         return services;
     }
 
-    /// <summary>Error responses, security headers, CORS, sign-in and rate limiting, in that order.</summary>
-    public static WebApplication UseServiceDefaults(this WebApplication app)
+    /// <summary>
+    /// Error responses, security headers, CORS, sign-in and rate limiting, in that order; then /healthz and,
+    /// in Development, the API explorer titled <paramref name="title"/>.
+    /// </summary>
+    public static WebApplication UseServiceDefaults(this WebApplication app, string title)
     {
         app.UseExceptionHandler();
         app.UseStatusCodePages();
@@ -62,6 +81,12 @@ public static class ServiceDefaults
         app.UseAuthorization();
 
         app.MapGet("/healthz", () => Results.Ok(new { status = "ok" })).AllowAnonymous().DisableRateLimiting().ExcludeFromDescription();
+        if (app.Environment.IsDevelopment())
+        {
+            app.MapOpenApi();                                       // /openapi/v1.json
+            app.MapScalarApiReference(o => o.WithTitle(title));     // /scalar: browse and try the API
+            app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
+        }
         return app;
     }
 }

@@ -3,9 +3,20 @@
 ASP.NET Core 9 API that stores each user's albums (photos, videos, music) and serves them to the
 slideshow SPA. Design and endpoint reference: [docs/api-design.md](../docs/api-design.md).
 
-The API is built from libraries, one per service, that a host runs. Today one host, `Combined.Host`,
-runs FrontPack and Slideshow together as the `slideshow-api` container app. Each service will get a host
-of its own (see the microservices plan).
+The API is built from libraries, one per service, that a host runs. Until the cut-over, `Combined.Host` runs
+FrontPack and Slideshow together as the `slideshow-api` container app in `slideshow-rg` (deployed by
+`infra/deploy.ps1`). After it, each service runs on its own host in the FrontPack platform's environment
+(deployed by `infra/deploy-services.ps1`):
+
+| Host | Container app | Resource group | Template |
+|---|---|---|---|
+| `FrontPack.Host` | `frontpack-api`: accounts, development sign-in, Graph | `frontpack-rg` (also the registry, environment, monitoring, website) | `services/frontpack/infra` |
+| `Slideshow.Host` | `slideshow-api`: albums, media, sharing | `slideshow-rg` (its storage and identity) | `services/slideshow/infra` |
+
+Every host checks tokens against the FrontPack accounts (the `Users` table, which FrontPack writes and each
+service can only read). FrontPack's API reaches each service's side of the account (usage, deletion) at
+`/internal/users/{id}` on the service's internal port, 8081. That port has no public ingress, and the
+service answers those paths only on it.
 
 ```
 FrontPack.sln                   every API project and the tests
@@ -19,9 +30,13 @@ services/slideshow/api/Slideshow.Api/   the Slideshow service
                                 smaller versions of photos + the background worker that makes them
     Storage/                    Azure Blob / local folder; resize queue (Azure Storage queue / memory)
     Data/                       entities + data store (Table Storage; in memory / JSON file locally)
-services/slideshow/api/Slideshow.Api.Tests/   integration + unit tests (run against Combined.Host)
+services/slideshow/api/Slideshow.Api.Tests/   integration + unit tests (most run against Combined.Host;
+                                SeparateHostsTests runs FrontPack.Host and Slideshow.Host together)
+services/*/infra/               each resource group's Bicep template and parameters
 hosts/Combined.Host/            FrontPack + Slideshow in one API (Program.cs, appsettings, launch profiles)
-infra/                          Bicep template, parameters, deploy script
+hosts/FrontPack.Host/, hosts/Slideshow.Host/   each service on its own
+hosts/App_Data/                 local data, shared by the hosts (git-ignored)
+infra/                          the single-API template and deploy.ps1 (until the cut-over); deploy-services.ps1
 ```
 
 ## Run the tests
@@ -40,11 +55,11 @@ $env:SLIDESHOW_TEST_TABLES = 'azurite'; dotnet test; Remove-Item Env:SLIDESHOW_T
 
 ## Run locally
 
-Two launch profiles, both on http://localhost:5160:
+The combined host has two launch profiles, both on http://localhost:5160:
 
 | Profile | Album details | Media storage | Needs |
 |---|---|---|---|
-| `local` (default) | memory, saved to `App_Data/data.json` (accounts: `App_Data/users.json`) | folder `App_Data/media` | nothing |
+| `local` (default) | memory, saved to `hosts/App_Data/data.json` (accounts: `users.json`) | folder `hosts/App_Data/media` | nothing |
 | `local-azure` | Azurite (Table Storage emulator) | Azurite (Blob Storage emulator) | Node.js |
 
 Photos waiting for their smaller versions are queued in memory with `local` (lost when the API stops:
@@ -53,6 +68,17 @@ photos still waiting then stay full size) and in Azurite's queue service with `l
 ```powershell
 cd hosts\Combined.Host
 dotnet run                               # or: dotnet run --launch-profile local-azure
+```
+
+To run the services as separate APIs, as in Azure, start both hosts (in two terminals). FrontPack runs on
+http://localhost:5170. Slideshow runs on http://localhost:5171, with its internal port on 5172. Then point the
+website at them in `web\app.config.local.json`:
+```powershell
+cd hosts\Slideshow.Host; dotnet run
+cd hosts\FrontPack.Host; dotnet run
+```
+```json
+{ "services": { "frontpack": "http://localhost:5170", "slideshow": "http://localhost:5171" } }
 ```
 
 For `local-azure`, start Azurite first in another terminal (`--skipApiVersionCheck` because the Azure

@@ -21,8 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The tests run against the combined host: FrontPack and Slideshow together, as deployed today -->
+    <!-- Most tests run against the combined host (FrontPack and Slideshow together); SeparateHostsTests wires the two hosts together -->
     <ProjectReference Include="../../../../hosts/Combined.Host/Combined.Host.csproj" />
+    <ProjectReference Include="../../../../hosts/FrontPack.Host/FrontPack.Host.csproj" />
+    <ProjectReference Include="../../../../hosts/Slideshow.Host/Slideshow.Host.csproj" />
   </ItemGroup>
 
 </Project>

@@ -11,14 +11,18 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using FrontPack.Api;
+using FrontPack.Hosts;
 
 namespace Slideshow.Api.Tests.Infrastructure;
 
+/// <summary>The combined host (FrontPack + Slideshow in one API), which most tests run against.</summary>
+public sealed class ApiFactory : HostFactory<CombinedHost>;
+
 /// <summary>
-/// The real app with its data in memory + a temp folder for storage, and tokens signed by a test key in place of
+/// A real host with its data in memory + a temp folder for storage, and tokens signed by a test key in place of
 /// Entra's. Everything else (JWT validation, scope check, logout cut-off) is the production pipeline.
 /// </summary>
-public sealed class ApiFactory : WebApplicationFactory<Program>
+public class HostFactory<THost> : WebApplicationFactory<THost> where THost : class
 {
     public const string Issuer = "https://login.test/tenant-id/v2.0";
     public const string Audience = "api-client-id";
@@ -35,6 +39,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// <summary>Hosting environment. In "Development" the test-key token setup is skipped, so the app's own
     /// Development token configuration (user-jwts style) applies.</summary>
     public string Environment { get; init; } = "Testing";
+
+    /// <summary>More service changes, applied last (e.g. wiring FrontPack's API to a Slideshow test server).</summary>
+    public Action<IServiceCollection>? TestServices { get; init; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -85,6 +92,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 });
             }
             services.AddScoped<IIdentityDirectory>(_ => Directory);
+            TestServices?.Invoke(services);
         });
     }
 

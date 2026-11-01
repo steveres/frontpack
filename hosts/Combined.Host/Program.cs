@@ -1,10 +1,8 @@
-// FrontPack and Slideshow in one API, deployed as today's slideshow-api container app. Each service also
-// gets a host of its own, and this one goes once traffic has moved to them (see the microservices plan).
+// FrontPack and Slideshow in one API, deployed as today's slideshow-api container app. Each service also has a
+// host of its own (FrontPack.Host, Slideshow.Host); this one goes once traffic has moved to them.
 using Azure.Core;
 using Azure.Identity;
 using FrontPack.Api;
-using Microsoft.OpenApi.Models;
-using Scalar.AspNetCore;
 using Slideshow.Api;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,37 +14,17 @@ services.AddSingleton<TokenCredential>(_ => builder.Configuration["AZURE_CLIENT_
     ? new ManagedIdentityCredential(ManagedIdentityId.FromUserAssignedClientId(clientId))
     : new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
 
-// Sign-in, the FrontPack accounts, CORS, rate limiting, security headers, /healthz and telemetry.
+// Sign-in, the FrontPack accounts, CORS, rate limiting, security headers, /healthz, telemetry, API explorer.
 services.AddServiceDefaults(builder.Configuration);
-services.AddFrontPack();
+services.AddFrontPack(builder.Configuration);
 services.AddSlideshow();
-
-services.AddOpenApi(o => o.AddDocumentTransformer((doc, _, _) =>
-{
-    // Lets the API explorer send "Authorization: Bearer <token>".
-    var scheme = new OpenApiSecurityScheme { Type = SecuritySchemeType.Http, Scheme = "bearer", BearerFormat = "JWT" };
-    doc.Components ??= new OpenApiComponents();
-    doc.Components.SecuritySchemes["Bearer"] = scheme;
-    doc.SecurityRequirements.Add(new OpenApiSecurityRequirement
-    {
-        [new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" } }] = [],
-    });
-    return Task.CompletedTask;
-}));
 
 var app = builder.Build();
 
 await app.Services.InitializeUserStoreAsync();
 await app.Services.InitializeSlideshowStorageAsync();
 
-app.UseServiceDefaults();
-
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();                                                      // /openapi/v1.json
-    app.MapScalarApiReference(o => o.WithTitle("FrontPack API"));         // /scalar: browse and try the API
-    app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
-}
+app.UseServiceDefaults("FrontPack API");
 
 var api = app.MapGroup("/api/v1").RequireAuthorization(Auth.ApiPolicy);
 app.MapFrontPack(api);
@@ -54,4 +32,8 @@ app.MapSlideshow(api);
 
 app.Run();
 
-public partial class Program; // for WebApplicationFactory in tests
+namespace FrontPack.Hosts
+{
+    /// <summary>Names this host to WebApplicationFactory in the tests.</summary>
+    public sealed class CombinedHost;
+}
