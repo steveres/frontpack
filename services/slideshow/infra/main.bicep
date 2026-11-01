@@ -254,7 +254,9 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = if (!empty(containerImag
         {
           name: 'api'
           image: containerImage
-          resources: { cpu: json('0.5'), memory: '1Gi' }
+          // Enough so far (checked by hand, November 2026). The background resizing decodes one photo at a time
+          // in memory; if big uploads ever restart the container (out of memory), go back to 0.5 / 1Gi.
+          resources: { cpu: json('0.25'), memory: '0.5Gi' }
           env: appEnv
           probes: [
             { type: 'Liveness', httpGet: { path: '/healthz', port: 8080 }, periodSeconds: 30 }
