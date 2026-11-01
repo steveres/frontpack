@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace FrontPack.ServiceDefaults;
 
-/// <summary>The set-up every FrontPack service API shares. The service registers its IUserStore.</summary>
+/// <summary>The set-up every FrontPack service API shares. The host registers a TokenCredential (for Table Storage).</summary>
 public static class ServiceDefaults
 {
     public static IServiceCollection AddServiceDefaults(this IServiceCollection services, IConfiguration configuration)
@@ -18,6 +18,7 @@ public static class ServiceDefaults
         services.AddOptions<CorsOptions>().BindConfiguration("Cors");
         services.AddOptions<RateLimitOptions>().BindConfiguration("Limits");
 
+        services.AddUserStore();
         services.AddFrontPackAuth();
         services.AddProblemDetails();
         services.AddCors();

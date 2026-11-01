@@ -242,6 +242,8 @@ var corsEnv = concat([{ name: 'Cors__AllowedOrigins__0', value: webOrigin }], ex
 var appEnv = concat([
   { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId } // the managed identity the API signs in to storage as
   { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', secretRef: 'appinsights' }
+  { name: 'Users__Provider', value: 'AzureTable' } // FrontPack accounts: the same storage account for now
+  { name: 'Users__ServiceUri', value: storage.properties.primaryEndpoints.table }
   { name: 'Tables__Provider', value: 'AzureTable' }
   { name: 'Tables__ServiceUri', value: storage.properties.primaryEndpoints.table }
   { name: 'Storage__Provider', value: 'AzureBlob' }

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "local": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5160",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "local-azure": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5160",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Users__Provider": "AzureTable",
+        "Users__ConnectionString": "UseDevelopmentStorage=true",
+        "Tables__Provider": "AzureTable",
+        "Tables__ConnectionString": "UseDevelopmentStorage=true",
+        "Storage__Provider": "AzureBlob",
+        "Storage__ConnectionString": "UseDevelopmentStorage=true",
+        "Resize__Provider": "AzureQueue",
+        "Resize__ConnectionString": "UseDevelopmentStorage=true"
+      }
+    }
+  }
+}
