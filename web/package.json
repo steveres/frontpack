@@ -1,8 +1,8 @@
 {
-  "name": "slideshow-web",
+  "name": "frontpack-web",
   "version": "1.0.0",
   "private": true,
-  "description": "Slideshow website: plays albums of photos and videos with a route map, timeline and music.",
+  "description": "The FrontPack website (www.thefrontpack.com): the site shell and each service's pages, built into one site.",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",

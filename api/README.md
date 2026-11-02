@@ -1,7 +1,10 @@
-# Slideshow API
+# FrontPack APIs
 
-ASP.NET Core 9 API that stores each user's albums (photos, videos, music) and serves them to the
-slideshow SPA. Design and endpoint reference: [docs/api-design.md](../docs/api-design.md).
+The ASP.NET Core 9 APIs behind www.thefrontpack.com:
+- **FrontPack's own:** accounts, sign-in, sign-out everywhere.
+- **Slideshow's:** each user's albums (photos, videos, music), served to the slideshow pages.
+
+Design and endpoint reference: [docs/api-design.md](../docs/api-design.md).
 
 The API is built from libraries, one per service. Each service runs on its own host, in the FrontPack platform's
 Container Apps environment, deployed by `infra/deploy-services.ps1`:
@@ -102,21 +105,22 @@ Done in the [Microsoft Entra admin center](https://entra.microsoft.com).
 1. **Create an external tenant**: Entra ID → Overview → Manage tenants → Create → *External*.
    Note its **tenant id** and **subdomain** (`<subdomain>.onmicrosoft.com`).
    The token authority is `https://<subdomain>.ciamlogin.com/<tenant-id>/v2.0`.
-2. Switch to the external tenant. **Register the API**: App registrations → New → "Slideshow API",
+2. Switch to the external tenant. **Register the API**: App registrations → New → "FrontPack API",
    single tenant.
    - Expose an API → set the Application ID URI (`api://<api-client-id>`) → Add a scope
-     `Slideshow.Access` (who can consent: admins and users).
+     `Slideshow.Access` (who can consent: admins and users). Every API accepts this one scope. It keeps its
+     original name because renaming it would sign everyone out and means changing every API's settings.
    - Manifest → set `"requestedAccessTokenVersion": 2`.
    - Note the **Application (client) id** → `apiClientId`.
-3. **Register the SPA**: App registrations → New → "Slideshow SPA", platform *Single-page application*,
+3. **Register the SPA**: App registrations → New → "FrontPack Website", platform *Single-page application*,
    redirect URI where the SPA will run (e.g. `http://localhost:5173`). API permissions → Add →
-   My APIs → Slideshow API → `Slideshow.Access` → Grant admin consent.
+   My APIs → FrontPack API → `Slideshow.Access` → Grant admin consent.
 4. **User flow**: External Identities → User flows → New → "Sign up and sign in" (email + password,
-   or email one-time passcode; collect Display Name). Then Applications → add *Slideshow SPA*.
+   or email one-time passcode; collect Display Name). Then Applications → add *FrontPack Website*.
 5. **Graph access** (lets the API delete the Entra user on account deletion and revoke sessions on
    logout). Optional: without it those two steps are skipped and logged; data is still deleted and
    old tokens are still refused.
-   - Preferred, no secrets: in your **Azure** tenant, register a *multi-tenant* app "Slideshow Graph".
+   - Preferred, no secrets: in your **Azure** tenant, register a *multi-tenant* app "FrontPack Graph".
      Under Certificates & secrets → Federated credentials → Add → *Managed identity* → pick
      `slideshow-api-id` (created by the first deployment). Add Microsoft Graph **application**
      permissions `User.ReadWrite.All`, then grant admin consent **in the external tenant** by visiting
@@ -147,7 +151,7 @@ the .NET 9 SDK and Node.js. Docker is **not** needed; the .NET SDK builds and pu
    4. Packages the website with production settings and uploads it to Static Web Apps. Its `app-config.json`
       points at both APIs and uses Entra sign-in.
 3. First time only: add `<website address>/login.html` as a redirect URI (platform: Single-page
-   application) on the **Slideshow Website** app registration in Entra.
+   application) on the **FrontPack Website** app registration in Entra.
 
 What gets created:
 - **`frontpack-rg`:**

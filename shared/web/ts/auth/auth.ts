@@ -35,7 +35,7 @@ export function getAuth(): Promise<AuthProvider> {
   return provider;
 }
 
-const SIGNED_IN_AT = 'slideshow.signedInAt';
+const SIGNED_IN_AT = 'frontpack.signedInAt';
 const JUST_SIGNED_IN_MS = 60_000;
 
 /** Call when a sign-in has just completed (this tab). */

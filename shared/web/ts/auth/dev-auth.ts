@@ -4,13 +4,19 @@
 import { APP_CONFIG } from '../config.js';
 import { loginUrl, markSignedIn, NotSignedInError, type Account, type AuthProvider } from './auth.js';
 
-const STORAGE_KEY = 'slideshow.devAuth';
+const STORAGE_KEY = 'frontpack.devAuth';
+const OLD_STORAGE_KEY = 'slideshow.devAuth'; // before the site was FrontPack: moved over once, so nobody is signed out
 const EXPIRY_MARGIN_MS = 60_000;
 
 interface StoredSession { accessToken: string; expiresAt: string; name: string; email: string; }
 
 function load(): StoredSession | null {
   try {
+    const old = localStorage.getItem(OLD_STORAGE_KEY);
+    if (old !== null) {
+      if (localStorage.getItem(STORAGE_KEY) === null) localStorage.setItem(STORAGE_KEY, old);
+      localStorage.removeItem(OLD_STORAGE_KEY);
+    }
     const s = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as StoredSession | null;
     return s && Date.parse(s.expiresAt) - EXPIRY_MARGIN_MS > Date.now() ? s : null;
   } catch { return null; }
