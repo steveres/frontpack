@@ -3,10 +3,8 @@
 ASP.NET Core 9 API that stores each user's albums (photos, videos, music) and serves them to the
 slideshow SPA. Design and endpoint reference: [docs/api-design.md](../docs/api-design.md).
 
-The API is built from libraries, one per service, that a host runs. Until the cut-over, `Combined.Host` runs
-FrontPack and Slideshow together as the `slideshow-api` container app in `slideshow-rg` (deployed by
-`infra/deploy.ps1`). After it, each service runs on its own host in the FrontPack platform's environment
-(deployed by `infra/deploy-services.ps1`):
+The API is built from libraries, one per service. Each service runs on its own host, in the FrontPack platform's
+Container Apps environment, deployed by `infra/deploy-services.ps1`:
 
 | Host | Container app | Resource group | Template |
 |---|---|---|---|
@@ -30,13 +28,12 @@ services/slideshow/api/Slideshow.Api/   the Slideshow service
                                 smaller versions of photos + the background worker that makes them
     Storage/                    Azure Blob / local folder; resize queue (Azure Storage queue / memory)
     Data/                       entities + data store (Table Storage; in memory / JSON file locally)
-services/slideshow/api/Slideshow.Api.Tests/   integration + unit tests (most run against Combined.Host;
-                                SeparateHostsTests runs FrontPack.Host and Slideshow.Host together)
+services/slideshow/api/Slideshow.Api.Tests/   integration + unit tests: FrontPack.Host and Slideshow.Host run
+                                together, as deployed (Infrastructure/ApiFactory.cs)
 services/*/infra/               each resource group's Bicep template and parameters
-hosts/Combined.Host/            FrontPack + Slideshow in one API (Program.cs, appsettings, launch profiles)
-hosts/FrontPack.Host/, hosts/Slideshow.Host/   each service on its own
+hosts/FrontPack.Host/, hosts/Slideshow.Host/   each service's API (Program.cs, appsettings, launch profiles)
 hosts/App_Data/                 local data, shared by the hosts (git-ignored)
-infra/                          the single-API template and deploy.ps1 (until the cut-over); deploy-services.ps1
+infra/                          deploy-services.ps1; copy-users.mjs (used once, for the cut-over)
 ```
 
 ## Run the tests
@@ -55,31 +52,21 @@ $env:SLIDESHOW_TEST_TABLES = 'azurite'; dotnet test; Remove-Item Env:SLIDESHOW_T
 
 ## Run locally
 
-The combined host has two launch profiles, both on http://localhost:5160:
+Start both hosts, as in Azure (in two terminals). FrontPack runs on http://localhost:5170. Slideshow runs on
+http://localhost:5171, with its internal port, for FrontPack's calls, on 5172. The website's `web\app.config.json`
+already points at them.
+```powershell
+cd hosts\Slideshow.Host; dotnet run      # or: dotnet run --launch-profile local-azure
+cd hosts\FrontPack.Host; dotnet run      # (the same profile in both)
+```
 
-| Profile | Album details | Media storage | Needs |
+| Profile | Accounts, album details | Media storage | Needs |
 |---|---|---|---|
-| `local` (default) | memory, saved to `hosts/App_Data/data.json` (accounts: `users.json`) | folder `hosts/App_Data/media` | nothing |
+| `local` (default) | memory, saved to `hosts/App_Data/users.json` and `data.json` | folder `hosts/App_Data/media` | nothing |
 | `local-azure` | Azurite (Table Storage emulator) | Azurite (Blob Storage emulator) | Node.js |
 
 Photos waiting for their smaller versions are queued in memory with `local` (lost when the API stops:
 photos still waiting then stay full size) and in Azurite's queue service with `local-azure`.
-
-```powershell
-cd hosts\Combined.Host
-dotnet run                               # or: dotnet run --launch-profile local-azure
-```
-
-To run the services as separate APIs, as in Azure, start both hosts (in two terminals). FrontPack runs on
-http://localhost:5170. Slideshow runs on http://localhost:5171, with its internal port on 5172. Then point the
-website at them in `web\app.config.local.json`:
-```powershell
-cd hosts\Slideshow.Host; dotnet run
-cd hosts\FrontPack.Host; dotnet run
-```
-```json
-{ "services": { "frontpack": "http://localhost:5170", "slideshow": "http://localhost:5171" } }
-```
 
 For `local-azure`, start Azurite first in another terminal (`--skipApiVersionCheck` because the Azure
 SDK is usually newer than the emulator):
@@ -89,11 +76,11 @@ npx -p azurite azurite --skipApiVersionCheck --location $env:TEMP\azurite
 
 ### Browse and try the API
 
-Open http://localhost:5160 (Development only). It redirects to an API explorer (`/scalar`) listing
-every endpoint, where you can send requests and upload files.
+Open http://localhost:5170 (FrontPack) or http://localhost:5171 (Slideshow), Development only. Each redirects
+to an API explorer (`/scalar`) listing its endpoints, where you can send requests and upload files.
 
-Every `/api/v1` call needs a token. Locally, make one with the .NET SDK's `user-jwts` tool (run in
-`hosts\Combined.Host`):
+Every `/api/v1` call needs a token. Locally, make one with the .NET SDK's `user-jwts` tool. Run it in
+`hosts\Slideshow.Host` or `hosts\FrontPack.Host`: they share the key, so the token works on both.
 ```powershell
 dotnet user-jwts create --scope Slideshow.Access --claim oid=11111111-2222-3333-4444-555555555555 --claim name="Local Dev" --output token
 ```
@@ -144,49 +131,65 @@ Done in the [Microsoft Entra admin center](https://entra.microsoft.com).
 Needs the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), an Azure subscription,
 the .NET 9 SDK and Node.js. Docker is **not** needed; the .NET SDK builds and pushes the image.
 
-1. Entra values: API side in [infra/main.bicepparam](../infra/main.bicepparam), website side in
+1. Entra values: API side in each `services/*/infra/main.bicepparam`, website side in
    [web/app.config.azure.json](../web/app.config.azure.json) (already filled in for the Slideshow tenant).
 2. Deploy:
    ```powershell
    az login
-   .\infra\deploy.ps1 -ResourceGroup slideshow-rg -Location eastus
+   .\infra\deploy-services.ps1
    ```
-   It registers the resource providers (first time), creates or updates the resources, builds and
-   pushes the API image, deploys it, then packages the website with production settings (its
-   `app-config.json` points at the deployed API and uses Entra sign-in) and uploads it to Static Web
-   Apps. It prints both addresses. Run it again to ship a new version; `-SkipApi` ships only the website.
+   It works through these steps, then prints the addresses. Run it again to ship a new version.
+   1. Registers the resource providers (first time).
+   2. Deploys the platform (`frontpack-rg`, [services/frontpack/infra](../services/frontpack/infra)), then
+      builds, pushes and deploys `frontpack-api`.
+   3. Does the same for Slideshow (`slideshow-rg`, [services/slideshow/infra](../services/slideshow/infra)) and
+      `slideshow-api`.
+   4. Packages the website with production settings and uploads it to Static Web Apps. Its `app-config.json`
+      points at both APIs and uses Entra sign-in.
 3. First time only: add `<website address>/login.html` as a redirect URI (platform: Single-page
    application) on the **Slideshow Website** app registration in Entra.
 
-What gets created: Static Web App (Free plan; `eastus2`, since Static Web Apps isn't offered in every
-region), Container Apps environment + app (scale 0–3), Azure Container Registry, Storage account
-(private `media` container for files and compiled manifests, tables `Users`, `Albums`, `Media` and
-`Shares` for album details, queue `resize` for photos waiting for their smaller versions; shared keys
-off, 7-day soft delete), Log Analytics + Application Insights, and a user-assigned managed identity with
-exactly the roles it needs (AcrPull, Storage Blob Data Contributor, Storage Table Data Contributor,
-Storage Queue Data Contributor). The API scales up for web requests and for photos waiting in the queue. The website's address is always allowed by the API's
-CORS settings.
+What gets created:
+- **`frontpack-rg`:**
+  - Log Analytics + Application Insights
+  - an Azure Container Registry (one repository per service)
+  - the Container Apps environment
+  - a storage account with the `Users` table (the accounts)
+  - `frontpack-api` and its managed identity
+  - the Static Web App (Free plan, in `eastus2`, since Static Web Apps isn't offered in every region), with
+    the custom domain
+- **`slideshow-rg`:**
+  - Slideshow's storage account:
+    - a private `media` container for files and compiled manifests
+    - tables `Albums`, `Media` and `Shares`
+    - queue `resize`
+  - `slideshow-api` (in the platform's environment, with internal port 8081)
+  - its managed identity
+
+Both storage accounts have shared keys off and 7-day soft delete. Each identity has exactly the roles it
+needs; Slideshow's can only read the `Users` table. The APIs scale 0–3. Slideshow's also scales up for photos
+waiting in the queue. The website's addresses are always allowed by both APIs' CORS settings.
 
 Notes
 - To browse the album details yourself, open the storage account's *Storage browser* in the Azure
   portal (or Azure Storage Explorer); your account needs the *Storage Table Data Reader* role on it.
 - The first request after an idle period is slow: the app scales from zero. Set `apiMinReplicas = 1`
-  in `main.bicepparam` to keep one instance warm (costs more).
+  in a service's `main.bicepparam` to keep one instance warm (costs more).
 - Restrict the Google Maps key to the website's address in the Google Cloud console.
 
 ### Deploy automatically from GitHub
 
-[.github/workflows/deploy.yml](../.github/workflows/deploy.yml) runs the same `deploy.ps1` after CI
+[.github/workflows/deploy.yml](../.github/workflows/deploy.yml) runs the same `deploy-services.ps1` after CI
 passes on `main` (every merged pull request), or from the Actions tab (**Deploy → Run workflow**). It
 signs in to Azure with OpenID Connect, so no password is stored in GitHub. Set it up once, after a first
-manual deploy (which registers the resource providers and creates the resource group):
+manual deploy (which registers the resource providers and creates the resource groups):
 
 1. Run these in PowerShell (they print the values GitHub needs in step 2), signed in to the Azure
    tenant that holds the subscription (`az login`; not the Entra External ID tenant used for sign-in)
    and to GitHub (`gh auth login`). You need rights to create app registrations, and Owner on the
-   resource group:
+   resource groups:
    ```powershell
-   $rg     = 'slideshow-rg'
+   $groups = 'frontpack-rg', 'slideshow-rg'   # add each new service's resource group
    $repo   = 'steveres/frontpack'
    $sub    = az account show --query id --output tsv
    $tenant = az account show --query tenantId --output tsv
@@ -206,16 +209,18 @@ manual deploy (which registers the resource providers and creates the resource g
    az ad app federated-credential create --id $appId --parameters federated-credential.json --output none
    Remove-Item federated-credential.json
 
-   # Rights on the resource group only: change resources, and give the API's identity its roles (main.bicep does)
-   $scope = az group show --name $rg --query id --output tsv
-   az role assignment create --assignee $appId --role 'Contributor' --scope $scope --output none
-   az role assignment create --assignee $appId --role 'Role Based Access Control Administrator' --scope $scope --output none
+   # Rights on the resource groups only: change resources, and give the APIs' identities their roles (the templates do)
+   foreach ($rg in $groups) {
+     $scope = az group show --name $rg --query id --output tsv
+     az role assignment create --assignee $appId --role 'Contributor' --scope $scope --output none
+     az role assignment create --assignee $appId --role 'Role Based Access Control Administrator' --scope $scope --output none
+   }
 
    # What to enter in GitHub (step 2)
    "AZURE_CLIENT_ID=$appId"; "AZURE_TENANT_ID=$tenant"; "AZURE_SUBSCRIPTION_ID=$sub"
-   "AZURE_RESOURCE_GROUP=$rg"; "AZURE_LOCATION=$(az group show --name $rg --query location --output tsv)"
+   "AZURE_LOCATION=$(az group show --name $groups[0] --query location --output tsv)"
    ```
-2. In GitHub: **Settings → Environments → New environment** named `production`. On it, add the five
+2. In GitHub: **Settings → Environments → New environment** named `production`. On it, add the four
    lines printed above as **environment variables**: the part before `=` is the name (e.g.
    `AZURE_CLIENT_ID`), the part after is the value (e.g. a GUID). Add the Google Maps key as the
    **environment secret** `GOOGLE_MAPS_API_KEY`. To approve each deploy before it starts, tick
@@ -224,8 +229,7 @@ manual deploy (which registers the resource providers and creates the resource g
    gh variable set AZURE_CLIENT_ID       --repo $repo --env production --body $appId
    gh variable set AZURE_TENANT_ID       --repo $repo --env production --body $tenant
    gh variable set AZURE_SUBSCRIPTION_ID --repo $repo --env production --body $sub
-   gh variable set AZURE_RESOURCE_GROUP  --repo $repo --env production --body $rg
-   gh variable set AZURE_LOCATION        --repo $repo --env production --body (az group show --name $rg --query location --output tsv)
+   gh variable set AZURE_LOCATION        --repo $repo --env production --body (az group show --name $groups[0] --query location --output tsv)
    gh secret set GOOGLE_MAPS_API_KEY     --repo $repo --env production   # asks for the key
    ```
 

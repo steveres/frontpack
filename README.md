@@ -8,8 +8,8 @@ videos, draws the route between them on a Google map, and plays the album's MP3s
 | [shared/](shared/) | What every service shares: the website shell (`web/`: sign-in, nav, API client, base CSS) and the API set-up (`api/FrontPack.ServiceDefaults`: sign-in, CORS, rate limits, health) |
 | [services/](services/) | Each service's website pages: `frontpack/web` (Home, About, Login, Account), `slideshow/web` (Albums, Album, Slideshow) |
 | [web/](web/) | Builds the website from `shared/web` and `services/*/web` (TypeScript + CSS, no framework, no bundler) |
-| [hosts/](hosts/) | The API hosts: `Combined.Host` runs FrontPack and Slideshow together ([api/README.md](api/README.md): run, test, Entra and deploy set-up) |
-| [infra/](infra/) | Azure infrastructure (Bicep) and deploy script |
+| [hosts/](hosts/) | The API hosts, one per service: `FrontPack.Host` and `Slideshow.Host` ([api/README.md](api/README.md): run, test, Entra and deploy set-up) |
+| [infra/](infra/) | The deploy script (each resource group's Bicep template is in `services/*/infra`) |
 | [docs/](docs/) | Design documents ([API design](docs/api-design.md)) |
 | [.github/workflows/](.github/workflows/) | CI: API tests, website build and Bicep check on every pull request. Deploy: to Azure once CI passes on `main` ([setup](api/README.md#deploy-automatically-from-github)) |
 | `prepare.bat`, `prepare.ps1` | Optional, Windows: prepare a local photo folder (HEIC → JPEG, date order) |
@@ -33,13 +33,13 @@ Maps keys work), so in the Google Cloud console restrict it to your site's addre
 `http://localhost:3000/*` and the production URL.
 
 **API addresses:** `"services"` in `web/app.config.json` gives each service's API address
-(`"frontpack"`, `"slideshow"`). For now one API serves both, so both point to it.
+(`"frontpack"`, `"slideshow"`). Locally: http://localhost:5170 and http://localhost:5171 (see [api/README.md](api/README.md)).
 
 **Sign-in:** chosen in `web/app.config.json` (committed defaults; put personal overrides in the
 git-ignored `app.config.local.json`, or pass `APP_CONFIG` as JSON in CI):
 
 - `"auth": { "mode": "dev" }` (default) — local development without Entra. Run the API in Development
-  (`dotnet run` in `hosts/Combined.Host`), open http://localhost:3000/login.html and sign in with any
+  (`dotnet run` in `hosts/FrontPack.Host` and in `hosts/Slideshow.Host`), open http://localhost:3000/login.html and sign in with any
   email; each email is a separate user. The API issues the token from `POST /dev/token`, which only
   exists in Development and uses the `dotnet user-jwts` signing key (run `dotnet user-jwts create`
   there once if you haven't).

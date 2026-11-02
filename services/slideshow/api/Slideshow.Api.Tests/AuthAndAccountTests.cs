@@ -155,11 +155,9 @@ public sealed class AuthAndAccountTests(ApiFactory factory) : IClassFixture<ApiF
     public async Task Account_totals_every_service_and_deletes_from_each()
     {
         var other = new FakeServiceAccountData();
-        using var f = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IServiceAccountData>(other)));
+        using var f = new ApiFactory { FrontPackServices = s => s.AddSingleton<IServiceAccountData>(other) };
         var oid = NewUser();
-        var client = f.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiFactory.Token(oid));
-        (await client.PostAsync("/api/v1/account", null)).EnsureSuccessStatusCode();
+        var client = await f.RegisteredClientAsync(oid);
         var album = await AlbumTests.CreateAlbumAsync(client, "Mine");
         (await client.PostAsync($"/api/v1/albums/{album}/images", TestMedia.Form(TestMedia.Jpeg(), "a.jpg"))).EnsureSuccessStatusCode();
 

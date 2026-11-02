@@ -236,7 +236,7 @@ media rows → share code → album → user, so a retry after a failure finishe
 - `GET /healthz` (anonymous) for Container Apps probes.
 - OpenTelemetry → Application Insights when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set.
 - OpenAPI document at `/openapi/v1.json` and an interactive API explorer at `/scalar` (Development only).
-- Infrastructure as code: `infra/main.bicep`. Setup steps: `api/README.md`.
+- Infrastructure as code: `services/frontpack/infra` (platform + FrontPack) and `services/slideshow/infra` (Slideshow), deployed by `infra/deploy-services.ps1`. Setup steps: `api/README.md`.
 
 ## 9. Known limits / later
 

@@ -10,6 +10,24 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "Internal__Port": "5172"
       }
+    },
+    "local-azure": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5171;http://localhost:5172",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Internal__Port": "5172",
+        "Users__Provider": "AzureTable",
+        "Users__ConnectionString": "UseDevelopmentStorage=true",
+        "Tables__Provider": "AzureTable",
+        "Tables__ConnectionString": "UseDevelopmentStorage=true",
+        "Storage__Provider": "AzureBlob",
+        "Storage__ConnectionString": "UseDevelopmentStorage=true",
+        "Resize__Provider": "AzureQueue",
+        "Resize__ConnectionString": "UseDevelopmentStorage=true"
+      }
     }
   }
 }
