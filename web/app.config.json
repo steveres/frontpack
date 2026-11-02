@@ -1,7 +1,7 @@
 {
   "services": {
-    "frontpack": "http://localhost:5160",
-    "slideshow": "http://localhost:5160"
+    "frontpack": "http://localhost:5170",
+    "slideshow": "http://localhost:5171"
   },
   "auth": { "mode": "dev" }
 }

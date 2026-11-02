@@ -15,8 +15,106 @@ using FrontPack.Hosts;
 
 namespace Slideshow.Api.Tests.Infrastructure;
 
-/// <summary>The combined host (FrontPack + Slideshow in one API), which most tests run against.</summary>
-public sealed class ApiFactory : HostFactory<CombinedHost>;
+/// <summary>
+/// FrontPack's and Slideshow's APIs, as deployed: two real hosts behind one client, which sends the account
+/// and development sign-in calls to FrontPack and the rest to Slideshow. They share the accounts, and FrontPack
+/// reaches Slideshow's side of the account on its internal endpoints. Most tests run against this.
+/// </summary>
+public sealed class ApiFactory : IDisposable
+{
+    private readonly Lazy<(HostFactory<FrontPackHost> FrontPack, HostFactory<SlideshowHost> Slideshow)> _hosts;
+
+    public ApiFactory() => _hosts = new(Start);
+
+    /// <summary>Configuration overrides for both APIs, e.g. smaller limits.</summary>
+    public Dictionary<string, string?> Settings { get; init; } = [];
+    /// <summary>Hosting environment of both (see <see cref="HostFactory{THost}.Environment"/>).</summary>
+    public string Environment { get; init; } = "Testing";
+    /// <summary>More service changes for FrontPack's API (e.g. another service's side of the account).</summary>
+    public Action<IServiceCollection>? FrontPackServices { get; init; }
+
+    public HostFactory<FrontPackHost> FrontPack => _hosts.Value.FrontPack;
+    public HostFactory<SlideshowHost> Slideshow => _hosts.Value.Slideshow;
+    /// <summary>Slideshow's services (its stores, queue and files; the accounts are the same in both).</summary>
+    public IServiceProvider Services => Slideshow.Services;
+    public string MediaRoot => Slideshow.MediaRoot;
+    public FakeIdentityDirectory Directory => FrontPack.Directory;
+
+    private (HostFactory<FrontPackHost>, HostFactory<SlideshowHost>) Start()
+    {
+        // One accounts store for both (in Azure: one Users table); Azurite runs share theirs already.
+        var azurite = System.Environment.GetEnvironmentVariable("SLIDESHOW_TEST_TABLES") == "azurite";
+        var users = new LocalUserStore(Microsoft.Extensions.Options.Options.Create(new UsersOptions { LocalPath = "" }));
+        void SharedUsers(IServiceCollection s) { if (!azurite) s.AddSingleton<IUserStore>(users); }
+
+        // In a test server every request's local port is 0, so Internal:Port 0 lets FrontPack's calls through.
+        var slideshow = new HostFactory<SlideshowHost>
+        {
+            Environment = Environment,
+            Settings = new(Settings) { ["Internal:Port"] = "0" },
+            TestServices = SharedUsers,
+        };
+        var frontpack = new HostFactory<FrontPackHost>
+        {
+            Environment = Environment,
+            Settings = new(Settings) { ["Services:0:Name"] = "slideshow", ["Services:0:InternalUrl"] = "http://slideshow.internal:8081" },
+            TestServices = s =>
+            {
+                SharedUsers(s);
+                s.AddHttpClient(RemoteServiceAccountData.ClientName("slideshow")).ConfigurePrimaryHttpMessageHandler(() => slideshow.Server.CreateHandler());
+                FrontPackServices?.Invoke(s);
+            },
+        };
+        return (frontpack, slideshow);
+    }
+
+    /// <summary>A client for both APIs: each request goes to the one that serves its path.</summary>
+    public HttpClient CreateClient() =>
+        new(new RouteToApi(FrontPack.Server.CreateHandler(), Slideshow.Server.CreateHandler())) { BaseAddress = new Uri("http://localhost/") };
+
+    /// <summary>A client acting as the given user.</summary>
+    public HttpClient ClientFor(string oid, string? token = null)
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token ?? Token(oid));
+        return client;
+    }
+
+    /// <summary>A client for a user who has already registered.</summary>
+    public async Task<HttpClient> RegisteredClientAsync(string oid)
+    {
+        var client = ClientFor(oid);
+        (await client.PostAsync("/api/v1/account", null)).EnsureSuccessStatusCode();
+        return client;
+    }
+
+    /// <inheritdoc cref="HostFactory{THost}.Token"/>
+    public static string Token(string oid, string? scope = HostFactory<SlideshowHost>.Scope, string audience = HostFactory<SlideshowHost>.Audience,
+        DateTime? issuedAt = null, SecurityKey? key = null, string name = "Test User") =>
+        HostFactory<SlideshowHost>.Token(oid, scope, audience, issuedAt, key, name);
+
+    public static TimeSpan EntraBackdating => HostFactory<SlideshowHost>.EntraBackdating;
+
+    public void Dispose()
+    {
+        if (!_hosts.IsValueCreated) return;
+        _hosts.Value.FrontPack.Dispose();
+        _hosts.Value.Slideshow.Dispose();
+    }
+
+    /// <summary>FrontPack serves the account and development sign-in; Slideshow everything else.</summary>
+    private sealed class RouteToApi(HttpMessageHandler frontpack, HttpMessageHandler slideshow) : HttpMessageHandler
+    {
+        private readonly HttpMessageInvoker _frontpack = new(frontpack), _slideshow = new(slideshow);
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            var toFrontPack = path.StartsWith("/api/v1/account", StringComparison.Ordinal) || path.StartsWith("/dev/", StringComparison.Ordinal);
+            return (toFrontPack ? _frontpack : _slideshow).SendAsync(request, ct);
+        }
+    }
+}
 
 /// <summary>
 /// A real host with its data in memory + a temp folder for storage, and tokens signed by a test key in place of

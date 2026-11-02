@@ -1,4 +1,6 @@
-# Cut-over: from the single API to the platform and services
+# Cut-over: from the single API to the platform and services (done 2026-11-01)
+
+A record of how it was done. The single-API template, `deploy.ps1` and the combined host it mentions are gone.
 
 Moves www.thefrontpack.com from the single API in `slideshow-rg` to:
 - the FrontPack platform in `frontpack-rg`
@@ -42,7 +44,7 @@ If step 4 fails, the old setup can't simply be switched back, because its API is
 - Fix forward. The new stack's logs are in `frontpack-logs`.
 - Restore the old setup. Run `infra/deploy.ps1 -ResourceGroup slideshow-rg` from `main` before the Phase 3 PR is merged. It recreates `slideshow-api` in `slideshow-env` from `infra/main.bicep`. The data was never moved, so nothing is lost.
 
-## After (separate PR, once the new setup has run for a few days)
+## After (done 2026-11-01, in the cleanup PR)
 
 - Delete what only the single API used, in `slideshow-rg`:
   - `slideshow-web`, `slideshow-env`, `slideshow-logs`, `slideshow-insights`
