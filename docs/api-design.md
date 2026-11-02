@@ -1,4 +1,4 @@
-# Slideshow API — Architecture & Design
+# FrontPack APIs — Architecture & Design
 
 Status: v1 (implemented in `api/`). The SPA will be moved onto this API in a later step.
 

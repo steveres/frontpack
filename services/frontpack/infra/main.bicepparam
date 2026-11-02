@@ -3,7 +3,7 @@ using 'main.bicep'
 // The FrontPack platform, in frontpack-rg. Entra External ID tenant "Slideshow" (slideshowmap.onmicrosoft.com);
 // none of these are secrets.
 param authAuthority = 'https://slideshowmap.ciamlogin.com/ddba6b11-5443-454a-916d-3a9237c12525/v2.0'
-param apiClientId = '107ba552-513b-4b86-ba0f-e8e1ca1c7afd'   // "Slideshow API" app registration
+param apiClientId = '107ba552-513b-4b86-ba0f-e8e1ca1c7afd'   // "FrontPack API" app registration (formerly "Slideshow API")
 param externalTenantId = 'ddba6b11-5443-454a-916d-3a9237c12525'
 param graphClientId = ''          // set once the Graph app is set up; empty = skip Entra-side delete/revoke
 

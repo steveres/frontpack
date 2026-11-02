@@ -132,7 +132,7 @@ Write-Host ''
 Write-Host "Website:          $webUrl"
 Write-Host "FrontPack API:    $frontpackApiUrl"
 Write-Host "Slideshow API:    $slideshowApiUrl"
-Write-Host "Sign-in redirect: $webUrl/login.html  (must be listed on the 'Slideshow Website' app registration)"
+Write-Host "Sign-in redirect: $webUrl/login.html  (must be listed on the 'FrontPack Website' app registration)"
 Write-Host "Maps key:         $webUrl/*  (must be allowed on the Google Maps key)"
 if ($customUrl) { Write-Host "Custom domain:    $customUrl" }
 foreach ($api in $frontpackApiUrl, $slideshowApiUrl) {
