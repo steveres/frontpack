@@ -1,0 +1,32 @@
+/* FrontPack's sign-in page: Entra External ID company branding, "Custom CSS" (upload this file; 25 KB limit).
+   Colours and fonts from the website (shared/web/site/css/base/variables.css): the photo darkened behind a white
+   sign-in box, the logo on white as in the site's header, amber buttons with dark text.
+   Entra only applies its own ext-* classes; any it doesn't recognise are ignored. */
+
+/* The page: the background photo, darkened so the box stands out */
+.ext-background-image { filter: brightness(.55) saturate(1.05); }
+
+/* Header (top left): the logo on a small white pill, like the site's navigation */
+.ext-header { background: transparent; }
+.ext-header-logo { padding: 3px 8px; border-radius: 6px; background: #fff; }
+
+/* The sign-in box */
+.ext-sign-in-box { border-radius: 10px; box-shadow: 0 10px 40px rgba(0, 0, 0, .45); }
+.ext-banner-logo { margin-bottom: 4px; }
+.ext-title { color: #14181d; font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; font-weight: 600; }
+.ext-subtitle, .ext-boilerplate-text { color: #4a5260; }
+
+/* Fields */
+.ext-input { border-radius: 6px; }
+.ext-input:focus { border-color: #c98f1f; }
+.ext-error { color: #b3261e; }
+
+/* Buttons: the site's amber, with dark text */
+.ext-button.ext-primary { background-color: #f2b84b; border-color: #f2b84b; color: #14181d; font-weight: 600; border-radius: 6px; }
+.ext-button.ext-primary:hover { background-color: #e5a83a; border-color: #e5a83a; color: #14181d; }
+.ext-button.ext-primary:focus { outline: 2px solid #14181d; outline-offset: 2px; }
+.ext-button.ext-secondary { border-radius: 6px; }
+
+/* Footer, over the photo */
+.ext-footer { background: rgba(20, 24, 29, .75); }
+.ext-footer-links a, .ext-footer-item { color: #e9e4d8; }
