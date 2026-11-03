@@ -112,11 +112,13 @@ Done in the [Microsoft Entra admin center](https://entra.microsoft.com).
      original name because renaming it would sign everyone out and means changing every API's settings.
    - Manifest → set `"requestedAccessTokenVersion": 2`.
    - Note the **Application (client) id** → `apiClientId`.
-3. **Register the SPA**: App registrations → New → "FrontPack Website", platform *Single-page application*,
+3. **Register the SPA**: App registrations → New → "FrontPack" (the sign-in page says "Sign in to access
+   <this name>". If you rename it later, rename it under **Enterprise applications** too: that copy is the one
+   the sign-in page shows), platform *Single-page application*,
    redirect URI where the SPA will run (e.g. `http://localhost:5173`). API permissions → Add →
    My APIs → FrontPack API → `Slideshow.Access` → Grant admin consent.
 4. **User flow**: External Identities → User flows → New → "Sign up and sign in" (email + password,
-   or email one-time passcode; collect Display Name). Then Applications → add *FrontPack Website*.
+   or email one-time passcode; collect Display Name). Then Applications → add *FrontPack*.
 5. **Graph access** (lets the API delete the Entra user on account deletion and revoke sessions on
    logout). Optional: without it those two steps are skipped and logged; data is still deleted and
    old tokens are still refused.
@@ -151,7 +153,7 @@ the .NET 9 SDK and Node.js. Docker is **not** needed; the .NET SDK builds and pu
    4. Packages the website with production settings and uploads it to Static Web Apps. Its `app-config.json`
       points at both APIs and uses Entra sign-in.
 3. First time only: add `<website address>/login.html` as a redirect URI (platform: Single-page
-   application) on the **FrontPack Website** app registration in Entra.
+   application) on the **FrontPack** (website) app registration in Entra.
 
 What gets created:
 - **`frontpack-rg`:**
