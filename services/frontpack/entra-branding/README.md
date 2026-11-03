@@ -1,7 +1,7 @@
 # Sign-in page branding (Entra External ID)
 
 These files give the sign-in pages (on `slideshowmap.ciamlogin.com`) FrontPack's look:
-- the home page's photo, darkened
+- a photo of people cycling down a country road (from the home page), darkened
 - the logo
 - the site's amber buttons
 
@@ -16,8 +16,8 @@ They are uploaded by hand in the Entra admin center; nothing deploys them.
 | `square-logo.png` | Sign-in form → Square logo (light theme) | 240×240 (50 KB) |
 | `custom.css` | Layout → Custom CSS | (25 KB) |
 
-The images are made from the website's own (`frontpack-logo.png`, `favicon.png`, `background1.jpg`). Remake them if
-those change.
+The images are made from the website's own: `frontpack-logo.png`, `favicon.png` and `background2.jpg` (the riders on a
+country road, cropped to 16:9). Remake them if those change.
 
 ## Upload (once; again after changing a file)
 
