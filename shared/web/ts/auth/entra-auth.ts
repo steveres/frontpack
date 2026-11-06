@@ -21,6 +21,21 @@ function loadMsal(): Promise<Msal> {
   });
 }
 
+/**
+ * MSAL marks a sign-in "in progress" (in session storage, with the app's client id) until the redirect returns,
+ * and only that same app clears the mark. One left by another app, such as the site's app registration before the
+ * move to the frontpack tenant, would otherwise block every sign-in with "interaction_in_progress".
+ */
+function clearOtherAppsInteraction(clientId: string): void {
+  const KEY = 'msal.interaction.status';
+  for (const storage of [sessionStorage, localStorage]) {
+    try {
+      const raw = storage.getItem(KEY);
+      if (raw && (JSON.parse(raw) as { clientId?: string }).clientId !== clientId) storage.removeItem(KEY);
+    } catch { /* unreadable: leave it to MSAL */ }
+  }
+}
+
 export async function createEntraAuth(): Promise<AuthProvider> {
   const config = APP_CONFIG.auth as EntraAuthConfig;
   const msal = await loadMsal();
@@ -35,13 +50,18 @@ export async function createEntraAuth(): Promise<AuthProvider> {
     },
     cache: { cacheLocation: 'localStorage' },               // stay signed in across tabs
   };
+  clearOtherAppsInteraction(config.clientId);
   const app: IPublicClientApplication = await msal.createStandardPublicClientApplication(msalConfig);
 
   // Completes a sign-in redirect if this page load is the return from Entra.
   const result = await app.handleRedirectPromise();
   if (result?.account) { app.setActiveAccount(result.account); markSignedIn(); }
-  const current = (): AccountInfo | null => app.getActiveAccount() ?? app.getAllAccounts()[0] ?? null;
+  // Only accounts from this tenant: the browser may still hold one from the tenant the site used before.
+  const tenant = new URL(config.authority).pathname.split('/').find(Boolean)?.toLowerCase();
+  const ours = (a: AccountInfo | null) => a && (!tenant || a.tenantId?.toLowerCase() === tenant || a.homeAccountId.toLowerCase().endsWith(`.${tenant}`)) ? a : null;
+  const current = (): AccountInfo | null => ours(app.getActiveAccount()) ?? app.getAllAccounts().find(a => ours(a)) ?? null;
   const scopes = [config.apiScope];
+  let redirecting = false; // a token redirect has started: further requests just wait for it
 
   return {
     mode: 'entra',
@@ -71,7 +91,8 @@ export async function createEntraAuth(): Promise<AuthProvider> {
       try {
         return (await app.acquireTokenSilent({ scopes, account })).accessToken;
       } catch (err) {
-        if (err instanceof msal.InteractionRequiredAuthError) {
+        if (err instanceof msal.InteractionRequiredAuthError && !redirecting) {
+          redirecting = true;
           await app.acquireTokenRedirect({ scopes, account }); // comes back to this page
         }
         throw err;
