@@ -27,6 +27,9 @@ param authAuthority string
 @description('Client id of the API app registration in the External ID tenant (the token audience).')
 param apiClientId string
 
+@description('The delegated scope every API requires in its tokens.')
+param apiScope string = 'FrontPack.Access'
+
 @description('The website\'s custom domain (on the platform\'s Static Web App), allowed to call the API. Empty: none.')
 param customDomain string = ''
 
@@ -224,6 +227,7 @@ var appEnv = concat([
   { name: 'Auth__Authority', value: authAuthority }
   { name: 'Auth__Audiences__0', value: apiClientId }
   { name: 'Auth__Audiences__1', value: 'api://${apiClientId}' }
+  { name: 'Auth__RequiredScope', value: apiScope }
 ], corsEnv)
 
 resource app 'Microsoft.App/containerApps@2025-01-01' = if (!empty(containerImage)) {

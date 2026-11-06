@@ -28,6 +28,9 @@ param authAuthority string
 @description('Client id of the API app registration in the External ID tenant (the token audience).')
 param apiClientId string
 
+@description('The delegated scope every API requires in its tokens.')
+param apiScope string = 'FrontPack.Access'
+
 @description('External ID (customer) tenant id, for Microsoft Graph calls.')
 param externalTenantId string
 
@@ -211,6 +214,7 @@ var appEnv = concat([
   { name: 'Auth__Authority', value: authAuthority }
   { name: 'Auth__Audiences__0', value: apiClientId }
   { name: 'Auth__Audiences__1', value: 'api://${apiClientId}' }
+  { name: 'Auth__RequiredScope', value: apiScope }
   { name: 'Graph__TenantId', value: empty(graphClientId) ? '' : externalTenantId }
   { name: 'Graph__ClientId', value: graphClientId }
   { name: 'Graph__ManagedIdentityClientId', value: identity.properties.clientId }

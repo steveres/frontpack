@@ -88,7 +88,7 @@ the smaller versions of each photo (`{blob}.720`, `.1280`, `.1920`), made in the
 
 Tokens: Entra External ID v2 access tokens for the API's app registration. The API validates
 signature (keys from the tenant's OIDC metadata), issuer, audience, lifetime, and requires the
-delegated scope `Slideshow.Access` in `scp` (or the standard `scope` claim). The user's identity is the `oid` claim.
+delegated scope `FrontPack.Access` in `scp` (or the standard `scope` claim). The user's identity is the `oid` claim.
 
 | Operation | How |
 |---|---|

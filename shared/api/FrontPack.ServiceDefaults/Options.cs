@@ -8,7 +8,7 @@ public sealed class AuthOptions
     /// <summary>The API app registration's client id (and/or its api:// URI).</summary>
     public string[] Audiences { get; set; } = [];
     /// <summary>Delegated scope the token must carry in "scp".</summary>
-    public string RequiredScope { get; set; } = "Slideshow.Access";
+    public string RequiredScope { get; set; } = "FrontPack.Access";
     /// <summary>
     /// Entra dates its tokens' "iat" (issued at) about 5 minutes before they're really issued, to allow
     /// for clock differences. The logout cut-off allows for it, or a sign-in in the first minutes after
