@@ -28,7 +28,7 @@ param authAuthority string
 param apiClientId string
 
 @description('The delegated scope every API requires in its tokens.')
-param apiScope string = 'Slideshow.Access'
+param apiScope string = 'FrontPack.Access'
 
 @description('The website\'s custom domain (on the platform\'s Static Web App), allowed to call the API. Empty: none.')
 param customDomain string = ''

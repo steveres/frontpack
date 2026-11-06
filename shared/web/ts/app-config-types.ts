@@ -28,6 +28,6 @@ export interface EntraAuthConfig {
   clientId: string;
   /** Including the tenant, e.g. https://<tenant-subdomain>.ciamlogin.com/<tenant-id>/ */
   authority: string;
-  /** The API's delegated scope, e.g. api://<api-client-id>/Slideshow.Access */
+  /** The API's delegated scope, e.g. api://<api-client-id>/FrontPack.Access */
   apiScope: string;
 }

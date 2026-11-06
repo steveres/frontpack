@@ -1,4 +1,4 @@
-// Moves people's Slideshow data from their old account IDs to their new ones, for the move to the "thefrontpack"
+// Moves people's Slideshow data from their old account IDs to their new ones, for the move to the "frontpack"
 // External ID tenant (docs/tenant-move.md). Signing in to the new tenant gives each person a new account ID, so
 // their albums, files and share links have to be re-filed under it. Run it once both have signed in to the new
 // tenant (which creates their new account).

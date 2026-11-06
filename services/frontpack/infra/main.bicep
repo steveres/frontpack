@@ -29,7 +29,7 @@ param authAuthority string
 param apiClientId string
 
 @description('The delegated scope every API requires in its tokens.')
-param apiScope string = 'Slideshow.Access'
+param apiScope string = 'FrontPack.Access'
 
 @description('External ID (customer) tenant id, for Microsoft Graph calls.')
 param externalTenantId string

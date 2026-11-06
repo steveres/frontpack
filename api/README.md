@@ -85,7 +85,7 @@ to an API explorer (`/scalar`) listing its endpoints, where you can send request
 Every `/api/v1` call needs a token. Locally, make one with the .NET SDK's `user-jwts` tool. Run it in
 `hosts\Slideshow.Host` or `hosts\FrontPack.Host`: they share the key, so the token works on both.
 ```powershell
-dotnet user-jwts create --scope Slideshow.Access --claim oid=11111111-2222-3333-4444-555555555555 --claim name="Local Dev" --output token
+dotnet user-jwts create --scope FrontPack.Access --claim oid=11111111-2222-3333-4444-555555555555 --claim name="Local Dev" --output token
 ```
 Paste it into the explorer's authentication box (Bearer). Use a different `oid` to act as another user.
 Then: `POST /api/v1/account` (register) → `POST /api/v1/albums` → upload to `.../images` and `.../music`
@@ -108,15 +108,16 @@ Done in the [Microsoft Entra admin center](https://entra.microsoft.com).
 2. Switch to the external tenant. **Register the API**: App registrations → New → "FrontPack API",
    single tenant.
    - Expose an API → set the Application ID URI (`api://<api-client-id>`) → Add a scope
-     `Slideshow.Access` (who can consent: admins and users). Every API accepts this one scope. It keeps its
-     original name because renaming it would sign everyone out and means changing every API's settings.
+     `FrontPack.Access` (who can consent: admins and users). Every API accepts this one scope (the templates'
+     `apiScope` parameter).
+   - Token configuration → Add optional claim → Access → `email` (the API records each person's email).
    - Manifest → set `"requestedAccessTokenVersion": 2`.
    - Note the **Application (client) id** → `apiClientId`.
 3. **Register the SPA**: App registrations → New → "FrontPack" (the sign-in page says "Sign in to access
    <this name>". If you rename it later, rename it under **Enterprise applications** too: that copy is the one
    the sign-in page shows), platform *Single-page application*,
    redirect URI where the SPA will run (e.g. `http://localhost:5173`). API permissions → Add →
-   My APIs → FrontPack API → `Slideshow.Access` → Grant admin consent.
+   My APIs → FrontPack API → `FrontPack.Access` → Grant admin consent.
 4. **User flow**: External Identities → User flows → New → "Sign up and sign in" (email + password,
    or email one-time passcode; collect Display Name). Then Applications → add *FrontPack*.
 5. **Graph access** (lets the API delete the Entra user on account deletion and revoke sessions on

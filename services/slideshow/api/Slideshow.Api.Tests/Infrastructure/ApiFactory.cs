@@ -124,7 +124,7 @@ public class HostFactory<THost> : WebApplicationFactory<THost> where THost : cla
 {
     public const string Issuer = "https://login.test/tenant-id/v2.0";
     public const string Audience = "api-client-id";
-    public const string Scope = "Slideshow.Access";
+    public const string Scope = "FrontPack.Access";
     private static readonly SymmetricSecurityKey Key = new(Encoding.UTF8.GetBytes("test-signing-key-that-is-long-enough-for-hs256!"));
 
     public string Root { get; } = Path.Combine(Path.GetTempPath(), "slideshow-tests", Guid.NewGuid().ToString("N"));

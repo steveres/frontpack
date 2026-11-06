@@ -1,6 +1,6 @@
-# Moving sign-in to the "thefrontpack" tenant
+# Moving sign-in to the "frontpack" tenant
 
-The sign-in pages move from `slideshowmap.ciamlogin.com` to **`thefrontpack.ciamlogin.com`**. A tenant's subdomain can't
+The sign-in pages move from `slideshowmap.ciamlogin.com` to **`frontpack.ciamlogin.com`**. A tenant's subdomain can't
 be renamed, so this means a new Entra External ID tenant. Signing in there gives each person a **new account ID**, so
 their albums, files and share links are re-filed under it afterwards (`infra/move-accounts.mjs`). Google and Apple
 sign-in come after, in the new tenant.
@@ -11,8 +11,8 @@ In the [Entra admin center](https://entra.microsoft.com), signed in to your Azur
 
 1. **Create the tenant:** Entra ID → Overview → **Manage tenants** → Create → **External**.
    - **Tenant name** `FrontPack`
-   - **Domain name** `thefrontpack`, which gives `thefrontpack.onmicrosoft.com`; sign-in is at
-     `thefrontpack.ciamlogin.com`
+   - **Domain name** `frontpack`, which gives `frontpack.onmicrosoft.com`; sign-in is at
+     `frontpack.ciamlogin.com`
    - **Location** United States
    - **Subscription** Azure subscription 1
    - **Resource group** new: `frontpack-identity`
@@ -41,13 +41,13 @@ In the [Entra admin center](https://entra.microsoft.com), signed in to your Azur
 ## 2. The switch (me, then you merge; sign-in is briefly reset)
 
 1. **Claude** opens a PR with the new values:
-   - in both `services/*/infra/main.bicepparam`: `authAuthority = https://thefrontpack.ciamlogin.com/<tenant-id>/v2.0`,
+   - in both `services/*/infra/main.bicepparam`: `authAuthority = https://frontpack.ciamlogin.com/<tenant-id>/v2.0`,
      `apiClientId`, `externalTenantId`, and `apiScope = 'FrontPack.Access'`
-   - in `web/app.config.azure.json`: `clientId`, `authority = https://thefrontpack.ciamlogin.com/<tenant-id>/`,
+   - in `web/app.config.azure.json`: `clientId`, `authority = https://frontpack.ciamlogin.com/<tenant-id>/`,
      and `apiScope = api://<api-client-id>/FrontPack.Access`
 2. **You** merge it. The deploy switches the website and both APIs to the new tenant together.
    - Everyone is signed out.
-   - Signing in now goes to `thefrontpack.ciamlogin.com`, where each person **signs up again with the same email**.
+   - Signing in now goes to `frontpack.ciamlogin.com`, where each person **signs up again with the same email**.
    - Their albums look empty until step 3.
 
 ## 3. Move the albums (both of us)
