@@ -125,10 +125,11 @@ Done in the [Microsoft Entra admin center](https://entra.microsoft.com).
    old tokens are still refused.
    - Preferred, no secrets: in your **Azure** tenant, register a *multi-tenant* app "FrontPack Graph".
      Under Certificates & secrets → Federated credentials → Add → *Managed identity* → pick
-     `slideshow-api-id` (created by the first deployment). Add Microsoft Graph **application**
-     permissions `User.ReadWrite.All`, then grant admin consent **in the external tenant** by visiting
+     `frontpack-api-id` (FrontPack's API makes these calls; created by the first deployment). Add Microsoft
+     Graph **application** permission `User.ReadWrite.All`, then grant admin consent **in the external
+     tenant** by visiting
      `https://login.microsoftonline.com/<external-tenant-id>/adminconsent?client_id=<graph-app-client-id>`
-     as an external-tenant admin. Set `graphClientId`.
+     as an external-tenant admin. Set `graphClientId` in `services/frontpack/infra/main.bicepparam`.
    - Fallback: register the Graph app in the external tenant, add the same permission with admin
      consent, create a client secret, and pass it as `graphClientSecret` at deployment (stored as a
      Container Apps secret).
