@@ -19,9 +19,16 @@ const mode = args.includes('--delete-old') ? 'delete-old' : args.includes('--cop
 const manual = new Map(args.filter(a => a.includes('=')).map(a => a.split('=')));
 if (!accountsStorage || !slideshowStorage) throw new Error('Usage: node infra/move-accounts.mjs <accounts storage> <slideshow storage> [--copy | --delete-old] [--map old=new ...]');
 
-const token = execSync('az account get-access-token --resource https://storage.azure.com/ --query accessToken --output tsv',
-  { encoding: 'utf8', shell: true }).trim();
-const auth = { Authorization: `Bearer ${token}`, 'x-ms-version': '2021-08-06' };
+// Storage tokens last about an hour, and a big copy takes longer: get a fresh one every 40 minutes.
+let token = '', tokenAt = 0;
+function authHeaders() {
+  if (Date.now() - tokenAt > 40 * 60_000) {
+    token = execSync('az account get-access-token --resource https://storage.azure.com/ --query accessToken --output tsv',
+      { encoding: 'utf8', shell: true }).trim();
+    tokenAt = Date.now();
+  }
+  return { Authorization: `Bearer ${token}`, 'x-ms-version': '2021-08-06' };
+}
 const tableUrl = (account, table) => `https://${account}.table.core.windows.net/${table}`;
 const blobUrl = (name = '') => `https://${slideshowStorage}.blob.core.windows.net/media${name ? '/' + name.split('/').map(encodeURIComponent).join('/') : ''}`;
 const key = s => encodeURIComponent(s.replaceAll("'", "''"));
@@ -39,7 +46,7 @@ async function query(account, table, filter) {
   do {
     const sep = next ? '&' : '';
     const res = await check(await fetch(`${tableUrl(account, table)}()?$filter=${encodeURIComponent(filter)}${sep}${next}`,
-      { headers: { ...auth, Accept: 'application/json;odata=minimalmetadata' } }), `Reading ${table}`);
+      { headers: { ...authHeaders(), Accept: 'application/json;odata=minimalmetadata' } }), `Reading ${table}`);
     rows.push(...(await res.json()).value);
     const pk = res.headers.get('x-ms-continuation-NextPartitionKey'), rk = res.headers.get('x-ms-continuation-NextRowKey');
     next = pk ? `NextPartitionKey=${encodeURIComponent(pk)}${rk ? `&NextRowKey=${encodeURIComponent(rk)}` : ''}` : '';
@@ -52,13 +59,13 @@ async function put(account, table, row, partitionKey, rowKey) {
   const { 'odata.etag': _e, 'odata.metadata': _m, Timestamp, 'Timestamp@odata.type': _t, ...entity } = row;
   Object.assign(entity, { PartitionKey: partitionKey, RowKey: rowKey });
   await check(await fetch(`${tableUrl(account, table)}(PartitionKey='${key(partitionKey)}',RowKey='${key(rowKey)}')`, {
-    method: 'PUT', headers: { ...auth, 'Content-Type': 'application/json', Accept: 'application/json;odata=nometadata' }, body: JSON.stringify(entity),
+    method: 'PUT', headers: { ...authHeaders(), 'Content-Type': 'application/json', Accept: 'application/json;odata=nometadata' }, body: JSON.stringify(entity),
   }), `Writing ${table}`);
 }
 
 async function remove(account, table, row) {
   const res = await fetch(`${tableUrl(account, table)}(PartitionKey='${key(row.PartitionKey)}',RowKey='${key(row.RowKey)}')`,
-    { method: 'DELETE', headers: { ...auth, 'If-Match': '*' } });
+    { method: 'DELETE', headers: { ...authHeaders(), 'If-Match': '*' } });
   if (res.status !== 404) await check(res, `Deleting from ${table}`);
 }
 
@@ -69,7 +76,7 @@ async function listBlobs(prefix) {
   let marker = '';
   do {
     const res = await check(await fetch(`${blobUrl()}?restype=container&comp=list&prefix=${encodeURIComponent(prefix)}${marker ? `&marker=${encodeURIComponent(marker)}` : ''}`,
-      { headers: auth }), 'Listing files');
+      { headers: authHeaders() }), 'Listing files');
     const xml = await res.text();
     for (const m of xml.matchAll(/<Name>([^<]*)<\/Name>/g)) names.push(m[1].replaceAll('&amp;', '&'));
     marker = /<NextMarker>([^<]*)<\/NextMarker>/.exec(xml)?.[1] ?? '';
@@ -77,21 +84,44 @@ async function listBlobs(prefix) {
   return names;
 }
 
-/** Copies a file through this computer (streamed), unless the copy is already there at the same size. */
+/**
+ * Has Azure copy the file within the storage account (Put Blob From URL: the bytes never leave Azure), unless the
+ * copy is already there. Returns false when it was. A copy is made whole or not at all, so one that's there is complete.
+ */
 async function copyBlob(from, to) {
-  const there = await fetch(blobUrl(to), { method: 'HEAD', headers: auth });
-  const src = await check(await fetch(blobUrl(from), { headers: auth }), `Reading ${from}`);
-  const length = src.headers.get('content-length');
-  if (there.ok && there.headers.get('content-length') === length) { await src.body?.cancel(); return false; }
-  await check(await fetch(blobUrl(to), {
-    method: 'PUT', duplex: 'half', body: src.body,
-    headers: { ...auth, 'x-ms-blob-type': 'BlockBlob', 'Content-Length': length, 'x-ms-blob-content-type': src.headers.get('content-type') ?? 'application/octet-stream' },
-  }), `Writing ${to}`);
+  const headers = authHeaders();
+  const res = await fetch(blobUrl(to), {
+    method: 'PUT',
+    headers: {
+      ...headers,
+      'x-ms-blob-type': 'BlockBlob',
+      'Content-Length': '0',
+      'x-ms-copy-source': blobUrl(from),
+      'x-ms-copy-source-authorization': headers.Authorization,
+      'If-None-Match': '*', // already copied: leave it
+    },
+  });
+  if (res.status === 409 || res.status === 412) { await res.body?.cancel(); return false; }
+  await check(res, `Copying ${from}`);
   return true;
 }
 
+const COPIES_AT_ONCE = 16;
+
+/** Runs `work`, trying again after a dropped connection or a server hiccup (a long copy meets a few). */
+async function retrying(work, what, tries = 5) {
+  for (let attempt = 1; ; attempt++) {
+    try { return await work(); }
+    catch (err) {
+      if (attempt >= tries) throw err;
+      console.log(`  ${what}: ${err.cause?.code ?? err.message}; trying again (${attempt + 1} of ${tries})`);
+      await new Promise(r => setTimeout(r, 1000 * 2 ** attempt));
+    }
+  }
+}
+
 async function deleteBlob(name) {
-  const res = await fetch(blobUrl(name), { method: 'DELETE', headers: auth });
+  const res = await fetch(blobUrl(name), { method: 'DELETE', headers: authHeaders() });
   if (res.status !== 404) await check(res, `Deleting ${name}`);
 }
 
@@ -124,8 +154,15 @@ for (const [oldId, newId] of pairs) {
 
   if (mode === 'copy') {
     // Files first, then the rows that point at them, so the new account never lists a file that isn't there yet.
-    let copied = 0;
-    for (const name of blobs) if (await copyBlob(name, newId + name.slice(oldId.length))) copied++;
+    // The copies happen inside Azure, so several at a time.
+    let copied = 0, done = 0;
+    for (let i = 0; i < blobs.length; i += COPIES_AT_ONCE) {
+      const batch = blobs.slice(i, i + COPIES_AT_ONCE);
+      const results = await Promise.all(batch.map(name => retrying(() => copyBlob(name, newId + name.slice(oldId.length)), name)));
+      copied += results.filter(Boolean).length;
+      done += batch.length;
+      if (done % 200 < COPIES_AT_ONCE || done === blobs.length) console.log(`  ${done} of ${blobs.length} files`);
+    }
     for (const m of media) {
       const moved = { ...m, BlobName: String(m.BlobName).startsWith(`${oldId}/`) ? newId + String(m.BlobName).slice(oldId.length) : m.BlobName };
       await put(slideshowStorage, 'Media', moved, newId, m.RowKey);
