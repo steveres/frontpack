@@ -59,5 +59,6 @@ function showSignIn(): void {
   }
 }
 
-if (auth.account()) await finish(); // already signed in, or just back from Entra
+if (auth.signInError) { showError(auth.signInError); showSignIn(); } // back from Entra, turned away
+else if (auth.account()) await finish(); // already signed in, or just back from Entra
 else showSignIn();

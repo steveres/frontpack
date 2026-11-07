@@ -19,6 +19,8 @@ export interface AuthProvider {
   signOut(): Promise<void>;
   /** A valid access token for the API; throws NotSignedInError when there is none. */
   getAccessToken(): Promise<string>;
+  /** Why the sign-in this page load returned from failed (e.g. the identity provider refused it), if it did. */
+  readonly signInError?: unknown;
 }
 
 export class NotSignedInError extends Error {
