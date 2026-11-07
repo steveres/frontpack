@@ -53,9 +53,17 @@ export async function createEntraAuth(): Promise<AuthProvider> {
   clearOtherAppsInteraction(config.clientId);
   const app: IPublicClientApplication = await msal.createStandardPublicClientApplication(msalConfig);
 
-  // Completes a sign-in redirect if this page load is the return from Entra.
-  const result = await app.handleRedirectPromise();
-  if (result?.account) { app.setActiveAccount(result.account); markSignedIn(); }
+  // Completes a sign-in redirect if this page load is the return from Entra. Entra can also come back with an
+  // error (a refused sign-up, a cancelled Apple or Google sign-in): keep it for the login page to show, rather
+  // than failing every page that asks for the provider.
+  let signInError: unknown;
+  try {
+    const result = await app.handleRedirectPromise();
+    if (result?.account) { app.setActiveAccount(result.account); markSignedIn(); }
+  } catch (err) {
+    console.error('Sign-in failed:', err);
+    signInError = err;
+  }
   // Only accounts from this tenant: the browser may still hold one from the tenant the site used before.
   const tenant = new URL(config.authority).pathname.split('/').find(Boolean)?.toLowerCase();
   const ours = (a: AccountInfo | null) => a && (!tenant || a.tenantId?.toLowerCase() === tenant || a.homeAccountId.toLowerCase().endsWith(`.${tenant}`)) ? a : null;
@@ -65,6 +73,7 @@ export async function createEntraAuth(): Promise<AuthProvider> {
 
   return {
     mode: 'entra',
+    signInError,
 
     account() {
       const a = current();
