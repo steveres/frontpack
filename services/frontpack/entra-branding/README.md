@@ -1,9 +1,9 @@
 # Sign-in page branding (Entra External ID)
 
-These files give the sign-in pages (on `slideshowmap.ciamlogin.com`) FrontPack's look:
+These files give the sign-in pages (on `frontpack.ciamlogin.com`) FrontPack's look:
 - a photo of people cycling down a country road (from the home page), darkened
 - the logo
-- the site's amber buttons
+- the site's amber buttons, and pill-shaped Google and Apple buttons
 
 They are uploaded by hand in the Entra admin center; nothing deploys them.
 
@@ -21,7 +21,7 @@ country road, cropped to 16:9). Remake them if those change.
 
 ## Upload (once; again after changing a file)
 
-Sign in to the [Entra admin center](https://entra.microsoft.com) and switch to the **slideshowmap** tenant (the
+Sign in to the [Entra admin center](https://entra.microsoft.com) and switch to the **FrontPack** tenant (the
 External ID tenant: Settings icon → Directories + subscriptions).
 
 1. **Tenant name:** Overview → **Properties** → Name: `FrontPack` → Save.
