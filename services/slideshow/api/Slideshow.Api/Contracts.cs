@@ -110,6 +110,6 @@ public sealed class LocalDateTimeConverter : JsonConverter<DateTime?>
 /// <summary>Slideshow's own errors (the general ones are in FrontPack.ServiceDefaults.Problems).</summary>
 public static class SlideshowProblems
 {
-    public static IResult AlbumNotFound() => Problems.Of(404, "album_not_found", "Album not found.");
+    public static IResult AlbumNotFound() => Problems.Of(404, "album_not_found", "Trip not found.");
     public static IResult MediaNotFound() => Problems.Of(404, "media_not_found", "File not found.");
 }

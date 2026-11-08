@@ -84,7 +84,7 @@ public static class AlbumEndpoints
 
         var ownerId = http.User.UserId();
         if ((await store.ListAlbumsAsync(ownerId, ct)).Count >= limits.Value.MaxAlbumsPerUser)
-            return Problems.Of(409, "album_limit_reached", $"You can have at most {limits.Value.MaxAlbumsPerUser} albums.");
+            return Problems.Of(409, "album_limit_reached", $"You can have at most {limits.Value.MaxAlbumsPerUser} trips.");
 
         var now = DateTime.UtcNow;
         var album = new Album { Id = Guid.CreateVersion7(), OwnerId = ownerId, Name = name!, Description = description, CreatedAt = now, UpdatedAt = now };

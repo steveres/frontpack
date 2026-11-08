@@ -1,5 +1,5 @@
-// album.html?id=…: one album — upload files, see which will be shown, view them full size, select and
-// delete them, rename the album, play, share, delete.
+// trip.html?id=…: one trip (an album) — upload files, see which will be shown, view them full size, select and
+// delete them, rename the trip, play, share, delete.
 
 import { AlbumsApi, collectionFor, MediaApi, type AlbumInfo, type Collection, type MediaInfo } from '../api/albums-api.js';
 import { requireSignIn } from '../auth/session.js';
@@ -54,7 +54,7 @@ function selectionFor(collection: Collection) {
   query<HTMLButtonElement>(bar, '.bulk__clear').onclick = () => { selected.clear(); refresh(); };
   deleteButton.onclick = async () => {
     const n = selected.size;
-    if (!confirm(`Delete ${n === 1 ? `1 ${noun[0]}` : `${n} ${noun[1]}`} from this album? This can't be undone.`)) return;
+    if (!confirm(`Delete ${n === 1 ? `1 ${noun[0]}` : `${n} ${noun[1]}`} from this trip? This can't be undone.`)) return;
     deleteButton.disabled = true;
     deleteButton.textContent = 'Deleting…';
     try {
@@ -121,7 +121,7 @@ function deleteCell(m: MediaInfo, collection: Collection): HTMLTableCellElement 
   button.textContent = 'Delete';
   button.setAttribute('aria-label', `Delete ${m.fileName}`);
   button.onclick = async () => {
-    if (!confirm(`Delete "${m.fileName}" from this album?`)) return;
+    if (!confirm(`Delete "${m.fileName}" from this trip?`)) return;
     button.disabled = true;
     try { await MediaApi.remove(albumId, collection, m.id); await load(); }
     catch (err) { showError(err); button.disabled = false; }
@@ -354,11 +354,11 @@ if (albumId) mountSharePanel(query(page, '.share'), query<HTMLButtonElement>(pag
 
 query<HTMLButtonElement>(page, '.album__delete').onclick = async () => {
   const name = query(page, '.album__name').textContent;
-  if (!confirm(`Delete the album "${name}" and all its photos, videos and music? This can't be undone.`)) return;
-  try { await AlbumsApi.remove(albumId); location.assign('/albums.html'); }
+  if (!confirm(`Delete the trip "${name}" and all its photos, videos and music? This can't be undone.`)) return;
+  try { await AlbumsApi.remove(albumId); location.assign('/trips.html'); }
   catch (err) { showError(err); }
 };
 
-if (!albumId) location.replace('/albums.html');
+if (!albumId) location.replace('/trips.html');
 else await load();
 

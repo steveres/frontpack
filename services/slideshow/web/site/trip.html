@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip - Slideshow</title>
+
+    <!-- Favicon (browser tab, bookmarks, phone home screen) -->
+    <link rel="icon" type="image/png" href="/images/icon.png">
+    <link rel="apple-touch-icon" href="/images/icon.png">
+
+    <link rel="stylesheet" href="/css/base/reset.css">
+    <link rel="stylesheet" href="/css/base/variables.css">
+    <link rel="stylesheet" href="/css/base/shared.css">
+    <link rel="stylesheet" href="/css/components/navigation.css">
+    <link rel="stylesheet" href="/css/components/trip.css">
+    <link rel="stylesheet" href="/css/components/media-viewer.css">
+
+    <script type="module" src="/js/pages/trip-page.js"></script>
+</head>
+<body>
+    <div id="navigation-placeholder"></div>
+
+    <main class="main-content album">
+        <a href="/trips.html" class="album__back">← Trip Pix</a>
+        <p class="album__loading">Loading…</p>
+        <p class="form-error album__error" role="alert" hidden></p>
+
+        <div class="album__body" hidden>
+            <header class="album__header">
+                <div>
+                    <h1 class="album__name"></h1>
+                    <p class="album__description" hidden></p>
+                    <p class="album__summary"></p>
+                </div>
+                <div class="album__actions">
+                    <a class="button button--primary album__play">Play slideshow</a>
+                    <button type="button" class="button album__edit-toggle" aria-expanded="false" aria-controls="album-edit">Edit details</button>
+                    <button type="button" class="button album__share-toggle" aria-expanded="false" aria-controls="album-share">Share…</button>
+                    <button type="button" class="button button--danger album__delete">Delete trip…</button>
+                </div>
+            </header>
+
+            <!-- Edit the name and description -->
+            <form class="card album__edit" id="album-edit" hidden>
+                <label class="field">Name <input class="album__edit-name" name="name" type="text" maxlength="200" required></label>
+                <label class="field">Description <textarea class="album__edit-description" name="description" maxlength="2000" rows="3" placeholder="Optional"></textarea></label>
+                <div class="album__edit-actions">
+                    <button type="submit" class="button button--primary">Save</button>
+                    <button type="button" class="button album__edit-cancel">Cancel</button>
+                </div>
+                <p class="form-error album__edit-error" role="alert" hidden></p>
+            </form>
+
+            <!-- Share: anyone with the link can watch the slideshow -->
+            <section class="card share" id="album-share" hidden>
+                <h2 class="share__title">Share this slideshow</h2>
+                <label class="share__switch"><input type="checkbox" class="share__enabled"> Anyone with the link can watch</label>
+                <div class="share__details" hidden>
+                    <div class="share__link-row">
+                        <input class="share__link" type="text" readonly aria-label="Share link">
+                        <button type="button" class="button button--primary share__copy">Copy link</button>
+                        <button type="button" class="button share__native" hidden>Share…</button>
+                    </div>
+                    <label class="share__switch"><input type="checkbox" class="share__map"> Show the map to viewers</label>
+                    <label class="share__switch"><input type="checkbox" class="share__public"> Public: list it on the Trip Pix page for everyone</label>
+                    <p class="share__note">Viewers see only the slideshow: the photos and videos in it, and the music. They can't see anything else in your account, or change anything. Photo files can still contain the location where they were taken.</p>
+                    <button type="button" class="button button--quiet share__reset">Get a new link (the current one stops working)</button>
+                </div>
+                <p class="form-error share__error" role="alert" hidden></p>
+            </section>
+
+            <!-- Upload -->
+            <section class="card upload">
+                <label class="upload__drop">
+                    <input class="upload__input" type="file" multiple
+                           accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/bmp,video/mp4,video/quicktime,video/webm,video/ogg,.mov,.m4v,audio/mpeg,.mp3">
+                    <span class="upload__prompt"><strong>Drop photos, videos and MP3s here</strong>, or click to choose files.</span>
+                    <span class="upload__hint">Photos and videos appear in the slideshow when they have a capture date and a location (GPS). JPEG, PNG, WebP, AVIF, GIF; MP4, MOV, WebM; MP3 for music.</span>
+                </label>
+                <ul class="upload__queue"></ul>
+            </section>
+
+            <!-- Photos and videos -->
+            <section class="album__section">
+                <h2>Photos and videos</h2>
+                <p class="notice notice--warning album__excluded" hidden></p>
+                <p class="album__none album__none--images" hidden>None yet.</p>
+                <div class="bulk album__bulk--images" hidden>
+                    <span class="bulk__count"></span>
+                    <button type="button" class="button button--danger bulk__delete">Delete selected…</button>
+                    <button type="button" class="button button--quiet bulk__clear">Clear selection</button>
+                </div>
+                <table class="media-table album__images-table" hidden>
+                    <thead><tr><th class="media-table__check"><input type="checkbox" class="media-table__select-all" aria-label="Select all photos and videos"></th><th><span class="visually-hidden">Preview</span></th><th>File</th><th>Taken</th><th>Location</th><th>Slideshow</th><th class="media-table__size">Size</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody class="album__images"></tbody>
+                </table>
+            </section>
+
+            <!-- Music -->
+            <section class="album__section">
+                <h2>Music</h2>
+                <p class="album__none album__none--music" hidden>None yet. MP3s play in random order during the slideshow.</p>
+                <div class="bulk album__bulk--music" hidden>
+                    <span class="bulk__count"></span>
+                    <button type="button" class="button button--danger bulk__delete">Delete selected…</button>
+                    <button type="button" class="button button--quiet bulk__clear">Clear selection</button>
+                </div>
+                <table class="media-table album__music-table" hidden>
+                    <thead><tr><th class="media-table__check"><input type="checkbox" class="media-table__select-all" aria-label="Select all music"></th><th>File</th><th class="media-table__size">Size</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody class="album__music"></tbody>
+                </table>
+            </section>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,4 +1,4 @@
-// albums.html: the Slideshow app's start page. Everyone's public albums; signed in, your own albums
+// trips.html (Trip Pix): the Slideshow app's start page. Everyone's public trips; signed in, your own trips
 // first (and creating a new one). Both lists come newest first from the API. Last, playing a folder.
 
 import { AlbumsApi, playLink, SharingApi, type AlbumInfo, type PublicAlbum } from '../api/albums-api.js';
@@ -94,7 +94,7 @@ const mineCard = (a: AlbumInfo) => card({
   name: a.name, description: a.description, summary: albumSummary(a), createdAt: a.createdAt,
   status: a.isPublic ? 'Public' : a.isShared ? 'Shared' : 'Private',
   cover: thumbnail(a.coverThumbnailUrl, 'image', 'thumb--cover'),
-  href: `/album.html?id=${encodeURIComponent(a.id)}`,
+  href: `/trip.html?id=${encodeURIComponent(a.id)}`,
   play: a.imageCount + a.videoCount > a.excludedCount ? playLink({ albumId: a.id }) : null,
   badges: a.excludedCount > 0 ? [badge('badge--warning', `${a.excludedCount} not in slideshow`)] : [],
 });
@@ -104,7 +104,7 @@ const otherCard = (a: PublicAlbum) => {
   return card({
     name: a.name, description: a.description, summary: albumSummary(a), createdAt: a.createdAt, status: 'Public',
     cover: thumbnail(a.coverThumbnailUrl, 'image', 'thumb--cover', true),
-    href: play ?? playLink({ shareToken: a.shareToken }), // there's no album page for someone else's album
+    href: play ?? playLink({ shareToken: a.shareToken }), // there's no trip page for someone else's trip
     play,
   });
 };
@@ -143,14 +143,14 @@ if (signedIn) {
       const name = query<HTMLInputElement>(form, '[name=name]').value.trim();
       const description = query<HTMLInputElement>(form, '[name=description]').value.trim();
       const album = await AlbumsApi.create(name, description || undefined);
-      location.assign(`/album.html?id=${encodeURIComponent(album.id)}`); // straight to adding files
+      location.assign(`/trip.html?id=${encodeURIComponent(album.id)}`); // straight to adding files
     } catch (err) {
       showError(err);
       button.disabled = false;
     }
   };
 } else {
-  query(othersSection, '.albums__heading').textContent = 'Public albums';
+  query(othersSection, '.albums__heading').textContent = 'Public trips';
   const signIn = query(page, '.albums__sign-in');
   query<HTMLAnchorElement>(signIn, 'a').href = loginUrl();
   signIn.hidden = false;

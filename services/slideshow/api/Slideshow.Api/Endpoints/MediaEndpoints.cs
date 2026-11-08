@@ -90,7 +90,7 @@ public static class MediaEndpoints
 
         var fits = collection == MediaCollection.Music ? sniffed.Kind == MediaKind.Audio : sniffed.Kind != MediaKind.Audio;
         if (!fits) return Problems.Of(415, "unsupported_media_type",
-            collection == MediaCollection.Music ? "Music must be MP3." : "Upload music to the album's music collection.");
+            collection == MediaCollection.Music ? "Music must be MP3." : "Upload music to the trip's music collection.");
 
         var max = sniffed.Kind switch { MediaKind.Image => limits.MaxImageBytes, MediaKind.Video => limits.MaxVideoBytes, _ => limits.MaxMusicBytes };
         if (file.Length > max) return Problems.Of(413, "file_too_large", $"This kind of file can be at most {max / (1024 * 1024)} MB.");
@@ -98,7 +98,7 @@ public static class MediaEndpoints
         var owned = await store.ListMediaAsync(ownerId, null, ct);
         if (owned.Sum(m => m.SizeBytes) + file.Length > limits.QuotaBytesPerUser) return Problems.Of(413, "quota_exceeded", "Your storage is full. Delete some files and try again.");
         if (owned.Count(m => m.AlbumId == albumId) >= limits.MaxFilesPerAlbum)
-            return Problems.Of(409, "album_full", $"An album can hold at most {limits.MaxFilesPerAlbum} files.");
+            return Problems.Of(409, "album_full", $"A trip can hold at most {limits.MaxFilesPerAlbum} files.");
 
         var offset = TimeSpan.FromMinutes(utcOffsetMinutes ?? 0);
         var meta = collection == MediaCollection.Images

@@ -22,19 +22,19 @@ if (shareCode) await playShared(shareCode);
 else if (albumId) await playAlbum(albumId);
 else await playFolder();
 
-/** Anyone with the link: no sign-in, no way into the owner's account; back goes to the Albums page. */
+/** Anyone with the link: no sign-in, no way into the owner's account; back goes to the Trip Pix page. */
 async function playShared(code: string): Promise<void> {
   const message = query(start, '.start-screen__message');
   query(start, '.start-screen__actions').hidden = true;
   query(root, '.settings__change').hidden = true;
-  back.href = '/albums.html';
-  back.setAttribute('aria-label', 'Go to the Albums page');
+  back.href = '/trips.html';
+  back.setAttribute('aria-label', 'Go to the Trip Pix page');
   message.textContent = 'Loading slideshow…';
   try {
     const shared = await SharingApi.shared(code);
     document.title = `${shared.name} - Slideshow`;
     query(start, '.start-screen__title').textContent = shared.name;
-    backLabel.textContent = 'Albums';
+    backLabel.textContent = 'Trip Pix';
     if (!shared.slides.length) { message.textContent = 'This slideshow has no photos to show yet.'; return; }
     const slideshow = mountSlideshow(root, { mapAllowed: shared.showMap });
     start.hidden = true;
@@ -46,30 +46,30 @@ async function playShared(code: string): Promise<void> {
 
 async function playAlbum(id: string): Promise<void> {
   await requireSignIn();
-  const albumPage = `/album.html?id=${encodeURIComponent(id)}`;
+  const albumPage = `/trip.html?id=${encodeURIComponent(id)}`;
   back.href = albumPage;
-  backLabel.textContent = 'Album';
-  back.setAttribute('aria-label', 'Back to the album');
+  backLabel.textContent = 'Trip';
+  back.setAttribute('aria-label', 'Back to the trip');
   const message = query(start, '.start-screen__message');
   query(start, '.start-screen__actions').hidden = true; // folder buttons
-  query(root, '.settings__change').textContent = 'Back to album';
-  message.textContent = 'Loading album…';
+  query(root, '.settings__change').textContent = 'Back to trip';
+  message.textContent = 'Loading trip…';
   const slideshow = mountSlideshow(root, { onChangeSource: () => location.assign(albumPage) });
 
   const showMessage = (text: string) => {
     const link = document.createElement('a');
     link.href = albumPage;
-    link.textContent = 'Back to the album';
+    link.textContent = 'Back to the trip';
     message.replaceChildren(text, ' ', link);
   };
   try {
     const manifest = await AlbumsApi.playable(id);
     document.title = `${manifest.name} - Slideshow`;
     backLabel.textContent = manifest.name;
-    back.setAttribute('aria-label', `Back to the album ${manifest.name}`);
+    back.setAttribute('aria-label', `Back to the trip ${manifest.name}`);
     query(start, '.start-screen__title').textContent = manifest.name;
     if (!manifest.slides.length) {
-      showMessage('Nothing to show: none of the photos or videos in this album have both a capture date and a location.');
+      showMessage('Nothing to show: none of the photos or videos in this trip have both a capture date and a location.');
       return;
     }
     start.hidden = true;
@@ -80,8 +80,8 @@ async function playAlbum(id: string): Promise<void> {
 }
 
 async function playFolder(): Promise<void> {
-  back.href = '/albums.html';
-  back.setAttribute('aria-label', 'Back to the Albums page');
+  back.href = '/trips.html';
+  back.setAttribute('aria-label', 'Back to the Trip Pix page');
   let picker: { show(): void } | undefined;
   const slideshow = mountSlideshow(root, { onChangeSource: () => picker?.show() });
   picker = await mountFolderPicker(start, contents => slideshow.play(contents));

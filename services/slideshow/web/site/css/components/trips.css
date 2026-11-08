@@ -1,4 +1,4 @@
-/* css/components/albums.css */
+/* css/components/trips.css */
 
 .albums__new { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: var(--spacing-md); align-items: end; margin-bottom: var(--spacing-xl); }
 @media (max-width: 640px) { .albums__new { grid-template-columns: 1fr; } }

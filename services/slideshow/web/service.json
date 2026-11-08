@@ -1,8 +1,9 @@
 {
   "nav": [
-    { "label": "Albums", "href": "/albums.html", "also": ["/album.html"], "order": 10 }
+    { "label": "Trip Pix", "href": "/trips.html", "also": ["/trip.html"], "order": 10 }
   ],
   "routes": [
-    { "route": "/slideshows.html", "redirect": "/albums.html", "statusCode": 301 }
+    { "route": "/albums.html", "redirect": "/trips.html", "statusCode": 301 },
+    { "route": "/slideshows.html", "redirect": "/trips.html", "statusCode": 301 }
   ]
 }
