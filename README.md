@@ -54,18 +54,19 @@ Pages:
 | `index.html` | FrontPack home: the welcome, over rotating cycling photos |
 | `about.html` | The FrontPack story |
 | `login.html` | Sign in; the first sign-in registers the account with the API |
-| `trips.html` | Slideshow start page (the nav's **Trip Pix**): your trips, then everyone's public trips, with cover photos and Play; create a trip; play a folder on this computer. `albums.html` redirects here |
+| `trips.html` | Slideshow start page (the nav's **Trip Pix**): your trips, then everyone's public trips, with cover photos and Play; create a trip. `albums.html` redirects here |
 | `trip.html?id=…` | One trip (an album in the API): upload photos, videos and MP3s (drag and drop); file list with previews, showing which files the slideshow will show; play; delete. `album.html?id=…` forwards here |
 | `slideshow.html?album=…` | Play a trip (compiles it first if it changed) |
 | `slideshow.html?share=…` | Play a shared trip: anyone with the link, no sign-in (trip page → **Share…**) |
-| `slideshow.html` | Play a folder from this computer (no sign-in needed) |
+| `slideshow.html?folder` | Play a folder from this computer (no sign-in needed). Hidden for now: nothing links to it, and plain `slideshow.html` goes to `trips.html` |
 | `account.html` | Usage, sign out everywhere, delete account |
 
 **What the slideshow shows:** photos and videos that have both a real capture date (EXIF for photos,
 the video's own creation date) and a location (GPS), in date order. Anything missing either is kept in
 the album but left out of the slideshow, and the album page marks it with the reason.
 
-**Playing a local folder:** open http://localhost:3000/slideshow.html in Chrome or Edge and choose the folder. The
+**Playing a local folder** (hidden for now: the Trip Pix page doesn't offer it): open
+http://localhost:3000/slideshow.html?folder in Chrome or Edge and choose the folder. The
 folder and settings are remembered. Optionally run `prepare.bat` on the folder first (drag the folder
 onto it): it converts HEIC files to JPEG and writes `slideshow.json`, which puts the slideshow in
 date-taken order and supplies the dates on the timeline.
