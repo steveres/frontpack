@@ -48,11 +48,12 @@
             <ul class="albums__list"></ul>
         </section>
 
-        <!-- No account needed: plays straight from the computer, nothing is uploaded -->
-        <section class="albums__section albums__folder" aria-labelledby="albums-folder">
+        <!-- No account needed: plays straight from the computer, nothing is uploaded. Hidden for now; the
+             feature still works at /slideshow.html?folder. Remove `hidden` to offer it again. -->
+        <section class="albums__section albums__folder" aria-labelledby="albums-folder" hidden>
             <h2 class="albums__heading" id="albums-folder">Play a folder on this computer</h2>
             <p class="albums__folder-note">Play photos and videos straight from a folder, without uploading anything.</p>
-            <a class="button" href="/slideshow.html">Choose a folder…</a>
+            <a class="button" href="/slideshow.html?folder">Choose a folder…</a>
         </section>
     </main>
 </body>

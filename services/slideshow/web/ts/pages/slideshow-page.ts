@@ -1,7 +1,8 @@
 // Entry point for slideshow.html.
 //   slideshow.html?album=<id>    plays one of your albums (compiling it first if it has changed)
 //   slideshow.html?share=<code>  plays a shared album: anyone with the link, no sign-in
-//   slideshow.html               plays a folder from this computer
+//   slideshow.html?folder        plays a folder from this computer (hidden for now: nothing links to it)
+//   slideshow.html               nothing to play: goes to the Trip Pix page
 
 import { AlbumsApi, SharingApi } from '../api/albums-api.js';
 import { requireSignIn } from '../auth/session.js';
@@ -20,7 +21,8 @@ const albumId = params.get('album'), shareCode = params.get('share');
 
 if (shareCode) await playShared(shareCode);
 else if (albumId) await playAlbum(albumId);
-else await playFolder();
+else if (params.has('folder')) await playFolder();
+else location.replace('/trips.html');
 
 /** Anyone with the link: no sign-in, no way into the owner's account; back goes to the Trip Pix page. */
 async function playShared(code: string): Promise<void> {

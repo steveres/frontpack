@@ -1,5 +1,5 @@
 // trips.html (Trip Pix): the Slideshow app's start page. Everyone's public trips; signed in, your own trips
-// first (and creating a new one). Both lists come newest first from the API. Last, playing a folder.
+// first (and creating a new one). Both lists come newest first from the API. Last, playing a folder (hidden for now).
 
 import { AlbumsApi, playLink, SharingApi, type AlbumInfo, type PublicAlbum } from '../api/albums-api.js';
 import { getAuth, loginUrl } from '../auth/auth.js';
