@@ -54,10 +54,10 @@ Pages:
 | `index.html` | FrontPack home: the welcome, over rotating cycling photos |
 | `about.html` | The FrontPack story |
 | `login.html` | Sign in; the first sign-in registers the account with the API |
-| `albums.html` | Slideshow start page (the nav's **Albums**): your albums, then everyone's public albums, with cover photos and Play; create an album; play a folder on this computer |
-| `album.html?id=…` | Upload photos, videos and MP3s (drag and drop); file list with previews, showing which files the slideshow will show; play; delete |
-| `slideshow.html?album=…` | Play an album (compiles it first if it changed) |
-| `slideshow.html?share=…` | Play a shared album: anyone with the link, no sign-in (album page → **Share…**) |
+| `trips.html` | Slideshow start page (the nav's **Trip Pix**): your trips, then everyone's public trips, with cover photos and Play; create a trip; play a folder on this computer. `albums.html` redirects here |
+| `trip.html?id=…` | One trip (an album in the API): upload photos, videos and MP3s (drag and drop); file list with previews, showing which files the slideshow will show; play; delete. `album.html?id=…` forwards here |
+| `slideshow.html?album=…` | Play a trip (compiles it first if it changed) |
+| `slideshow.html?share=…` | Play a shared trip: anyone with the link, no sign-in (trip page → **Share…**) |
 | `slideshow.html` | Play a folder from this computer (no sign-in needed) |
 | `account.html` | Usage, sign out everywhere, delete account |
 

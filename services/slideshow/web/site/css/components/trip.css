@@ -1,4 +1,4 @@
-/* css/components/album.css */
+/* css/components/trip.css */
 
 .album__back { display: inline-block; margin-bottom: var(--spacing-md); color: var(--color-muted); text-decoration: none; }
 .album__back:hover { color: var(--color-paper); }

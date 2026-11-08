@@ -67,7 +67,7 @@ public static partial class SharingEndpoints
 
     private static async Task<IResult> Update(Guid albumId, UpdateShareRequest body, HttpContext http, ISlideshowStore store, ILogger<SlideshowLog> log, CancellationToken ct)
     {
-        if (body.Enabled == false && body.IsPublic == true) return Problems.Validation("A public album has to be shared by link.");
+        if (body.Enabled == false && body.IsPublic == true) return Problems.Validation("A public trip has to be shared by link.");
         var ownerId = http.User.UserId();
         var album = await store.GetAlbumAsync(ownerId, albumId, ct);
         if (album is null) return SlideshowProblems.AlbumNotFound();
