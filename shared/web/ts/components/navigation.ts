@@ -1,5 +1,5 @@
 // Site header: loads components/navigation.html into #navigation-placeholder, adds the services' menu
-// links and shows who is signed in.
+// links and shows who is signed in. Also adds the site footer (Terms of Use, Privacy Policy) at the end of the page.
 // On small screens the links and sign-in fold into a panel opened by the menu button (CSS decides when).
 
 import { APP_CONFIG } from '../config.js';
@@ -10,6 +10,7 @@ import { query } from '../utils/dom.js';
 export async function mountNavigation(): Promise<void> {
   const placeholder = document.getElementById('navigation-placeholder');
   if (!placeholder) return;
+  mountFooter();
   placeholder.innerHTML = await (await fetch('/components/navigation.html')).text();
 
   // The menu: each service's pages, from app-config.json.
@@ -44,6 +45,19 @@ export async function mountNavigation(): Promise<void> {
     signIn.href = loginUrl();
     signIn.hidden = false;
   }
+}
+
+/** The footer on every page with the header: the company and the legal pages. */
+function mountFooter(): void {
+  if (document.querySelector('.site-footer')) return;
+  const footer = document.createElement('footer');
+  footer.className = 'site-footer';
+  footer.innerHTML = `
+    <span>© ${new Date().getFullYear()} FrontPack, Inc.</span>
+    <a href="/terms.html">Terms of Use</a>
+    <a href="/privacy.html">Privacy Policy</a>`;
+  for (const link of footer.querySelectorAll('a')) if (link.pathname === location.pathname) link.setAttribute('aria-current', 'page');
+  document.body.append(footer);
 }
 
 /** The menu button: opens and closes the panel; Escape, a click elsewhere or a wider screen closes it. */

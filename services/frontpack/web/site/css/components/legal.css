@@ -1,0 +1,17 @@
+/* css/components/legal.css — Terms of Use and Privacy Policy: long-form reading text */
+
+.legal { max-width: 760px; }
+.legal h1 { margin-bottom: var(--spacing-xs); }
+.legal h2 { font-size: 1.25rem; margin: var(--spacing-xl) 0 var(--spacing-sm); scroll-margin-top: var(--spacing-md); }
+.legal h3 { font-size: 1rem; margin: var(--spacing-md) 0 var(--spacing-xs); }
+.legal p, .legal ul { margin: 0 0 var(--spacing-md); }
+.legal ul { padding-left: 1.25rem; }
+.legal li { margin-bottom: var(--spacing-xs); }
+.legal li > ul { margin: var(--spacing-xs) 0 0; }
+
+.legal__meta { color: var(--color-muted); font-size: .9rem; }
+.legal__summary { margin: var(--spacing-lg) 0; }
+.legal__summary h2 { margin-top: 0; }
+.legal__summary > :last-child { margin-bottom: 0; }
+.legal__callout { margin: var(--spacing-md) 0; }
+.legal__caps { font-size: .9rem; }

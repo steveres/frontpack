@@ -5,3 +5,4 @@
 .login__form { display: grid; gap: var(--spacing-md); }
 .login__form p { margin: 0; }
 .login__busy { color: var(--color-muted); }
+.login__terms { margin: var(--spacing-lg) 0 0; font-size: .85rem; color: var(--color-muted); }

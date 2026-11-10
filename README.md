@@ -53,7 +53,8 @@ Pages:
 |---|---|
 | `index.html` | FrontPack home: the welcome, over rotating cycling photos |
 | `about.html` | The FrontPack story |
-| `login.html` | Sign in; the first sign-in registers the account with the API |
+| `login.html` | Sign in; the first sign-in registers the account with the API. Says that continuing accepts the Terms and Privacy Policy, and confirms age 21+ |
+| `terms.html`, `privacy.html` | Terms of Use and Privacy Policy, linked from the footer on every page. The master copies are Word files kept locally in `docs/legal/` (git-ignored: they hold internal review notes): change those first, then these pages |
 | `trips.html` | Slideshow start page (the nav's **Trip Pix**): your trips, then everyone's public trips, with cover photos and Play; create a trip. `albums.html` redirects here |
 | `trip.html?id=…` | One trip (an album in the API): upload photos, videos and MP3s (drag and drop); file list with previews, showing which files the slideshow will show; play; delete. `album.html?id=…` forwards here |
 | `slideshow.html?album=…` | Play a trip (compiles it first if it changed) |
