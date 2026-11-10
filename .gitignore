@@ -18,3 +18,6 @@ TestResults/
 
 # Personal Claude Code settings
 .claude/settings.local.json
+
+# Legal drafts and review notes (local only; the published text is terms.html / privacy.html)
+docs/legal/
