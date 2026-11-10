@@ -74,9 +74,9 @@
             <section class="card upload">
                 <label class="upload__drop">
                     <input class="upload__input" type="file" multiple
-                           accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/bmp,video/mp4,video/quicktime,video/webm,video/ogg,.mov,.m4v,audio/mpeg,.mp3">
-                    <span class="upload__prompt"><strong>Drop photos, videos and MP3s here</strong>, or click to choose files.</span>
-                    <span class="upload__hint">Photos and videos appear in the slideshow when they have a capture date and a location (GPS). JPEG, PNG, WebP, AVIF, GIF; MP4, MOV, WebM; MP3 for music.</span>
+                           accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/bmp,video/mp4,video/quicktime,video/webm,video/ogg,.mov,.m4v">
+                    <span class="upload__prompt"><strong>Drop photos and videos here</strong>, or click to choose files.</span>
+                    <span class="upload__hint">Photos and videos appear in the slideshow when they have a capture date and a location (GPS). JPEG, PNG, WebP, AVIF, GIF; MP4, MOV, WebM. For music, choose tracks from the music library below.</span>
                 </label>
                 <ul class="upload__queue"></ul>
             </section>
@@ -97,19 +97,53 @@
                 </table>
             </section>
 
-            <!-- Music -->
-            <section class="album__section">
-                <h2>Music</h2>
-                <p class="album__none album__none--music" hidden>None yet. MP3s play in random order during the slideshow.</p>
-                <div class="bulk album__bulk--music" hidden>
-                    <span class="bulk__count"></span>
-                    <button type="button" class="button button--danger bulk__delete">Delete selected…</button>
-                    <button type="button" class="button button--quiet bulk__clear">Clear selection</button>
+            <!-- Music: chosen from the music library (components/music-picker.ts) -->
+            <section class="album__section music" aria-labelledby="music-heading">
+                <h2 id="music-heading">Music</h2>
+                <p class="music__intro">Choose tracks from the FrontPack music library. They play in this order during the slideshow, and start again after the last one. <a href="/music-credits.html">Music credits</a></p>
+
+                <div class="music__columns">
+                    <div class="music__chosen-panel">
+                        <h3 class="music__subheading">This trip's music <span class="music__total"></span></h3>
+                        <p class="music__none">No music yet. Add tracks from the library.</p>
+                        <ol class="music__chosen"></ol>
+                        <p class="form-error music__error" role="alert" hidden></p>
+                    </div>
+
+                    <!-- How long the slideshow runs at each speed, against the music -->
+                    <div class="card music__fit">
+                        <h3 class="music__subheading">Will the music last?</h3>
+                        <p class="music__fit-summary"></p>
+                        <table class="music__fit-table" hidden>
+                            <thead><tr><th>Seconds per photo</th><th>Slideshow</th><th>Music <span class="music__fit-music"></span></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                        <p class="music__fit-note"></p>
+                    </div>
                 </div>
-                <table class="media-table album__music-table" hidden>
-                    <thead><tr><th class="media-table__check"><input type="checkbox" class="media-table__select-all" aria-label="Select all music"></th><th>File</th><th class="media-table__size">Size</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
-                    <tbody class="album__music"></tbody>
-                </table>
+
+                <div class="music__library">
+                    <h3 class="music__subheading">Music library</h3>
+                    <div class="music__filters">
+                        <input type="search" class="music__search" placeholder="Search title or artist" aria-label="Search the music library">
+                        <label class="music__sort">Sort by
+                            <select class="music__sort-select">
+                                <option value="title">Title</option>
+                                <option value="artist">Artist</option>
+                                <option value="shortest">Shortest first</option>
+                                <option value="longest">Longest first</option>
+                                <option value="newest">Newest first</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="music__tags" role="group" aria-label="Show only tracks tagged"></div>
+                    <p class="music__loading">Loading the library…</p>
+                    <table class="media-table music__table" hidden>
+                        <thead><tr><th class="music__col-play"><span class="visually-hidden">Preview</span></th><th>Title</th><th class="music__col-artist">Artist</th><th class="music__col-tags">Tags</th><th class="music__col-length">Length</th><th><span class="visually-hidden">Add</span></th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                    <p class="music__empty" hidden>No tracks match.</p>
+                </div>
             </section>
         </div>
     </main>

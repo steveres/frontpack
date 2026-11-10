@@ -99,8 +99,10 @@ public sealed class AlbumTests(ApiFactory factory) : IClassFixture<ApiFactory>
         await UploadAsync(client, album, TestMedia.Mp4(new DateTime(2026, 7, 2, 18, 0, 0, DateTimeKind.Utc), "+45.0703+007.6869/"), "clip.mp4", utcOffsetMinutes: 120);
         await UploadAsync(client, album, TestMedia.Jpeg(new DateTime(2026, 7, 1, 9, 0, 0), (45.4642, 9.19)), "milan.jpg");
         await UploadAsync(client, album, TestMedia.Jpeg(new DateTime(2026, 7, 1, 9, 0, 0), (45.4642, 9.19)), "IMG_2.jpg"); // same time as milan: name breaks the tie
-        await UploadAsync(client, album, TestMedia.Mp3(), "song B.mp3", "music");
-        await UploadAsync(client, album, TestMedia.Mp3(), "song A.mp3", "music");
+        var admin = await factory.MusicAdminClientAsync();
+        var songA = (await MusicTests.AddTrackAsync(admin, "song A")).GetProperty("id").GetString();
+        var songB = (await MusicTests.AddTrackAsync(admin, "song B")).GetProperty("id").GetString();
+        (await client.PutAsJsonAsync($"/api/v1/albums/{album}/music", new { trackIds = new[] { songB, songA } })).EnsureSuccessStatusCode();
 
         var res = await client.PostAsync($"/api/v1/albums/{album}/compile", null);
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
@@ -116,7 +118,7 @@ public sealed class AlbumTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.StartsWith($"/api/v1/albums/{album}/images/", slides[0].GetProperty("url").GetString());
         Assert.Equal(3, manifest.GetProperty("excludedCount").GetInt32());
 
-        Assert.Equal(["song A.mp3", "song B.mp3"], manifest.GetProperty("music").EnumerateArray().Select(s => s.GetProperty("fileName").GetString()));
+        Assert.Equal(["song B", "song A"], manifest.GetProperty("music").EnumerateArray().Select(s => s.GetProperty("title").GetString())); // as chosen
 
         // GET returns the same manifest; it's fresh until the contents change.
         var get = await client.GetFromJsonAsync<JsonElement>($"/api/v1/albums/{album}");

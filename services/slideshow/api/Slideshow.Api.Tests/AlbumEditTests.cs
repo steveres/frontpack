@@ -72,18 +72,16 @@ public sealed class AlbumEditTests(ApiFactory factory) : IClassFixture<ApiFactor
         for (var i = 0; i < 5; i++)
             photos.Add((await UploadAsync(client, album, TestMedia.RealJpeg(200, 200, new DateTime(2026, 7, 1, 9, i, 0), (45.0, 9.0)), $"p{i}.jpg"))
                 .GetProperty("id").GetString()!);
-        var track = (await UploadAsync(client, album, TestMedia.Mp3(), "song.mp3", "music")).GetProperty("id").GetString()!;
         await client.PostAsync($"/api/v1/albums/{album}/compile", null);
 
-        // Three photos, plus ids that aren't images in this album (the track, an unknown id): those are skipped.
+        // Three photos, plus an id that isn't in this album: that's skipped.
         var res = await client.PostAsJsonAsync($"/api/v1/albums/{album}/images/delete",
-            new { ids = new[] { photos[0], photos[2], photos[4], track, Guid.NewGuid().ToString() } });
+            new { ids = new[] { photos[0], photos[2], photos[4], Guid.NewGuid().ToString() } });
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         Assert.Equal(3, (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("deleted").GetInt32());
 
         var left = await client.GetFromJsonAsync<JsonElement[]>($"/api/v1/albums/{album}/images");
         Assert.Equal([photos[1], photos[3]], left!.Select(m => m.GetProperty("id").GetString()).Order());
-        Assert.Single((await client.GetFromJsonAsync<JsonElement[]>($"/api/v1/albums/{album}/music"))!);
         Assert.True((await client.GetFromJsonAsync<JsonElement>($"/api/v1/albums/{album}/info")).GetProperty("isStale").GetBoolean());
 
         // The files and their previews are gone too.

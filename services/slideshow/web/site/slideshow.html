@@ -38,6 +38,9 @@
             <!-- "Show details": the slide's resolution and date taken -->
             <p class="slideshow__details" hidden></p>
 
+            <!-- The music playing: "Title · Music by <artist> from <Pixabay>" (library tracks) -->
+            <p class="slideshow__credit" aria-live="polite" hidden></p>
+
             <div class="timeline" hidden>
                 <div class="timeline__rail" role="slider" tabindex="0" aria-orientation="vertical" aria-label="Position in slideshow">
                     <div class="timeline__thumb"></div>
@@ -101,6 +104,11 @@
                 <button class="settings__restart">Restart from beginning</button>
                 <button class="settings__change">Change folder</button>
             </div>
+            <section class="settings__music" aria-labelledby="settings-music" hidden>
+                <h2 class="settings__music-title" id="settings-music">Music in this slideshow</h2>
+                <ol class="settings__music-list"></ol>
+                <a class="settings__music-all" href="/music-credits.html" target="_blank" rel="noopener">All music credits</a>
+            </section>
         </div>
     </div>
 </body>

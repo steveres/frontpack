@@ -15,8 +15,10 @@ public interface ISlideshowStore
     Task<bool> TryUpdateAlbumAsync(Album album, CancellationToken ct);
     /// <summary>Deletes the album row only (not its media); false if there was none.</summary>
     Task<bool> DeleteAlbumAsync(string ownerId, Guid albumId, CancellationToken ct);
-    /// <summary>Everyone's public albums, in no particular order: the one query across owners.</summary>
+    /// <summary>Everyone's public albums, in no particular order.</summary>
     Task<IReadOnlyList<Album>> ListPublicAlbumsAsync(CancellationToken ct);
+    /// <summary>Every album that has music, across owners (music admin: how many trips use each track).</summary>
+    Task<IReadOnlyList<Album>> ListAlbumsWithMusicAsync(CancellationToken ct);
 
     /// <summary>The owner's media, all of it or one album's, in no particular order.</summary>
     Task<IReadOnlyList<MediaFile>> ListMediaAsync(string ownerId, Guid? albumId, CancellationToken ct);
@@ -29,6 +31,18 @@ public interface ISlideshowStore
     Task SetThumbnailStateAsync(string ownerId, Guid albumId, Guid mediaId, ThumbnailState state, CancellationToken ct);
     /// <summary>Records the photo's smaller versions. Nothing happens if it has been deleted.</summary>
     Task SetResizeStateAsync(string ownerId, Guid albumId, Guid mediaId, ResizeState state, IReadOnlyList<int> sizes, CancellationToken ct);
+    /// <summary>Records a video's running time. Nothing happens if it has been deleted.</summary>
+    Task SetDurationAsync(string ownerId, Guid albumId, Guid mediaId, double seconds, CancellationToken ct);
+    /// <summary>Everyone's media of one kind or collection, across owners (LibraryMigration's one-off jobs).</summary>
+    Task<IReadOnlyList<MediaFile>> ListMediaAcrossOwnersAsync(MediaCollection? collection, MediaKind? kind, CancellationToken ct);
+
+    /// <summary>The music library, in no particular order.</summary>
+    Task<IReadOnlyList<MusicTrack>> ListTracksAsync(CancellationToken ct);
+    Task<MusicTrack?> GetTrackAsync(Guid id, CancellationToken ct);
+    /// <summary>Adds the track, or replaces it if it exists.</summary>
+    Task SaveTrackAsync(MusicTrack track, CancellationToken ct);
+    /// <summary>False if there was none.</summary>
+    Task<bool> DeleteTrackAsync(Guid id, CancellationToken ct);
 
     /// <summary>The album a share code points to, or null.</summary>
     Task<(string OwnerId, Guid AlbumId)?> ResolveShareAsync(string token, CancellationToken ct);

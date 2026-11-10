@@ -90,8 +90,17 @@ public sealed class ApiFactory : IDisposable
 
     /// <inheritdoc cref="HostFactory{THost}.Token"/>
     public static string Token(string oid, string? scope = HostFactory<SlideshowHost>.Scope, string audience = HostFactory<SlideshowHost>.Audience,
-        DateTime? issuedAt = null, SecurityKey? key = null, string name = "Test User") =>
-        HostFactory<SlideshowHost>.Token(oid, scope, audience, issuedAt, key, name);
+        DateTime? issuedAt = null, SecurityKey? key = null, string name = "Test User", string[]? roles = null) =>
+        HostFactory<SlideshowHost>.Token(oid, scope, audience, issuedAt, key, name, roles);
+
+    /// <summary>A registered user with the Music.Admin app role (as Entra gives it).</summary>
+    public async Task<HttpClient> MusicAdminClientAsync()
+    {
+        var oid = Guid.NewGuid().ToString();
+        var client = ClientFor(oid, Token(oid, roles: ["Music.Admin"]));
+        (await client.PostAsync("/api/v1/account", null)).EnsureSuccessStatusCode();
+        return client;
+    }
 
     public static TimeSpan EntraBackdating => HostFactory<SlideshowHost>.EntraBackdating;
 
@@ -198,12 +207,14 @@ public class HostFactory<THost> : WebApplicationFactory<THost> where THost : cla
     public static readonly TimeSpan EntraBackdating = TimeSpan.FromMinutes(5);
 
     /// <param name="issuedAt">When the token is really issued (default now); it's stamped <see cref="EntraBackdating"/> earlier.</param>
+    /// <param name="roles">App roles, in the "roles" claim as Entra lists them.</param>
     public static string Token(string oid, string? scope = Scope, string audience = Audience, DateTime? issuedAt = null,
-        SecurityKey? key = null, string name = "Test User")
+        SecurityKey? key = null, string name = "Test User", string[]? roles = null)
     {
         var iat = (issuedAt ?? DateTime.UtcNow) - EntraBackdating;
         var claims = new Dictionary<string, object> { ["oid"] = oid, ["name"] = name, ["email"] = $"{oid}@example.test" };
         if (scope is not null) claims["scp"] = scope;
+        if (roles is not null) claims["roles"] = roles;
         return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
             Issuer = Issuer,

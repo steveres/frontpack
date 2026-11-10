@@ -7,7 +7,7 @@ using Slideshow.Api.Storage;
 namespace Slideshow.Api;
 
 /// <summary>
-/// The Slideshow service: albums, their photos, videos and music, share links and public albums. A host
+/// The Slideshow service: albums, their photos and videos, their music (from the music library), share links and public albums. A host
 /// adds it with AddSlideshow and MapSlideshow, after FrontPack's service defaults (sign-in etc.).
 /// </summary>
 public static class SlideshowApi
@@ -39,17 +39,28 @@ public static class SlideshowApi
                 : ActivatorUtilities.CreateInstance<MemoryResizeQueue>(sp));
         services.AddHostedService<ResizeWorker>();
 
+        // The music library trips choose from; admins are the users given the API's Music.Admin app role in Entra.
+        services.AddSingleton<MusicLibrary>();
+        services.AddAuthorizationBuilder().AddPolicy(MusicEndpoints.AdminPolicy, p => p.RequireClaim("roles", MusicEndpoints.AdminRole));
+        services.AddHostedService<LibraryMigration>(); // one-off: deletes uploaded music, times older videos
+
         // Slideshow's part of an account: usage on the account page, and what deleting the account deletes.
         services.AddScoped<IServiceAccountData, SlideshowAccountData>();
         return services;
     }
 
-    /// <summary>The routes: /api/v1/albums (signed in), /api/v1/shared and /api/v1/public-albums (anyone).</summary>
+    /// <summary>
+    /// The routes: /api/v1/albums and /api/v1/admin/music (signed in), /api/v1/shared, /api/v1/public-albums
+    /// and /api/v1/music (anyone).
+    /// </summary>
     public static WebApplication MapSlideshow(this WebApplication app, RouteGroupBuilder api)
     {
-        api.MapAlbums(app.Services.GetRequiredService<IOptions<LimitsOptions>>().Value.MaxUploadBytes);
+        var limits = app.Services.GetRequiredService<IOptions<LimitsOptions>>().Value;
+        api.MapAlbums(limits.MaxUploadBytes);
+        api.MapMusicAdmin(limits.MaxMusicBytes);
         app.MapGroup("/api/v1/shared").AllowAnonymous().MapShared(); // share links: no sign-in
         app.MapGroup("/api/v1/public-albums").AllowAnonymous().MapPublicAlbums(); // the albums anyone can watch
+        app.MapGroup("/api/v1/music").AllowAnonymous().MapMusic(); // the library, played by shared slideshows too
         return app;
     }
 

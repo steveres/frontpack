@@ -130,10 +130,10 @@ Base path `/api/v1`. JSON uses camelCase. Errors are RFC 7807 `application/probl
 | `GET /albums/{albumId}` | `AlbumManifest` — the compiled, playable album. `409 album_not_compiled` if never compiled. |
 | `GET /albums/{albumId}/info` | `AlbumInfo`. |
 | `POST /albums/{albumId}/compile` | `200` + `AlbumManifest`. |
-| `DELETE /albums/{albumId}` | `204`. Deletes its images and music too. |
+| `DELETE /albums/{albumId}` | `204`. Deletes its photos and videos too (its music is library tracks, which stay). |
 
-### Images (photos **and** videos — the slides) and Music
-`{collection}` is `images` or `music`.
+### Images (photos **and** videos — the slides)
+`{collection}` is `images`. (Music isn't uploaded: albums choose it from the music library, below.)
 
 | Method & path | Result |
 |---|---|
@@ -146,7 +146,7 @@ Base path `/api/v1`. JSON uses camelCase. Errors are RFC 7807 `application/probl
 | `DELETE /albums/{albumId}/{collection}/{id}` | `204`. |
 
 Accepted types (by content, not name): images JPEG, PNG, GIF, WebP, AVIF, BMP; videos MP4/M4V/MOV,
-WebM, Ogg; music MP3. HEIC/HEIF and SVG are rejected (HEIC isn't displayable in most browsers; SVG
+WebM, Ogg. MP3s are refused with `415 music_not_uploadable`. HEIC/HEIF and SVG are rejected (HEIC isn't displayable in most browsers; SVG
 can carry script).
 
 ### Sharing (anyone with the link can watch)
@@ -156,7 +156,7 @@ can carry script).
 | `PUT /albums/{albumId}/share` `{ enabled?, showMap?, isPublic? }` | Turn link sharing on/off (turning it on again issues a new code); choose whether viewers see the map; make the album public. `isPublic: true` turns sharing on if it's off; turning sharing off makes the album private again. `400` for `{ enabled: false, isPublic: true }`. |
 | `POST /albums/{albumId}/share/reset` | New code; the old link stops working (a public album stays public, under the new code). `409 album_not_shared` if sharing is off. |
 | `GET /shared/{token}` | **No sign-in.** `{ name, showMap, slides, music }`: the current slideshow (compiled on demand), with file URLs under `/shared/{token}/…`; locations removed when `showMap` is false. |
-| `GET /shared/{token}/images/{id}`, `GET /shared/{token}/music/{id}` | **No sign-in.** Only files in the slideshow (photos without a date or location stay private). |
+| `GET /shared/{token}/images/{id}` | **No sign-in.** Only files in the slideshow (photos without a date or location stay private). Its music plays from `/music/{id}`. |
 | `GET /shared/{token}/images/{id}/thumbnail` | **No sign-in.** A slideshow photo's preview (public albums' covers). |
 | `GET /public-albums` | **No sign-in.** `PublicAlbum[]`, newest first: `{ id, name, description, createdAt, updatedAt, imageCount, videoCount, musicCount, shareToken, coverThumbnailUrl }`. The counts and the cover include only what the slideshow shows. |
 
@@ -167,6 +167,28 @@ anything; anonymous requests are rate-limited per IP address like everyone else'
 **Public albums** are shared albums their owner also chose to list: `GET /public-albums` gives anyone their
 share codes, so it's an opt-in, separate from sharing by link (which stays unlisted). Listing them is the
 one query across owners (a scan of the Albums table, filtered on `IsPublic`).
+
+### Music library
+Trips choose their music from it: users can't upload music, so every track's license has been checked.
+Music admins are users given the API registration's **`Music.Admin`** app role in Entra (the `roles` claim).
+
+| Method & path | Result |
+|---|---|
+| `GET /music` | **No sign-in.** `Track[]` by title. |
+| `GET /music/{id}?v={version}` | **No sign-in.** The MP3 (`Range`; `public, immutable`: a replaced MP3 gets a new `v`). |
+| `GET /music/{id}/license` | **No sign-in.** The license certificate, `text/plain`. |
+| `GET /albums/{albumId}/music` | `Track[]`: the album's music in play order. |
+| `PUT /albums/{albumId}/music` `{ trackIds }` | Choose it: library ids in play order, each once, at most 20. `400` otherwise. Doesn't make the slideshow stale: manifests and `/shared/{token}` read the choice when served. |
+| `GET /admin/music/access` | Music admins: `200`; everyone else `403`. |
+| `GET /admin/music` | `AdminTrack[]`: also `licenseFileName`, `sizeBytes`, `addedAt`, `updatedAt`, `usedBy` (trips). |
+| `POST /admin/music` | multipart: `file` (MP3), `license` (text certificate), `title`, `artist`, `licenseName`, `durationSeconds` (all required); `artistUrl`, `sourceUrl`, `tags` (comma-separated). `201` + `AdminTrack`. |
+| `POST /admin/music/{id}` | The same fields, each optional; a new `file` (with its `durationSeconds`) or `license` replaces the old one. |
+| `DELETE /admin/music/{id}` | `204`. Its files go, and albums that chose it drop it. |
+| `GET /admin/music/export` | The catalog as JSON with each license's text (a backup; no MP3s). |
+
+Library files are blobs under `library/{trackId}/` in the media container (no owner id is `library`).
+When the API starts, `LibraryMigration` deletes music uploaded before the library and reads the running
+time of older videos (both find nothing once done).
 
 ### Shapes
 ```jsonc
@@ -181,20 +203,26 @@ one query across owners (a scan of the Albums table, filtered on `IsPublic`).
   "coverThumbnailUrl": "…/thumbnail" | null }         // first photo in slideshow order, else first uploaded
 
 // MediaInfo
-{ "id": "guid", "fileName": "IMG_0001.jpg", "kind": "image" | "video" | "audio",
+{ "id": "guid", "fileName": "IMG_0001.jpg", "kind": "image" | "video",
   "contentType": "image/jpeg", "sizeBytes": 2345678, "uploadedAt": "…Z",
   "taken": "2026-07-04T09:31:05" | null,           // local wall-clock time, no zone (as EXIF)
   "takenSource": "exif" | "video" | null,         // only real capture dates; file times are never used
   "location": { "lat": 41.9, "lon": 12.5 } | null,
   "thumbnailUrl": "/api/v1/albums/…/images/…/thumbnail" | null,   // photos only
   "sizes": [720, 1280, 1920],                      // photos: smaller versions made so far (?size=); else []
-  "playable": true,                                // shown in the slideshow (music: always true)
-  "missing": [] }                                  // otherwise why not: "date" and/or "location"
+  "playable": true,                                // shown in the slideshow
+  "missing": [],                                   // otherwise why not: "date" and/or "location"
+  "durationSeconds": 42.5 | null }                 // videos: running time (null: unknown, and photos)
+
+// Track (music library)
+{ "id": "guid", "title": "Sunny Road Trip", "artist": "dimmysad", "artistUrl": "https://…" | null,
+  "sourceUrl": "https://pixabay.com/music/…" | null, "tags": ["folk", "happy"], "durationSeconds": 162.3,
+  "licenseName": "Pixabay Content License", "url": "/api/v1/music/…?v=1", "licenseUrl": "/api/v1/music/…/license" }
 
 // AlbumManifest
 { "albumId": "guid", "name": "…", "compiledAt": "…Z", "isStale": false,
   "slides": [ MediaInfo + { "url": "/api/v1/albums/…/images/…" } ],   // playable only, in play order
-  "music":  [ MediaInfo + { "url": "…" } ],
+  "music":  [ Track ],                                                  // the album's choice, in play order
   "excludedCount": 2 }                                                  // photos/videos left out
 ```
 
@@ -204,11 +232,16 @@ one query across owners (a scan of the Albums table, filtered on `IsPublic`).
 Users   PK userId · RK "user"            DisplayName · Email · CreatedAt · TokensValidAfter?
 Albums  PK ownerId · RK albumId          Name · Description · CreatedAt · UpdatedAt · ContentVersion
                                          CompiledVersion? · CompiledAt? · ShareToken? · ShareHideMap · IsPublic
+                                         MusicTrackIds ("id,id": play order) · HasMusic
 Media   PK ownerId · RK albumId_mediaId  AlbumId · MediaId · Collection (Images|Music) · Kind · FileName
                                          ContentType · SizeBytes · BlobName · UploadedAt · TakenAt? (text,
                                          local time) · TakenSource? · Latitude? · Longitude? · ThumbnailState
                                          ResizeState (None|Pending|Ready|Unavailable) · Sizes ("720,1280,1920")
+                                         DurationSeconds? (videos)
 Shares  PK share code · RK "share"       OwnerId · AlbumId
+MusicTracks PK "track" · RK trackId      Title · Artist · ArtistUrl? · SourceUrl? · Tags (one per line)
+                                         DurationSeconds · LicenseName · LicenseFileName · SizeBytes
+                                         FileVersion · AddedAt · UpdatedAt · AddedBy
 ```
 Everything an owner has is in their partition, so the album list, usage and quota are one query each,
 and one album's media is a row-key range. The compiled manifest is a blob

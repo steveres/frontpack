@@ -1,0 +1,28 @@
+/* css/components/music-admin.css — the music library admin page (with trip.css for the table) */
+
+.admin__loading, .admin__intro, .admin__none, .admin__tags-hint { color: var(--color-muted); }
+.admin__intro { max-width: 70ch; }
+.admin__actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin: var(--spacing-md) 0 var(--spacing-lg); }
+
+.admin__form { display: grid; gap: var(--spacing-md); margin-bottom: var(--spacing-lg); }
+.admin__form-title { font: 400 1.4rem var(--font-display); margin: 0; }
+.admin__files, .admin__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--spacing-sm) var(--spacing-md); }
+.admin__file { display: grid; gap: var(--spacing-xs); align-content: start; }
+.admin__file p { margin: 0; color: var(--color-muted); font-size: .9rem; }
+.admin__files input[type="file"] { color: var(--color-muted); min-width: 0; max-width: 100%; }
+.admin__tags-hint { margin: 0; font-size: .85rem; }
+.admin__form-actions { display: flex; align-items: center; gap: var(--spacing-sm); }
+.admin__progress { width: 160px; accent-color: var(--color-lamp); }
+.admin__form-error { margin: 0; }
+.admin__ok { color: var(--color-ok) !important; }
+
+.admin__table td { vertical-align: middle; }
+.admin__col-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.admin__tag-list, .admin__col-artist { color: var(--color-muted); }
+.admin__row-actions { display: flex; gap: var(--spacing-xs); justify-content: flex-end; }
+.admin__delete { color: var(--color-muted); }
+.admin__delete:hover { color: var(--color-danger); }
+
+@media (max-width: 700px) {
+  .admin__table .admin__col-tags, .admin__table .admin__col-license, .admin__table .admin__col-artist { display: none; }
+}

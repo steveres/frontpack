@@ -15,6 +15,7 @@ public sealed class LocalDataStore : ISlideshowStore
         public Dictionary<string, Album> Albums { get; set; } = [];       // key: owner/album
         public Dictionary<string, MediaFile> Media { get; set; } = [];    // key: owner/album/media
         public Dictionary<string, ShareRow> Shares { get; set; } = [];    // key: token
+        public Dictionary<Guid, MusicTrack> Tracks { get; set; } = [];
     }
 
     private sealed record ShareRow(string OwnerId, Guid AlbumId);
@@ -88,6 +89,9 @@ public sealed class LocalDataStore : ISlideshowStore
     public Task<IReadOnlyList<Album>> ListPublicAlbumsAsync(CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<Album>>(Read(s => s.Albums.Values.Where(a => a.IsPublic).Select(a => a.Clone()).ToList()));
 
+    public Task<IReadOnlyList<Album>> ListAlbumsWithMusicAsync(CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Album>>(Read(s => s.Albums.Values.Where(a => a.MusicTrackIds.Count > 0).Select(a => a.Clone()).ToList()));
+
     public Task<IReadOnlyList<MediaFile>> ListMediaAsync(string ownerId, Guid? albumId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<MediaFile>>(Read(s => s.Media.Values
             .Where(m => m.OwnerId == ownerId && (albumId is null || m.AlbumId == albumId))
@@ -123,6 +127,26 @@ public sealed class LocalDataStore : ISlideshowStore
             if (s.Media.TryGetValue(MediaKey(ownerId, albumId, mediaId), out var m)) { m.ResizeState = state; m.Sizes = [.. sizes]; }
             return 0;
         }));
+
+    public Task SetDurationAsync(string ownerId, Guid albumId, Guid mediaId, double seconds, CancellationToken ct) =>
+        Task.FromResult(Write(s => { if (s.Media.TryGetValue(MediaKey(ownerId, albumId, mediaId), out var m)) m.DurationSeconds = seconds; return 0; }));
+
+    public Task<IReadOnlyList<MediaFile>> ListMediaAcrossOwnersAsync(MediaCollection? collection, MediaKind? kind, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<MediaFile>>(Read(s => s.Media.Values
+            .Where(m => (collection is null || m.Collection == collection) && (kind is null || m.Kind == kind))
+            .Select(m => m.Clone()).ToList()));
+
+    public Task<IReadOnlyList<MusicTrack>> ListTracksAsync(CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<MusicTrack>>(Read(s => s.Tracks.Values.Select(t => t.Clone()).ToList()));
+
+    public Task<MusicTrack?> GetTrackAsync(Guid id, CancellationToken ct) =>
+        Task.FromResult(Read(s => s.Tracks.GetValueOrDefault(id)?.Clone()));
+
+    public Task SaveTrackAsync(MusicTrack track, CancellationToken ct) =>
+        Task.FromResult(Write(s => { s.Tracks[track.Id] = track.Clone(); return 0; }));
+
+    public Task<bool> DeleteTrackAsync(Guid id, CancellationToken ct) =>
+        Task.FromResult(Write(s => s.Tracks.Remove(id)));
 
     public Task<(string OwnerId, Guid AlbumId)?> ResolveShareAsync(string token, CancellationToken ct) =>
         Task.FromResult(Read<(string, Guid)?>(s => s.Shares.TryGetValue(token, out var r) ? (r.OwnerId, r.AlbumId) : null));

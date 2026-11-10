@@ -3,7 +3,7 @@
 // prefetching pays off. Photos come in the size that suits the screen and connection (photo-size.ts);
 // zooming in fetches the original.
 
-import { MediaApi, SharingApi, type MediaInfo } from '../api/albums-api.js';
+import { MediaApi, MusicApi, SharingApi, type LibraryTrack, type MediaInfo } from '../api/albums-api.js';
 import type { MediaItem, SlideshowContents, Track } from './media-types.js';
 import { photoSize } from './photo-size.js';
 
@@ -33,10 +33,18 @@ function slideUrl(m: MediaInfo): string {
   return size === null ? m.url : `${m.url}?size=${size}`;
 }
 
-function contents(slides: MediaInfo[], music: MediaInfo[], download: Download): SlideshowContents {
+/** A library track, downloaded when the player gets to it (no sign-in: shared slideshows play them too). */
+function libraryTrack(t: LibraryTrack): Track {
+  return {
+    name: `${t.title} by ${t.artist}`,
+    credit: { title: t.title, artist: t.artist, artistUrl: t.artistUrl, sourceUrl: t.sourceUrl },
+    getFile: async () => new File([await MusicApi.download(t.url)], `${t.title}.mp3`, { type: 'audio/mpeg' }),
+  };
+}
+
+function contents(slides: MediaInfo[], music: LibraryTrack[], download: Download): SlideshowContents {
   const slide = downloader(4, download, slideUrl); // current, next, and a couple for stepping back
   const original = downloader(1, download);        // the photo zoomed into
-  const track = downloader(1, download);
   const items: MediaItem[] = slides.map(m => ({
     name: m.fileName,
     kind: m.kind === 'video' ? 'video' : 'image',
@@ -45,14 +53,13 @@ function contents(slides: MediaInfo[], music: MediaInfo[], download: Download): 
     getFile: slide(m),
     getFullFile: m.kind === 'image' ? original(m) : undefined,
   }));
-  const tracks: Track[] = music.map(m => ({ name: m.fileName, getFile: track(m) }));
-  return { items, tracks };
+  return { items, tracks: music.map(libraryTrack) };
 }
 
 /** The signed-in owner's compiled album. */
-export const contentsFromManifest = (manifest: { slides: MediaInfo[]; music: MediaInfo[] }): SlideshowContents =>
+export const contentsFromManifest = (manifest: { slides: MediaInfo[]; music: LibraryTrack[] }): SlideshowContents =>
   contents(manifest.slides, manifest.music, MediaApi.download);
 
 /** A shared album, played from its share link without signing in. */
-export const contentsFromSharedAlbum = (shared: { slides: MediaInfo[]; music: MediaInfo[] }): SlideshowContents =>
+export const contentsFromSharedAlbum = (shared: { slides: MediaInfo[]; music: LibraryTrack[] }): SlideshowContents =>
   contents(shared.slides, shared.music, SharingApi.download);

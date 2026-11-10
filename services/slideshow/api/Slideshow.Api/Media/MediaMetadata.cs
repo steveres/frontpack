@@ -8,7 +8,8 @@ using Slideshow.Api.Data;
 
 namespace Slideshow.Api.Media;
 
-public sealed record MediaMetadata(DateTime? TakenAt, TakenSource? TakenSource, double? Latitude, double? Longitude);
+/// <param name="DurationSeconds">Videos: the running time from the "mvhd" box; 0 when the file doesn't say. Null for photos.</param>
+public sealed record MediaMetadata(DateTime? TakenAt, TakenSource? TakenSource, double? Latitude, double? Longitude, double? DurationSeconds = null);
 
 /// <summary>Reads date taken and GPS position — the server-side equivalent of prepare.ps1 and the SPA's GPS readers.</summary>
 public static partial class MetadataReader
@@ -22,6 +23,7 @@ public static partial class MetadataReader
         DateTime? taken = null;
         TakenSource? source = null;
         (double Lat, double Lon)? gps = null;
+        double? duration = kind == MediaKind.Video ? 0 : null;
         try
         {
             if (kind == MediaKind.Image)
@@ -39,6 +41,7 @@ public static partial class MetadataReader
                 taken ??= MovieHeaderUtc(head) is { } utc1 ? utc1 + utcOffset : MovieHeaderUtc(tail) is { } utc2 ? utc2 + utcOffset : null;
                 if (taken is not null) source = TakenSource.Video;
                 gps = Iso6709(head) ?? Iso6709(tail);
+                duration = MovieDuration(head) ?? MovieDuration(tail) ?? 0;
             }
         }
         catch (Exception e) when (e is not OperationCanceledException and not OutOfMemoryException)
@@ -47,7 +50,33 @@ public static partial class MetadataReader
         }
 
         if (taken is { } t) taken = DateTime.SpecifyKind(new DateTime(t.Ticks - t.Ticks % TimeSpan.TicksPerSecond), DateTimeKind.Unspecified);
-        return new MediaMetadata(taken, source, gps?.Lat, gps?.Lon);
+        return new MediaMetadata(taken, source, gps?.Lat, gps?.Lon, duration);
+    }
+
+    /// <summary>A video's running time: the "mvhd" box's duration over its time scale. 0 if the file doesn't say.</summary>
+    public static double ReadDuration(Stream file)
+    {
+        try
+        {
+            var (head, tail) = ReadHeadAndTail(file);
+            return MovieDuration(head) ?? MovieDuration(tail) ?? 0;
+        }
+        catch (Exception e) when (e is not OperationCanceledException and not OutOfMemoryException) { return 0; }
+    }
+
+    /// <summary>The "mvhd" box's duration in seconds (version 0: 32-bit times; version 1: 64-bit), or null.</summary>
+    private static double? MovieDuration(byte[] data)
+    {
+        var i = data.AsSpan().IndexOf("mvhd"u8);
+        if (i < 0 || i + 8 > data.Length) return null;
+        var v1 = data[i + 4] == 1;
+        var at = i + 8 + (v1 ? 16 : 8); // past "mvhd", version/flags, creation and modification times
+        if (at + (v1 ? 12 : 8) > data.Length) return null;
+        var scale = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(at, 4));
+        ulong units = v1 ? BinaryPrimitives.ReadUInt64BigEndian(data.AsSpan(at + 4, 8)) : BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(at + 4, 4));
+        if (scale == 0 || units == 0 || units == uint.MaxValue || units == ulong.MaxValue) return null;
+        var seconds = (double)units / scale;
+        return seconds is > 0 and < 24 * 3600 ? Math.Round(seconds, 2) : null;
     }
 
     private static DateTime? ExifDate(IReadOnlyList<MetadataExtractor.Directory> dirs)

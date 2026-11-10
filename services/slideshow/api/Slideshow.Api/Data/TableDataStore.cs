@@ -7,14 +7,16 @@ using Microsoft.Extensions.Options;
 namespace Slideshow.Api.Data;
 
 /// <summary>
-/// Azure Table Storage (or Azurite). Three tables, each partitioned so a query reads one partition:
-/// Albums (owner / album), Media (owner / "album_media"), Shares (code / "share"). (Users: FrontPack's.)
-/// The one exception is the list of public albums, which looks across all owners.
+/// Azure Table Storage (or Azurite). Four tables, each partitioned so a query reads one partition:
+/// Albums (owner / album), Media (owner / "album_media"), Shares (code / "share"), MusicTracks ("track" / track).
+/// (Users: FrontPack's.) The exceptions look across all owners: the public albums, the albums with music
+/// (music admin), and LibraryMigration's one-off jobs.
 /// </summary>
 public sealed class TableDataStore : ISlideshowStore
 {
     private const string ShareRow = "share";
-    private readonly TableClient _albums, _media, _shares;
+    private const string TrackPartition = "track";
+    private readonly TableClient _albums, _media, _shares, _tracks;
 
     /// <param name="credential">Signs in to Azure (not used with a connection string, i.e. Azurite).</param>
     public TableDataStore(IOptions<TablesOptions> options, TokenCredential credential)
@@ -26,13 +28,19 @@ public sealed class TableDataStore : ISlideshowStore
         _albums = service.GetTableClient("Albums");
         _media = service.GetTableClient("Media");
         _shares = service.GetTableClient("Shares");
+        _tracks = service.GetTableClient("MusicTracks");
     }
 
     /// <summary>Creates the tables if missing (the local emulator; in Azure, main.bicep creates them).</summary>
     public async Task EnsureTablesAsync(CancellationToken ct)
     {
-        foreach (var table in new[] { _albums, _media, _shares }) await table.CreateIfNotExistsAsync(ct);
+        foreach (var table in new[] { _albums, _media, _shares, _tracks }) await table.CreateIfNotExistsAsync(ct);
     }
+
+    /// <summary>Ids as text, comma-separated: a list can't be a table property.</summary>
+    private static string IdsText(IReadOnlyList<Guid> ids) => string.Join(',', ids.Select(Key));
+    private static IReadOnlyList<Guid> Ids(string? text) =>
+        string.IsNullOrEmpty(text) ? [] : text.Split(',').Select(t => Guid.ParseExact(t, "N")).ToList();
 
     private static string Key(Guid id) => id.ToString("N");
     private static string MediaRow(Guid albumId, Guid mediaId) => $"{Key(albumId)}_{Key(mediaId)}";
@@ -85,6 +93,8 @@ public sealed class TableDataStore : ISlideshowStore
         ["ShareToken"] = a.ShareToken,
         ["ShareHideMap"] = a.ShareHideMap,
         ["IsPublic"] = a.IsPublic,
+        ["MusicTrackIds"] = IdsText(a.MusicTrackIds),
+        ["HasMusic"] = a.MusicTrackIds.Count > 0, // so the albums with music can be found
     };
 
     private static Album ToAlbum(TableEntity e) => new()
@@ -101,6 +111,7 @@ public sealed class TableDataStore : ISlideshowStore
         ShareToken = e.GetString("ShareToken"),
         ShareHideMap = e.GetBoolean("ShareHideMap") ?? false,
         IsPublic = e.GetBoolean("IsPublic") ?? false,
+        MusicTrackIds = Ids(e.GetString("MusicTrackIds")),
         ETag = e.ETag.ToString(),
     };
 
@@ -134,6 +145,10 @@ public sealed class TableDataStore : ISlideshowStore
     public async Task<IReadOnlyList<Album>> ListPublicAlbumsAsync(CancellationToken ct) =>
         (await QueryAsync(_albums, TableClient.CreateQueryFilter($"IsPublic eq {true}"), ct)).Select(ToAlbum).ToList();
 
+    /// <summary>Scans every partition of Albums, like the public list.</summary>
+    public async Task<IReadOnlyList<Album>> ListAlbumsWithMusicAsync(CancellationToken ct) =>
+        (await QueryAsync(_albums, TableClient.CreateQueryFilter($"HasMusic eq {true}"), ct)).Select(ToAlbum).ToList();
+
     // ───────── Media ─────────
 
     private static TableEntity ToEntity(MediaFile m) => new(m.OwnerId, MediaRow(m.AlbumId, m.Id))
@@ -155,6 +170,7 @@ public sealed class TableDataStore : ISlideshowStore
         ["ThumbnailState"] = (int)m.ThumbnailState,
         ["ResizeState"] = (int)m.ResizeState,
         ["Sizes"] = SizesText(m.Sizes),
+        ["DurationSeconds"] = m.DurationSeconds,
     };
 
     private static MediaFile ToMedia(TableEntity e) => new()
@@ -176,6 +192,7 @@ public sealed class TableDataStore : ISlideshowStore
         ThumbnailState = (ThumbnailState)(e.GetInt32("ThumbnailState") ?? 0),
         ResizeState = (ResizeState)(e.GetInt32("ResizeState") ?? 0),
         Sizes = e.GetString("Sizes") is { Length: > 0 } sizes ? sizes.Split(',').Select(t => int.Parse(t, CultureInfo.InvariantCulture)).ToList() : [],
+        DurationSeconds = e.GetDouble("DurationSeconds"),
     };
 
     /// <summary>"720,1280": a list can't be a table property.</summary>
@@ -209,6 +226,70 @@ public sealed class TableDataStore : ISlideshowStore
 
     public Task SetResizeStateAsync(string ownerId, Guid albumId, Guid mediaId, ResizeState state, IReadOnlyList<int> sizes, CancellationToken ct) =>
         MergeIfExistsAsync(_media, new TableEntity(ownerId, MediaRow(albumId, mediaId)) { ["ResizeState"] = (int)state, ["Sizes"] = SizesText(sizes) }, ct);
+
+    public Task SetDurationAsync(string ownerId, Guid albumId, Guid mediaId, double seconds, CancellationToken ct) =>
+        MergeIfExistsAsync(_media, new TableEntity(ownerId, MediaRow(albumId, mediaId)) { ["DurationSeconds"] = seconds }, ct);
+
+    /// <summary>Scans every partition of Media: only for one-off jobs.</summary>
+    public async Task<IReadOnlyList<MediaFile>> ListMediaAcrossOwnersAsync(MediaCollection? collection, MediaKind? kind, CancellationToken ct)
+    {
+        var filter = (collection, kind) switch
+        {
+            ({ } c, { } k) => TableClient.CreateQueryFilter($"Collection eq {(int)c} and Kind eq {(int)k}"),
+            ({ } c, null) => TableClient.CreateQueryFilter($"Collection eq {(int)c}"),
+            (null, { } k) => TableClient.CreateQueryFilter($"Kind eq {(int)k}"),
+            _ => "",
+        };
+        return (await QueryAsync(_media, filter, ct)).Select(ToMedia).ToList();
+    }
+
+    // ───────── Music library ─────────
+
+    private static TableEntity ToEntity(MusicTrack t) => new(TrackPartition, Key(t.Id))
+    {
+        ["Title"] = t.Title,
+        ["Artist"] = t.Artist,
+        ["ArtistUrl"] = t.ArtistUrl,
+        ["SourceUrl"] = t.SourceUrl,
+        ["Tags"] = string.Join('\n', t.Tags), // tags never contain a line break
+        ["DurationSeconds"] = t.DurationSeconds,
+        ["LicenseName"] = t.LicenseName,
+        ["LicenseFileName"] = t.LicenseFileName,
+        ["SizeBytes"] = t.SizeBytes,
+        ["FileVersion"] = t.FileVersion,
+        ["AddedAt"] = Utc(t.AddedAt),
+        ["UpdatedAt"] = Utc(t.UpdatedAt),
+        ["AddedBy"] = t.AddedBy,
+    };
+
+    private static MusicTrack ToTrack(TableEntity e) => new()
+    {
+        Id = Guid.ParseExact(e.RowKey, "N"),
+        Title = e.GetString("Title") ?? "",
+        Artist = e.GetString("Artist") ?? "",
+        ArtistUrl = e.GetString("ArtistUrl"),
+        SourceUrl = e.GetString("SourceUrl"),
+        Tags = e.GetString("Tags") is { Length: > 0 } tags ? tags.Split('\n') : [],
+        DurationSeconds = e.GetDouble("DurationSeconds") ?? 0,
+        LicenseName = e.GetString("LicenseName") ?? "",
+        LicenseFileName = e.GetString("LicenseFileName") ?? "license.txt",
+        SizeBytes = e.GetInt64("SizeBytes") ?? 0,
+        FileVersion = e.GetInt32("FileVersion") ?? 1,
+        AddedAt = Utc(e, "AddedAt") ?? default,
+        UpdatedAt = Utc(e, "UpdatedAt") ?? default,
+        AddedBy = e.GetString("AddedBy"),
+    };
+
+    public async Task<IReadOnlyList<MusicTrack>> ListTracksAsync(CancellationToken ct) =>
+        (await QueryAsync(_tracks, TableClient.CreateQueryFilter($"PartitionKey eq {TrackPartition}"), ct)).Select(ToTrack).ToList();
+
+    public async Task<MusicTrack?> GetTrackAsync(Guid id, CancellationToken ct) =>
+        await GetAsync(_tracks, TrackPartition, Key(id), ct) is { } e ? ToTrack(e) : null;
+
+    public async Task SaveTrackAsync(MusicTrack track, CancellationToken ct) =>
+        await _tracks.UpsertEntityAsync(ToEntity(track), TableUpdateMode.Replace, ct);
+
+    public Task<bool> DeleteTrackAsync(Guid id, CancellationToken ct) => DeleteAsync(_tracks, TrackPartition, Key(id), ct);
 
     // ───────── Shares ─────────
 

@@ -118,7 +118,8 @@ public static class TestMedia
     }
 
     /// <summary>ftyp + moov(mvhd + udta/©xyz). Only the parts the API reads.</summary>
-    public static byte[] Mp4(DateTime? createdUtc = null, string? iso6709 = null, string? appleCreationDate = null)
+    /// <param name="durationMs">The running time in the mvhd box (time scale 1000).</param>
+    public static byte[] Mp4(DateTime? createdUtc = null, string? iso6709 = null, string? appleCreationDate = null, uint durationMs = 0)
     {
         var ftyp = Box("ftyp", [.. "isom"u8.ToArray(), .. U32(0x200), .. "isomiso2mp41"u8.ToArray()]);
         var mvhd = new byte[100];
@@ -129,6 +130,7 @@ public static class TestMedia
             BinaryPrimitives.WriteUInt32BigEndian(mvhd.AsSpan(8), secs);  // modification time
         }
         BinaryPrimitives.WriteUInt32BigEndian(mvhd.AsSpan(12), 1000);     // timescale
+        BinaryPrimitives.WriteUInt32BigEndian(mvhd.AsSpan(16), durationMs); // duration
         var udta = new List<byte>();
         if (iso6709 is not null) udta.AddRange(Box("©xyz", Encoding.Latin1.GetBytes("\0\0\0\0" + iso6709)));
         if (appleCreationDate is not null) udta.AddRange(Box("meta", Encoding.ASCII.GetBytes("com.apple.quicktime.creationdate" + appleCreationDate)));

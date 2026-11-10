@@ -24,3 +24,6 @@
 .album-card__play { position: relative; z-index: 1; align-self: flex-start; margin-top: auto; }
 .album-card__meta { margin-bottom: var(--spacing-sm); }
 .album-card__play[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+
+/* Music admins: a link to the music library admin page */
+.albums__admin { margin: calc(-1 * var(--spacing-md)) 0 var(--spacing-lg); font-size: .9rem; }

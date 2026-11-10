@@ -133,6 +133,18 @@ Done in the [Microsoft Entra admin center](https://entra.microsoft.com).
    - Fallback: register the Graph app in the external tenant, add the same permission with admin
      consent, create a client secret, and pass it as `graphClientSecret` at deployment (stored as a
      Container Apps secret).
+6. **Music admins** (who can change the music library, on `music-admin.html`): an app role on the **API**
+   registration, so Entra lists it in the `roles` claim of the access token. Nothing to deploy: the API
+   checks for it.
+   - App registrations → FrontPack API → App roles → Create app role: display name *Music admin*,
+     allowed member types *Users/Groups*, value **`Music.Admin`**, description "Can add, change and delete
+     music library tracks", enabled.
+   - Enterprise applications → FrontPack API → Users and groups → Add user/group → pick the person → role
+     *Music admin* → Assign. (Assign people directly: in external tenants, group-based roles are still
+     arriving.)
+   - The person signs out and in again (or waits for the next token), then sees **Music library admin** on
+     the Trip Pix page. Removing the assignment takes effect when their current token expires (about an hour).
+   - Locally (development sign-in), tick **Music admin** on the sign-in form.
 
 ## Deploy to Azure
 
@@ -261,7 +273,7 @@ If the **Azure login** step fails:
 | `Storage:Provider` (`FileSystem`/`AzureBlob`), `Storage:BlobServiceUri` or `Storage:ConnectionString` | media bytes |
 | `Graph:TenantId`, `Graph:ClientId`, `Graph:ClientSecret` | Entra user deletion / session revocation |
 | `Resize:Provider` (`Memory`/`AzureQueue`), `Resize:QueueServiceUri` or `Resize:ConnectionString`, `Resize:QueueName`, `Resize:MaxAttempts` | queue of photos waiting for their smaller versions |
-| `Limits:*` | per-kind file size, per-user quota, files per album, albums per user, requests per minute |
+| `Limits:*` | per-kind file size (`MaxMusicBytes`: a music library track), per-user quota, files per album, albums per user, requests per minute |
 | `Cors:AllowedOrigins` | SPA origins |
 
 Environment variables use `__` for `:` (e.g. `Tables__Provider`).

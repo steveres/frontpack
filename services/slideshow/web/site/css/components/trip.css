@@ -78,15 +78,65 @@
 .media-table__name-button { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; overflow-wrap: anywhere; cursor: zoom-in; }
 .media-table__name-button:hover { color: var(--color-lamp); text-decoration: underline; }
 
+/* Music: the trip's tracks and the fit table side by side, the library below */
+.music__intro { margin: 0 0 var(--spacing-md); color: var(--color-muted); max-width: 70ch; }
+.music__subheading { font-size: 1.05rem; font-weight: 600; margin: 0 0 var(--spacing-sm); }
+.music__total { font-weight: 400; color: var(--color-muted); }
+.music__columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--spacing-lg); align-items: start; margin-bottom: var(--spacing-lg); }
+.music__none { color: var(--color-muted); margin: 0; }
+.music__chosen { margin: 0; padding-left: 1.6rem; display: grid; gap: var(--spacing-xs); }
+.music__chosen-item { display: flex; align-items: center; gap: var(--spacing-xs); padding: var(--spacing-xs) 0; border-bottom: 1px solid var(--color-line); }
+.music__chosen-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.music__length { color: var(--color-muted); font-variant-numeric: tabular-nums; margin-right: var(--spacing-xs); }
+.music__move { padding: 4px 9px; }
+.music__move:disabled { visibility: hidden; }
+.music__remove { color: var(--color-muted); padding: 4px 8px; }
+.music__remove:hover { color: var(--color-danger); }
+.music__error { margin: var(--spacing-sm) 0 0; }
+
+.music__fit p { margin: 0 0 var(--spacing-sm); }
+.music__fit-summary { font-weight: 500; }
+.music__fit-table { width: 100%; border-collapse: collapse; font-size: .9rem; margin-bottom: var(--spacing-sm); font-variant-numeric: tabular-nums; }
+.music__fit-table th { text-align: left; font-weight: 500; color: var(--color-muted); padding: 4px var(--spacing-xs); border-bottom: 1px solid var(--color-line-strong); }
+.music__fit-table td { padding: 4px var(--spacing-xs); border-bottom: 1px solid var(--color-line); }
+.music__fit-best td { background: rgba(242, 184, 75, .12); font-weight: 600; }
+.music__fit-repeats { color: var(--color-muted); }
+.music__fit-note { color: var(--color-muted); font-size: .85rem; }
+
+.music__filters { display: flex; flex-wrap: wrap; gap: var(--spacing-sm) var(--spacing-md); align-items: center; margin-bottom: var(--spacing-sm); }
+.music__search { flex: 1 1 240px; font: inherit; color: var(--color-paper); background: var(--color-field); border: 1px solid var(--color-line-strong); border-radius: var(--radius-sm); padding: 8px 12px; }
+.music__sort { display: flex; align-items: center; gap: var(--spacing-xs); color: var(--color-muted); }
+.music__sort select { font: inherit; color: var(--color-paper); background: var(--color-field); border: 1px solid var(--color-line-strong); border-radius: var(--radius-sm); padding: 7px 8px; }
+.music__search:focus-visible, .music__sort select:focus-visible { outline: 2px solid var(--color-lamp); outline-offset: 2px; }
+.music__tags { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); margin-bottom: var(--spacing-sm); }
+.music__tag { font: inherit; font-size: .85rem; color: var(--color-muted); background: transparent; border: 1px solid var(--color-line-strong); border-radius: 999px; padding: 3px 12px; cursor: pointer; }
+.music__tag:hover { color: var(--color-paper); }
+.music__tag[aria-pressed="true"] { color: var(--color-ink); background: var(--color-lamp); border-color: var(--color-lamp); }
+.music__tag:focus-visible { outline: 2px solid var(--color-lamp); outline-offset: 2px; }
+.music__loading, .music__empty { color: var(--color-muted); }
+.music__col-play { width: 44px; }
+.music__preview { padding: 4px 10px; min-width: 36px; }
+.music__col-title { font-weight: 500; overflow-wrap: anywhere; }
+.music__row-tags, .music__col-artist { color: var(--color-muted); }
+.music__byline { display: none; font-weight: 400; font-size: .85rem; color: var(--color-muted); }
+.music__col-length { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.music__add { padding: 6px 14px; }
+
+@media (max-width: 800px) {
+  .music__columns { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (max-width: 700px) {
   .album__images-table th:nth-child(5), .album__images-table td:nth-child(5) { display: none; } /* location column */
+  .music__table .music__col-tags { display: none; }
 }
 /* Phones: the table fits the width. The capture date (the badge says when it's missing), size and the
    per-row Delete go (select rows and use "Delete selected"); file names break only between words. */
 @media (max-width: 600px) {
   .album__images-table th:nth-child(4), .album__images-table td:nth-child(4),
   .album__images-table th:nth-child(n+7), .album__images-table td:nth-child(n+7),
-  .album__music-table th:nth-child(n+3), .album__music-table td:nth-child(n+3) { display: none; }
+  .music__table .music__col-artist { display: none; }
+  .music__byline { display: block; }
   .media-table th, .media-table td { padding: var(--spacing-xs); }
   .media-table .badge { white-space: normal; }
   .media-table__name, .media-table__name-button { overflow-wrap: break-word; }

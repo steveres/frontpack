@@ -12,6 +12,17 @@
 .settings__panel input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--color-lamp); }
 .settings__row { display: flex; gap: 10px; }
 .settings__row button { flex: 1; }
+/* Tall content (the music list) scrolls inside the panel rather than off the screen */
+.settings__panel { max-height: calc(100% - max(14px, env(safe-area-inset-top)) - 68px); overflow-y: auto; }
+
+/* Music in this slideshow: each track's credit */
+.settings__music { border-top: 1px solid rgba(233, 228, 216, .15); padding-top: 12px; font-size: 14px; }
+.settings__music-title { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+.settings__music-list { margin: 0 0 8px; padding-left: 1.3em; display: grid; gap: 6px; color: rgba(233, 228, 216, .8); }
+.settings__music-list strong { color: var(--color-paper); font-weight: 600; }
+.settings__music a { color: inherit; text-decoration: underline; text-decoration-color: rgba(233, 228, 216, .5); }
+.settings__music a:hover { color: var(--color-lamp); }
+.settings__music-all { font-size: 13px; }
 
 /* Phone held sideways: the map is a card in the top-right corner, so the gear sits just left of it
    and the panel opens under the gear. (Other layouts: the gear stays in the corner.) */

@@ -6,6 +6,7 @@ import type { SlideshowContents } from '../../media/media-types.js';
 import { clamp, query } from '../../utils/dom.js';
 import { formatTaken } from '../../utils/format.js';
 import { DEFAULTS, loadSettings, saveSettings } from '../../utils/settings.js';
+import { musicBy } from '../music-credit.js';
 import { MapView } from './map-view.js';
 import { canPlaySound, MusicPlayer } from './music-player.js';
 import { PhotoZoom } from './photo-zoom.js';
@@ -88,6 +89,28 @@ export function mountSlideshow(root: HTMLElement, options: SlideshowOptions = {}
   applyMuted();
   muteBtn.onclick = () => { settings.muted = !settings.muted; saveSettings(settings); applyMuted(); };
 
+  // Credits: the track playing, over the photo (with the controls), and every track, in Settings.
+  const credit = query(root, '.slideshow__credit');
+  music.onTrack = track => {
+    credit.hidden = !track?.credit;
+    if (!track?.credit) { credit.replaceChildren(); return; }
+    const title = Object.assign(document.createElement('span'), { className: 'slideshow__credit-title', textContent: track.credit.title });
+    const sep = Object.assign(document.createElement('span'), { className: 'slideshow__credit-sep', textContent: ' · ' });
+    const by = document.createElement('span');
+    by.append(musicBy(track.credit));
+    credit.replaceChildren('♪ ', title, sep, by);
+  };
+  const musicSection = query(root, '.settings__music');
+  const listCredits = (tracks: SlideshowContents['tracks']) => {
+    const credited = tracks.filter(t => t.credit);
+    musicSection.hidden = credited.length === 0;
+    query(musicSection, '.settings__music-list').replaceChildren(...credited.map(t => {
+      const li = document.createElement('li');
+      li.append(Object.assign(document.createElement('strong'), { textContent: t.credit!.title }), document.createElement('br'), musicBy(t.credit!));
+      return li;
+    }));
+  };
+
   // Control bar
   player.onEnded = () => { ending = true; music.fadeOut(MUSIC_FADE_MS); };
   player.onState = isPlaying => {
@@ -164,7 +187,7 @@ export function mountSlideshow(root: HTMLElement, options: SlideshowOptions = {}
 
   // Auto-hide: after a few seconds without input, fade out the overlays (and the cursor over the photo).
   // They stay while paused, while the settings panel is open, and while the pointer or keyboard focus is on one.
-  const OVERLAYS = '.controls, .timeline, .settings__toggle, .settings__panel, .slideshow__back';
+  const OVERLAYS = '.controls, .timeline, .settings__toggle, .settings__panel, .slideshow__back, .slideshow__credit';
   let idleTimer: number | undefined;
   let pointerOnOverlay = false;
   function wake(): void {
@@ -186,6 +209,7 @@ export function mountSlideshow(root: HTMLElement, options: SlideshowOptions = {}
     play({ items, tracks }) {
       active = true;
       muteBtn.hidden = tracks.length === 0;
+      listCredits(tracks);
       timeline.setItems(items);
       const play = ++plays;
       const start = (wait: boolean) => {

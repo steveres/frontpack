@@ -8,7 +8,7 @@ using Slideshow.Api.Storage;
 
 namespace Slideshow.Api.Endpoints;
 
-/// <summary>/albums/{albumId}/images (photos and videos) and /albums/{albumId}/music share these handlers.</summary>
+/// <summary>/albums/{albumId}/images: an album's photos and videos. (Its music is chosen from the library: MusicEndpoints.)</summary>
 public static class MediaEndpoints
 {
     private const long MultipartOverhead = 64 * 1024; // boundaries, part headers and the small form fields
@@ -88,11 +88,11 @@ public static class MediaEndpoints
         var (sniffed, rejection) = MediaSniffer.Sniff(header.AsSpan(0, headerLength));
         if (sniffed is null) return Problems.Of(415, "unsupported_media_type", rejection!);
 
-        var fits = collection == MediaCollection.Music ? sniffed.Kind == MediaKind.Audio : sniffed.Kind != MediaKind.Audio;
-        if (!fits) return Problems.Of(415, "unsupported_media_type",
-            collection == MediaCollection.Music ? "Music must be MP3." : "Upload music to the trip's music collection.");
+        // Music comes from the music library, whose licenses have been checked.
+        if (sniffed.Kind == MediaKind.Audio) return Problems.Of(415, "music_not_uploadable",
+            "Music can't be uploaded. Choose tracks from the music library in the trip's Music section.");
 
-        var max = sniffed.Kind switch { MediaKind.Image => limits.MaxImageBytes, MediaKind.Video => limits.MaxVideoBytes, _ => limits.MaxMusicBytes };
+        var max = sniffed.Kind == MediaKind.Image ? limits.MaxImageBytes : limits.MaxVideoBytes;
         if (file.Length > max) return Problems.Of(413, "file_too_large", $"This kind of file can be at most {max / (1024 * 1024)} MB.");
 
         var owned = await store.ListMediaAsync(ownerId, null, ct);
@@ -101,9 +101,7 @@ public static class MediaEndpoints
             return Problems.Of(409, "album_full", $"A trip can hold at most {limits.MaxFilesPerAlbum} files.");
 
         var offset = TimeSpan.FromMinutes(utcOffsetMinutes ?? 0);
-        var meta = collection == MediaCollection.Images
-            ? MetadataReader.Read(content, sniffed.Kind, offset)
-            : new MediaMetadata(null, null, null, null);
+        var meta = MetadataReader.Read(content, sniffed.Kind, offset);
 
         byte[]? thumbnail = null;
         if (sniffed.Kind == MediaKind.Image)
@@ -128,6 +126,7 @@ public static class MediaEndpoints
             TakenSource = meta.TakenSource,
             Latitude = meta.Latitude,
             Longitude = meta.Longitude,
+            DurationSeconds = meta.DurationSeconds,
             ThumbnailState = sniffed.Kind != MediaKind.Image ? ThumbnailState.None
                 : thumbnail is null ? ThumbnailState.Unavailable : ThumbnailState.Ready,
             // Smaller versions are made in the background; a photo with no preview can't be read here, so it won't get them either.

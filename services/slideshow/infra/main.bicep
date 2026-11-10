@@ -148,13 +148,13 @@ resource mediaContainer 'Microsoft.Storage/storageAccounts/blobServices/containe
   properties: { publicAccess: 'None' }
 }
 
-// Album details. Created here so the API doesn't have to check for them every time it starts.
+// Album details and the music library. Created here so the API doesn't have to check for them every time it starts.
 resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-05-01' = {
   parent: storage
   name: 'default'
 }
 
-resource tables 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' = [for name in ['Albums', 'Media', 'Shares']: {
+resource tables 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' = [for name in ['Albums', 'Media', 'Shares', 'MusicTracks']: {
   parent: tableService
   name: name
 }]

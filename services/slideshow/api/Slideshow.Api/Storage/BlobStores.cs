@@ -29,6 +29,13 @@ public static class BlobNames
     public static IEnumerable<string> MadeFrom(string blobName) => [Thumbnail(blobName), .. Media.Renditions.Sizes.Select(s => Sized(blobName, s))];
     /// <summary>An album's compiled slideshow (JSON), stored with its files (so deleting the album removes it).</summary>
     public static string Manifest(string ownerId, Guid albumId) => AlbumPrefix(ownerId, albumId) + "manifest.json";
+
+    // The music library: under "library/", which no owner id (an Entra object id, a GUID) can be.
+    public static string TrackPrefix(Guid trackId) => $"library/{trackId:N}/";
+    /// <summary>A library track's MP3; `version` changes when it is replaced.</summary>
+    public static string Track(Guid trackId, int version) => $"{TrackPrefix(trackId)}{version}.mp3";
+    /// <summary>A library track's license certificate (text).</summary>
+    public static string TrackLicense(Guid trackId) => TrackPrefix(trackId) + "license.txt";
 }
 
 public sealed class AzureBlobStore : IBlobStore

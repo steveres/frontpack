@@ -19,6 +19,8 @@ public sealed class Album
     public bool ShareHideMap { get; set; }
     /// <summary>Listed on the Albums page for everyone. Only while shared by link: the share link is how they play it.</summary>
     public bool IsPublic { get; set; }
+    /// <summary>The slideshow's music: tracks from the music library, in play order. Ids no longer in the library are skipped.</summary>
+    public IReadOnlyList<Guid> MusicTrackIds { get; set; } = [];
 
     /// <summary>The stored row's version when read; an update fails if the row changed since (not stored itself).</summary>
     public string? ETag { get; set; }
@@ -26,7 +28,10 @@ public sealed class Album
     internal Album Clone() => (Album)MemberwiseClone();
 }
 
-/// <summary>Which album collection a file belongs to (the URL segment).</summary>
+/// <summary>
+/// Which album collection a file belongs to. Music (1) was uploaded MP3s: music now comes from the music
+/// library, and LibraryMigration deletes any left from before.
+/// </summary>
 public enum MediaCollection { Images = 0, Music = 1 }
 
 public enum MediaKind { Image = 0, Video = 1, Audio = 2 }
@@ -64,6 +69,34 @@ public sealed class MediaFile
     public ResizeState ResizeState { get; set; }
     /// <summary>The smaller versions made so far (longest edge in pixels), smallest first.</summary>
     public IReadOnlyList<int> Sizes { get; set; } = [];
+    /// <summary>Videos: running time in seconds; 0 when the file doesn't say; null when not read yet (uploaded before it was).</summary>
+    public double? DurationSeconds { get; set; }
 
     internal MediaFile Clone() => (MediaFile)MemberwiseClone();
+}
+
+/// <summary>A track in the music library, which trips choose their music from. Added by music admins.</summary>
+public sealed class MusicTrack
+{
+    public Guid Id { get; set; }
+    public required string Title { get; set; }
+    public required string Artist { get; set; }
+    public string? ArtistUrl { get; set; }
+    /// <summary>Where it was found, e.g. its Pixabay page.</summary>
+    public string? SourceUrl { get; set; }
+    public IReadOnlyList<string> Tags { get; set; } = [];
+    public double DurationSeconds { get; set; }
+    /// <summary>e.g. "Pixabay Content License".</summary>
+    public required string LicenseName { get; set; }
+    /// <summary>The license certificate's original file name (its text is a blob, see BlobNames.TrackLicense).</summary>
+    public required string LicenseFileName { get; set; }
+    public long SizeBytes { get; set; }
+    /// <summary>Bumped when the MP3 is replaced: part of its blob name and URL, so caches never serve the old one.</summary>
+    public int FileVersion { get; set; }
+    public DateTime AddedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    /// <summary>The admin who added it (user id).</summary>
+    public string? AddedBy { get; set; }
+
+    internal MusicTrack Clone() => (MusicTrack)MemberwiseClone();
 }
