@@ -23,6 +23,7 @@
     <main class="main-content albums">
         <p class="notice albums__deleted" hidden>Your account and everything in it have been deleted.</p>
         <h1>Trip Pix</h1>
+        <p class="albums__admin" hidden><a href="/music-admin.html">Music library admin</a></p>
 
         <form class="card albums__new" hidden>
             <label class="field albums__new-name">New trip <input name="name" type="text" maxlength="200" placeholder="e.g. Italy 2026" required></label>
@@ -37,7 +38,7 @@
         <!-- Signed in: your trips -->
         <section class="albums__section albums__section--mine" aria-labelledby="albums-mine" hidden>
             <h2 class="albums__heading" id="albums-mine">My trips</h2>
-            <p class="albums__empty" hidden>No trips yet. Create one above, then add photos, videos and music to it.</p>
+            <p class="albums__empty" hidden>No trips yet. Create one above, then add photos and videos to it and choose its music.</p>
             <ul class="albums__list"></ul>
         </section>
 

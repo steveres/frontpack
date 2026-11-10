@@ -15,7 +15,8 @@ public static class DevTokens
     private const string Issuer = "dotnet-user-jwts";
     private static readonly TimeSpan Lifetime = TimeSpan.FromHours(8);
 
-    public sealed record DevTokenRequest(string? Email, string? Name);
+    /// <param name="MusicAdmin">Adds the Music.Admin app role (in Entra it's given in the portal), for trying the music admin page.</param>
+    public sealed record DevTokenRequest(string? Email, string? Name, bool MusicAdmin = false);
     public sealed record DevTokenResponse(string AccessToken, DateTime ExpiresAt, string UserId);
 
     public static void MapDevTokens(this WebApplication app)
@@ -44,6 +45,11 @@ public static class DevTokens
             var now = DateTime.UtcNow;
             var issuedAt = now.AddTicks(TimeSpan.TicksPerSecond - now.Ticks % TimeSpan.TicksPerSecond);
             var expires = issuedAt + Lifetime;
+            var claims = new Dictionary<string, object>
+            {
+                ["oid"] = oid, ["sub"] = oid, ["name"] = name, ["email"] = email, ["scope"] = auth.Value.RequiredScope,
+            };
+            if (body.MusicAdmin) claims["roles"] = new[] { "Music.Admin" }; // as Entra lists app roles
             var token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
             {
                 Issuer = Issuer,
@@ -51,10 +57,7 @@ public static class DevTokens
                 IssuedAt = issuedAt,
                 NotBefore = issuedAt.AddMinutes(-1),
                 Expires = expires,
-                Claims = new Dictionary<string, object>
-                {
-                    ["oid"] = oid, ["sub"] = oid, ["name"] = name, ["email"] = email, ["scope"] = auth.Value.RequiredScope,
-                },
+                Claims = claims,
                 SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256),
             });
             return Results.Ok(new DevTokenResponse(token, expires, oid));

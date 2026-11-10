@@ -20,18 +20,19 @@ public static class AlbumEndpoints
         g.MapGet("/{albumId:guid}/info", GetInfo).WithSummary("Album details and counts.");
         g.MapPatch("/{albumId:guid}", Update).WithSummary("Rename an album or change its description.");
         g.MapPost("/{albumId:guid}/compile", Compile).WithSummary("Order the slides by date taken and store the manifest.");
-        g.MapDelete("/{albumId:guid}", Delete).WithSummary("Delete the album with its images and music.");
+        g.MapDelete("/{albumId:guid}", Delete).WithSummary("Delete the album with its photos and videos.");
         SharingEndpoints.MapOwner(g);
 
         MediaEndpoints.MapCollection(g, "images", MediaCollection.Images, maxUploadBytes);
-        MediaEndpoints.MapCollection(g, "music", MediaCollection.Music, maxUploadBytes);
+        MusicEndpoints.MapAlbumMusic(g); // chosen from the music library: users can't upload music
     }
 
     public static async ValueTask<object?> RequireRegistered(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next) =>
         ctx.HttpContext.Account() is null ? Problems.NotRegistered() : await next(ctx);
 
-    private static AlbumInfoDto Info(Album a, IReadOnlyCollection<MediaFile> media)
+    private static AlbumInfoDto Info(Album a, IReadOnlyCollection<MediaFile> media, IReadOnlyDictionary<Guid, MusicTrack> library)
     {
+        media = media.Where(m => m.Collection == MediaCollection.Images).ToList(); // (music uploaded before the library, until it's deleted)
         var photos = media.Where(m => m.Kind == MediaKind.Image && m.ThumbnailState != ThumbnailState.Unavailable).ToList();
         // Cover: first photo in slideshow order, else the first photo uploaded.
         var cover = photos.Where(m => MediaInfoDto.MissingFor(m).Count == 0)
@@ -41,7 +42,7 @@ public static class AlbumEndpoints
             a.Id, a.Name, a.Description, a.CreatedAt, a.UpdatedAt,
             media.Count(m => m.Kind == MediaKind.Image),
             media.Count(m => m.Kind == MediaKind.Video),
-            media.Count(m => m.Collection == MediaCollection.Music),
+            MusicLibrary.CountFor(a, library),
             media.Count(m => MediaInfoDto.MissingFor(m).Count > 0),
             media.Sum(m => m.SizeBytes),
             a.CompiledAt,
@@ -50,19 +51,21 @@ public static class AlbumEndpoints
             cover);
     }
 
-    private static async Task<IResult> List(HttpContext http, ISlideshowStore store, CancellationToken ct)
+    private static async Task<IResult> List(HttpContext http, ISlideshowStore store, MusicLibrary library, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
         var albums = await store.ListAlbumsAsync(ownerId, ct);
         var media = (await store.ListMediaAsync(ownerId, null, ct)).ToLookup(m => m.AlbumId);
-        return Results.Ok(albums.OrderByDescending(a => a.CreatedAt).Select(a => Info(a, media[a.Id].ToList())));
+        var tracks = await library.GetAsync(ct);
+        return Results.Ok(albums.OrderByDescending(a => a.CreatedAt).Select(a => Info(a, media[a.Id].ToList(), tracks)));
     }
 
-    private static async Task<IResult> GetInfo(Guid albumId, HttpContext http, ISlideshowStore store, CancellationToken ct)
+    private static async Task<IResult> GetInfo(Guid albumId, HttpContext http, ISlideshowStore store, MusicLibrary library, CancellationToken ct)
     {
         var ownerId = http.User.UserId();
         var album = await store.GetAlbumAsync(ownerId, albumId, ct);
-        return album is null ? SlideshowProblems.AlbumNotFound() : Results.Ok(Info(album, await store.ListMediaAsync(ownerId, albumId, ct)));
+        return album is null ? SlideshowProblems.AlbumNotFound()
+            : Results.Ok(Info(album, await store.ListMediaAsync(ownerId, albumId, ct), await library.GetAsync(ct)));
     }
 
     /// <summary>The problem with a name or description, or null. A null name means "not given" (allowed only when updating).</summary>
@@ -93,7 +96,7 @@ public static class AlbumEndpoints
         return Results.Created($"/api/v1/albums/{album.Id}/info", info);
     }
 
-    private static async Task<IResult> Update(Guid albumId, UpdateAlbumRequest body, HttpContext http, ISlideshowStore store, CancellationToken ct)
+    private static async Task<IResult> Update(Guid albumId, UpdateAlbumRequest body, HttpContext http, ISlideshowStore store, MusicLibrary library, CancellationToken ct)
     {
         var name = body.Name?.Trim();
         var description = body.Description is null ? null : CleanDescription(body.Description) ?? "";
@@ -106,19 +109,20 @@ public static class AlbumEndpoints
             if (description is not null) a.Description = description.Length == 0 ? null : description;
             a.UpdatedAt = DateTime.UtcNow;
         }, ct);
-        return album is null ? SlideshowProblems.AlbumNotFound() : Results.Ok(Info(album, await store.ListMediaAsync(ownerId, albumId, ct)));
+        return album is null ? SlideshowProblems.AlbumNotFound()
+            : Results.Ok(Info(album, await store.ListMediaAsync(ownerId, albumId, ct), await library.GetAsync(ct)));
     }
 
     private static async Task<IResult> Get(Guid albumId, HttpContext http, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue,
-        ILogger<SlideshowLog> log, CancellationToken ct)
+        MusicLibrary library, ILogger<SlideshowLog> log, CancellationToken ct)
     {
         var album = await store.GetAlbumAsync(http.User.UserId(), albumId, ct);
         if (album is null) return SlideshowProblems.AlbumNotFound();
         var manifest = album.CompiledVersion is null ? null : await ReadManifestAsync(blobs, album, ct);
         if (manifest is null) return Problems.Of(409, "album_not_compiled", "Compile the album first: POST /api/v1/albums/{id}/compile.");
-        // The name may have changed since it was compiled (renaming doesn't make the slideshow stale).
+        // The name may have changed since it was compiled (renaming doesn't make the slideshow stale), and so may the music.
         manifest = await WithCurrentSizesAsync(store, queue, log, album, manifest, ct);
-        return Results.Ok(manifest with { Name = album.Name, IsStale = album.CompiledVersion != album.ContentVersion });
+        return Results.Ok(manifest with { Name = album.Name, IsStale = album.CompiledVersion != album.ContentVersion, Music = await library.TracksForAsync(album, ct) });
     }
 
     /// <summary>
@@ -144,23 +148,37 @@ public static class AlbumEndpoints
         var sizes = media.ToDictionary(p => p.Key, p => p.Value.Sizes);
         return manifest with
         {
-            Slides = manifest.Slides.Select(s => s with { Sizes = s.Kind == "image" ? sizes.GetValueOrDefault(s.Id, []) : [] }).ToList(),
-            Music = manifest.Music.Select(m => m with { Sizes = [] }).ToList(), // (null in manifests from before sizes existed)
+            Slides = manifest.Slides.Select(s => s with
+            {
+                Sizes = s.Kind == "image" ? sizes.GetValueOrDefault(s.Id, []) : [],
+                // (manifests from before running times were recorded)
+                DurationSeconds = s.Kind == "video" && media.GetValueOrDefault(s.Id)?.DurationSeconds is > 0 and var d ? d : null,
+            }).ToList(),
         };
     }
 
-    /// <summary>The album's stored manifest, or null if it has none.</summary>
+    /// <summary>
+    /// The album's stored manifest, or null if it has none. Its music is left out: that's the album's chosen
+    /// tracks as they are now (MusicLibrary), and manifests from before the library listed uploaded files there.
+    /// </summary>
     internal static async Task<AlbumManifestDto?> ReadManifestAsync(IBlobStore blobs, Album album, CancellationToken ct)
     {
         await using var stream = await blobs.OpenReadAsync(BlobNames.Manifest(album.OwnerId, album.Id), ct);
-        return stream is null ? null : await JsonSerializer.DeserializeAsync<AlbumManifestDto>(stream, ManifestJson, ct);
+        if (stream is null) return null;
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+        var withoutMusic = new Dictionary<string, JsonElement>();
+        foreach (var p in doc.RootElement.EnumerateObject()) if (p.Name != "music") withoutMusic[p.Name] = p.Value;
+        var manifest = JsonSerializer.Deserialize<AlbumManifestDto>(JsonSerializer.SerializeToUtf8Bytes(withoutMusic, ManifestJson), ManifestJson);
+        return manifest is null ? null : manifest with { Music = [] };
     }
 
-    private static async Task<IResult> Compile(Guid albumId, HttpContext http, ISlideshowStore store, IBlobStore blobs, CancellationToken ct)
+    private static async Task<IResult> Compile(Guid albumId, HttpContext http, ISlideshowStore store, IBlobStore blobs, MusicLibrary library, CancellationToken ct)
     {
         var album = await store.GetAlbumAsync(http.User.UserId(), albumId, ct);
         if (album is null) return SlideshowProblems.AlbumNotFound();
-        return await CompileAsync(store, blobs, album, ct) is { } manifest ? Results.Ok(manifest) : SlideshowProblems.AlbumNotFound();
+        return await CompileAsync(store, blobs, album, ct) is { } manifest
+            ? Results.Ok(manifest with { Music = await library.TracksForAsync(album, ct) })
+            : SlideshowProblems.AlbumNotFound();
     }
 
     /// <summary>Orders the album's playable slides and stores the manifest; null if the album was deleted meanwhile.</summary>
@@ -179,14 +197,10 @@ public static class AlbumEndpoints
             .ThenBy(m => m.Id)
             .Select(m => MediaInfoDto.From(m, MediaEndpoints.ContentUrl(albumId, "images", m.Id)))
             .ToList();
-        var music = media.Where(m => m.Collection == MediaCollection.Music)
-            .OrderBy(m => m.FileName, NaturalStringComparer.Instance)
-            .ThenBy(m => m.Id)
-            .Select(m => MediaInfoDto.From(m, MediaEndpoints.ContentUrl(albumId, "music", m.Id)))
-            .ToList();
 
+        // The music isn't stored with the slides: it's the album's chosen tracks at the time it's played.
         var now = DateTime.UtcNow;
-        var manifest = new AlbumManifestDto(album.Id, album.Name, now, false, slides, music, images.Count - slides.Count);
+        var manifest = new AlbumManifestDto(album.Id, album.Name, now, false, slides, [], images.Count - slides.Count);
         await blobs.UploadAsync(BlobNames.Manifest(album.OwnerId, albumId),
             new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(manifest, ManifestJson)), "application/json", ct);
         var updated = await store.UpdateAlbumAsync(album.OwnerId, albumId, a => { a.CompiledAt = now; a.CompiledVersion = version; }, ct);
@@ -200,6 +214,7 @@ public static class AlbumEndpoints
         if (album is null) return SlideshowProblems.AlbumNotFound();
 
         // Media rows, then the share link, then the album: a retry after a failure picks up where it stopped.
+        // (Its music is library tracks, which stay in the library.)
         await store.DeleteAllMediaAsync(ownerId, albumId, ct);
         if (album.ShareToken is { } token) await store.DeleteShareAsync(token, ct);
         if (!await store.DeleteAlbumAsync(ownerId, albumId, ct)) return SlideshowProblems.AlbumNotFound(); // deleted concurrently

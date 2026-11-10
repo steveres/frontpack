@@ -64,17 +64,32 @@
 .slideshow__back { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 14px; display: inline-flex; align-items: center; gap: 8px; max-width: min(40ch, 45%); height: 44px; padding: 0 16px 0 12px; border-radius: 999px; background: rgba(20, 24, 29, .55); color: var(--color-paper); font-size: 15px; text-decoration: none; opacity: .45; transition: opacity .2s; }
 .slideshow__back:hover, .slideshow__back:focus-visible { opacity: 1; }
 
-/* "Show details": bottom right, above the controls (clear of the timeline's labels, the buttons and the map card); stays when idle */
-.slideshow__details { position: absolute; right: 14px; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 66px); margin: 0; padding: 4px 12px; border-radius: 999px; background: rgba(20, 24, 29, .7); color: var(--color-paper); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+/* "Show details": bottom right, above the controls and the music credit (clear of the timeline's labels, the buttons and the map card); stays when idle */
+.slideshow__details { position: absolute; right: 14px; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 100px); margin: 0; padding: 4px 12px; border-radius: 999px; background: rgba(20, 24, 29, .7); color: var(--color-paper); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 .slideshow__back:focus-visible { outline: 2px solid var(--color-lamp); outline-offset: 2px; }
 .slideshow__back-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The music playing, bottom right above the controls (clear of the timeline on the left; the details pill sits above it). One line: the title
+   gives way first, so "Music by … from Pixabay" always shows whole. Fades with the controls. */
+.slideshow__credit { position: absolute; right: 14px; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 66px); display: flex; align-items: baseline; max-width: min(60ch, calc(100% - 28px)); margin: 0; padding: 4px 12px; border-radius: 999px; background: rgba(20, 24, 29, .7); color: var(--color-paper); font-size: 13px; white-space: nowrap; opacity: .6; transition: opacity .2s; }
+.slideshow__credit[hidden] { display: none; }
+.slideshow__credit:hover, .slideshow__credit:focus-within { opacity: 1; }
+.slideshow__credit-title { flex: 0 1 auto; min-width: 2ch; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.slideshow__credit a { color: inherit; text-decoration: underline; text-decoration-color: rgba(233, 228, 216, .5); }
+.slideshow__credit a:hover { color: var(--color-lamp); }
+.slideshow__credit a:focus-visible { outline: 2px solid var(--color-lamp); outline-offset: 2px; }
+/* Narrow frames: just "♪ Music by … from Pixabay" (the title is in Settings) */
+@media (max-width: 480px) {
+  .slideshow__credit-title, .slideshow__credit-title + .slideshow__credit-sep { display: none; }
+}
 
 /* Idle: overlays fade out, and the cursor hides over the photo. !important beats their own
    hover/focus opacity rules, which can't apply anyway: any pointer movement or key wakes them. */
 .slideshow--idle .controls,
 .slideshow--idle .timeline,
 .slideshow--idle .settings__toggle,
-.slideshow--idle .slideshow__back { opacity: 0 !important; pointer-events: none; transition: opacity .6s; }
+.slideshow--idle .slideshow__back,
+.slideshow--idle .slideshow__credit { opacity: 0 !important; pointer-events: none; transition: opacity .6s; }
 .slideshow--idle .slideshow__photos { cursor: none; }
 
 /* Buttons inside the slideshow */

@@ -1,4 +1,4 @@
-// Plays the album's music back to back in random order, never the same track twice in a row.
+// Plays the album's music back to back in the order it was chosen, starting again from the first after the last.
 
 import type { Track } from '../../media/media-types.js';
 import { sleep } from '../../utils/dom.js';
@@ -38,9 +38,11 @@ export class MusicPlayer {
   private waitingForGesture = false;
   private fadeTimer: number | undefined;
   private faded = false;     // faded out at the end of the slideshow; resume() starts again
+  /** The track now playing (null: none), for its credit. */
+  onTrack: (track: Track | null) => void = () => {};
 
   constructor() {
-    this.audio.onended = () => { if (this.url) void this.playRandom(); }; // (not the silence startOnTap plays)
+    this.audio.onended = () => { if (this.url) void this.playNext(); }; // (not the silence startOnTap plays)
     this.audio.onerror = () => { if (this.url) void this.trackFailed(); };
   }
 
@@ -49,7 +51,7 @@ export class MusicPlayer {
     this.audio.volume = 1;
     this.tracks = tracks;
     this.failures = 0;
-    if (tracks.length) void this.playRandom();
+    if (tracks.length) void this.playNext();
   }
 
   stop(): void {
@@ -60,6 +62,7 @@ export class MusicPlayer {
     this.release();
     this.tracks = [];
     this.current = -1;
+    this.onTrack(null);
   }
 
   setMuted(muted: boolean): void { this.audio.muted = muted; }
@@ -90,24 +93,23 @@ export class MusicPlayer {
     void this.audio.play().catch(() => undefined);
   }
 
-  /** After a fade-out (or during one): full volume again, with a new track if it had stopped. */
+  /** After a fade-out (or during one): full volume again, from the first track if it had stopped. */
   resume(): void {
     clearInterval(this.fadeTimer);
     this.audio.volume = 1;
     if (this.faded && this.tracks.length) {
       this.faded = false;
       this.current = -1;
-      void this.playRandom();
+      void this.playNext();
     }
   }
 
-  private async playRandom(): Promise<void> {
+  /** The next track in order: the first one to begin with, and again after the last. */
+  private async playNext(): Promise<void> {
     const session = ++this.session;
     const n = this.tracks.length;
     if (!n) return;
-    // With more than one track, pick among the others.
-    const pick = this.current < 0 ? Math.floor(Math.random() * n)
-      : n === 1 ? 0 : (this.current + 1 + Math.floor(Math.random() * (n - 1))) % n;
+    const pick = (this.current + 1) % n;
     this.current = pick;
     try {
       const file = await this.tracks[pick].getFile();
@@ -115,6 +117,7 @@ export class MusicPlayer {
       this.release();
       this.url = URL.createObjectURL(file);
       this.audio.src = this.url;
+      this.onTrack(this.tracks[pick]); // loaded: it plays now, or at the first tap
       await this.audio.play();
       this.failures = 0;
     } catch (err) {
@@ -128,7 +131,7 @@ export class MusicPlayer {
     console.warn(`Could not play ${this.tracks[this.current]?.name}`);
     if (++this.failures >= this.tracks.length) return; // nothing playable; give up quietly
     await sleep(250);
-    void this.playRandom();
+    void this.playNext();
   }
 
   /** Browsers block sound until the user interacts with the page; start on the first click or key. */

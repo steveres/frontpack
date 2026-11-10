@@ -42,7 +42,7 @@ public static class MediaSniffer
         }
         if (QuickTimeAtoms.Contains(box)) return Ok(MediaKind.Video, "video/quicktime");
 
-        return (null, "Unsupported file type. Accepted: JPEG, PNG, GIF, WebP, AVIF, BMP images; MP4, MOV, WebM, Ogg videos; MP3 music.");
+        return (null, "Unsupported file type. Accepted: JPEG, PNG, GIF, WebP, AVIF, BMP images; MP4, MOV, WebM, Ogg videos.");
     }
 
     private static (SniffResult?, string?) Ok(MediaKind kind, string contentType) => (new SniffResult(kind, contentType), null);

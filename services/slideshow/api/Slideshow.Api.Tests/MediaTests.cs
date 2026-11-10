@@ -90,7 +90,6 @@ public sealed class MediaTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [InlineData("svg")]
     [InlineData("heic")]
     [InlineData("text")]
-    [InlineData("mp3-as-image")]
     public async Task Images_rejects_unsupported_content(string kind)
     {
         var (client, album) = await NewAlbumAsync();
@@ -98,35 +97,11 @@ public sealed class MediaTests(ApiFactory factory) : IClassFixture<ApiFactory>
         {
             "svg" => (TestMedia.Svg(), "pic.jpg"),        // the name lies; the content decides
             "heic" => (TestMedia.Heic(), "IMG_1.heic"),
-            "text" => ("hello world"u8.ToArray(), "notes.png"),
-            _ => (TestMedia.Mp3(), "song.mp3"),
+            _ => ("hello world"u8.ToArray(), "notes.png"),
         };
         var res = await client.PostAsync($"/api/v1/albums/{album}/images", TestMedia.Form(bytes, name, "image/jpeg"));
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, res.StatusCode);
         Assert.Equal("unsupported_media_type", await AuthAndAccountTests.Code(res));
-    }
-
-    [Fact]
-    public async Task Music_accepts_only_mp3()
-    {
-        var (client, album) = await NewAlbumAsync();
-        var res = await client.PostAsync($"/api/v1/albums/{album}/music", TestMedia.Form(TestMedia.Jpeg(), "a.mp3"));
-        Assert.Equal(HttpStatusCode.UnsupportedMediaType, res.StatusCode);
-
-        var track = await UploadAsync(client, album, TestMedia.Mp3(), "song.mp3", "music");
-        Assert.Equal("audio", track.GetProperty("kind").GetString());
-        Assert.Equal("audio/mpeg", track.GetProperty("contentType").GetString());
-        Assert.Equal(JsonValueKind.Null, track.GetProperty("taken").ValueKind);
-        Assert.True(track.GetProperty("playable").GetBoolean()); // music needs no date or location
-
-        var music = await client.GetFromJsonAsync<JsonElement[]>($"/api/v1/albums/{album}/music");
-        Assert.Single(music!);
-        Assert.Empty((await client.GetFromJsonAsync<JsonElement[]>($"/api/v1/albums/{album}/images"))!);
-
-        // A music id isn't reachable through the images collection.
-        var id = track.GetProperty("id").GetString();
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/v1/albums/{album}/images/{id}")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/v1/albums/{album}/music/{id}")).StatusCode);
     }
 
     [Fact]
@@ -201,7 +176,7 @@ public sealed class MediaTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var client = await f.RegisteredClientAsync(Guid.NewGuid().ToString());
         var album = await CreateAlbumAsync(client, "Tiny");
         await UploadAsync(client, album, TestMedia.Jpeg(), "a.jpg");
-        var res = await client.PostAsync($"/api/v1/albums/{album}/music", TestMedia.Form(TestMedia.Mp3(), "a.mp3"));
+        var res = await client.PostAsync($"/api/v1/albums/{album}/images", TestMedia.Form(TestMedia.Jpeg(), "b.jpg"));
         Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
     }
 }

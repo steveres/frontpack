@@ -44,10 +44,12 @@ public sealed class LimitsOptions
 {
     public long MaxImageBytes { get; set; } = 50L * 1024 * 1024;
     public long MaxVideoBytes { get; set; } = 1024L * 1024 * 1024;
+    /// <summary>A music library track (added by music admins).</summary>
     public long MaxMusicBytes { get; set; } = 50L * 1024 * 1024;
     public long QuotaBytesPerUser { get; set; } = 10L * 1024 * 1024 * 1024;
     public int MaxFilesPerAlbum { get; set; } = 5000;
     public int MaxAlbumsPerUser { get; set; } = 500;
 
-    public long MaxUploadBytes => Math.Max(MaxImageBytes, Math.Max(MaxVideoBytes, MaxMusicBytes));
+    /// <summary>The largest photo or video a trip upload can be.</summary>
+    public long MaxUploadBytes => Math.Max(MaxImageBytes, MaxVideoBytes);
 }

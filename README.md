@@ -56,7 +56,9 @@ Pages:
 | `login.html` | Sign in; the first sign-in registers the account with the API. Says that continuing accepts the Terms and Privacy Policy, and confirms age 21+ |
 | `terms.html`, `privacy.html` | Terms of Use and Privacy Policy, linked from the footer on every page. The master copies are Word files kept locally in `docs/legal/` (git-ignored: they hold internal review notes): change those first, then these pages |
 | `trips.html` | Slideshow start page (the nav's **Trip Pix**): your trips, then everyone's public trips, with cover photos and Play; create a trip. `albums.html` redirects here |
-| `trip.html?id=…` | One trip (an album in the API): upload photos, videos and MP3s (drag and drop); file list with previews, showing which files the slideshow will show; play; delete. `album.html?id=…` forwards here |
+| `trip.html?id=…` | One trip (an album in the API): upload photos and videos (drag and drop); file list with previews, showing which files the slideshow will show; choose its music from the music library (search, sort, tags, preview; play order; how long the slideshow runs at 1–5 s per photo against the music); play; delete. `album.html?id=…` forwards here |
+| `music-admin.html` | Music admins only (the `Music.Admin` app role): add, change and delete music library tracks, each with its MP3 and license certificate; download a backup. Linked from Trip Pix for admins |
+| `music-credits.html` | Every library track with its artist, source and license; linked from the footer |
 | `slideshow.html?album=…` | Play a trip (compiles it first if it changed) |
 | `slideshow.html?share=…` | Play a shared trip: anyone with the link, no sign-in (trip page → **Share…**) |
 | `slideshow.html?folder` | Play a folder from this computer (no sign-in needed). Hidden for now: nothing links to it, and plain `slideshow.html` goes to `trips.html` |

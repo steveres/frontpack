@@ -5,4 +5,6 @@
 .login__form { display: grid; gap: var(--spacing-md); }
 .login__form p { margin: 0; }
 .login__busy { color: var(--color-muted); }
+.login__check { display: flex; align-items: center; gap: var(--spacing-sm); font-size: .95rem; color: var(--color-muted); }
+.login__check input { width: 18px; height: 18px; accent-color: var(--color-lamp); }
 .login__terms { margin: var(--spacing-lg) 0 0; font-size: .85rem; color: var(--color-muted); }

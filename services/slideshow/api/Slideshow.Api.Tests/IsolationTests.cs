@@ -17,10 +17,8 @@ public sealed class IsolationTests(ApiFactory factory) : IClassFixture<ApiFactor
 
         var album = await CreateAlbumAsync(alice, "Alice's");
         var image = await UploadAsync(alice, album, TestMedia.Jpeg(), "private.jpg");
-        var track = await UploadAsync(alice, album, TestMedia.Mp3(), "private.mp3", "music");
         (await alice.PostAsync($"/api/v1/albums/{album}/compile", null)).EnsureSuccessStatusCode();
         var imageUrl = image.GetProperty("url").GetString()!;
-        var trackUrl = track.GetProperty("url").GetString()!;
 
         Assert.Empty((await bob.GetFromJsonAsync<JsonElement[]>("/api/v1/albums"))!);
 
@@ -35,8 +33,6 @@ public sealed class IsolationTests(ApiFactory factory) : IClassFixture<ApiFactor
             (HttpMethod.Get, imageUrl + "/info"),
             (HttpMethod.Get, imageUrl + "/thumbnail"),
             (HttpMethod.Delete, imageUrl),
-            (HttpMethod.Get, trackUrl),
-            (HttpMethod.Delete, trackUrl),
             (HttpMethod.Delete, $"/api/v1/albums/{album}"),
         })
         {
@@ -49,7 +45,6 @@ public sealed class IsolationTests(ApiFactory factory) : IClassFixture<ApiFactor
 
         // Alice's things are untouched.
         Assert.Equal(HttpStatusCode.OK, (await alice.GetAsync(imageUrl)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await alice.GetAsync(trackUrl)).StatusCode);
         var info = await alice.GetFromJsonAsync<JsonElement>($"/api/v1/albums/{album}/info");
         Assert.Equal(1, info.GetProperty("imageCount").GetInt32());
         Assert.False(info.GetProperty("isStale").GetBoolean());

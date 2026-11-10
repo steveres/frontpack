@@ -110,8 +110,7 @@ public static partial class SharingEndpoints
         shared.MapGet("/{token}/images/{id:guid}", (string token, Guid id, int? size, HttpContext http, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, ILogger<SlideshowLog> log, CancellationToken ct) =>
                 GetSharedFile(token, id, size, MediaCollection.Images, http, store, blobs, queue, log, ct))
             .WithSummary("A photo or video of a shared album. Photos: ?size=720, 1280 or 1920 for a smaller version where there is one.");
-        shared.MapGet("/{token}/music/{id:guid}", (string token, Guid id, HttpContext http, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, ILogger<SlideshowLog> log, CancellationToken ct) =>
-            GetSharedFile(token, id, null, MediaCollection.Music, http, store, blobs, queue, log, ct)).WithSummary("A music track of a shared album.");
+        // (Its music is library tracks: /api/v1/music, which anyone can play.)
         shared.MapGet("/{token}/images/{id:guid}/thumbnail", GetSharedThumbnail).WithSummary("A small JPEG preview of a photo in a shared album's slideshow.");
     }
 
@@ -129,7 +128,7 @@ public static partial class SharingEndpoints
         return album?.ShareToken == token ? album : null;
     }
 
-    private static async Task<IResult> GetShared(string token, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, ILogger<SlideshowLog> log, CancellationToken ct)
+    private static async Task<IResult> GetShared(string token, ISlideshowStore store, IBlobStore blobs, IResizeQueue queue, MusicLibrary library, ILogger<SlideshowLog> log, CancellationToken ct)
     {
         var album = await SharedAlbum(store, token, ct);
         if (album is null) return NotShared();
@@ -149,7 +148,7 @@ public static partial class SharingEndpoints
         };
         return Results.Ok(new SharedAlbumDto(album.Name, showMap,
             manifest.Slides.Select(m => Shared(m, "images")).ToList(),
-            manifest.Music.Select(m => Shared(m, "music")).ToList()));
+            await library.TracksForAsync(album, ct)));
     }
 
     /// <summary>A photo of the album's slideshow, or null: those left out of it (no date or location) stay private.</summary>
@@ -186,15 +185,16 @@ public static partial class SharingEndpoints
         g.MapGet("/", ListPublic).WithSummary("Albums their owners made public, newest first, with the share code to play each (no sign-in).");
     }
 
-    private static async Task<IResult> ListPublic(ISlideshowStore store, CancellationToken ct)
+    private static async Task<IResult> ListPublic(ISlideshowStore store, MusicLibrary library, CancellationToken ct)
     {
         var albums = (await store.ListPublicAlbumsAsync(ct)).Where(a => a.ShareToken is not null).OrderByDescending(a => a.CreatedAt).ToList();
         var media = await Task.WhenAll(albums.Select(a => store.ListMediaAsync(a.OwnerId, a.Id, ct)));
-        return Results.Ok(albums.Select((a, i) => PublicInfo(a, media[i])));
+        var tracks = await library.GetAsync(ct);
+        return Results.Ok(albums.Select((a, i) => PublicInfo(a, media[i], tracks)));
     }
 
     /// <summary>Only what the slideshow shows is counted (or used as the cover): the rest of the album stays private.</summary>
-    private static PublicAlbumDto PublicInfo(Album a, IReadOnlyCollection<MediaFile> media)
+    private static PublicAlbumDto PublicInfo(Album a, IReadOnlyCollection<MediaFile> media, IReadOnlyDictionary<Guid, MusicTrack> library)
     {
         var token = a.ShareToken!;
         var slides = media.Where(m => m.Collection == MediaCollection.Images && MediaInfoDto.MissingFor(m).Count == 0).ToList();
@@ -204,7 +204,7 @@ public static partial class SharingEndpoints
             a.Id, a.Name, a.Description, a.CreatedAt, a.UpdatedAt,
             slides.Count(m => m.Kind == MediaKind.Image),
             slides.Count(m => m.Kind == MediaKind.Video),
-            media.Count(m => m.Collection == MediaCollection.Music),
+            MusicLibrary.CountFor(a, library),
             token,
             cover is { } c ? $"/api/v1/shared/{token}/images/{c}/thumbnail" : null);
     }

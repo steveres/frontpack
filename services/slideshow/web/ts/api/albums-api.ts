@@ -1,6 +1,8 @@
-// /api/v1/albums and their images (photos + videos) and music.
+// /api/v1/albums and their images (photos + videos), the music library they choose their music from
+// (/api/v1/music), and its admin side (/api/v1/admin/music).
 
 import { apiFor, ApiError } from './api-client.js';
+import { APP_CONFIG } from '../config.js';
 
 const api = apiFor('slideshow');
 
@@ -34,7 +36,21 @@ export interface PublicAlbum {
 }
 
 /** What a share link gives: the slideshow only. */
-export interface SharedAlbum { name: string; showMap: boolean; slides: MediaInfo[]; music: MediaInfo[]; }
+export interface SharedAlbum { name: string; showMap: boolean; slides: MediaInfo[]; music: LibraryTrack[]; }
+
+/** A track of the music library. `url` plays it and `licenseUrl` is its license certificate (text); no sign-in needed. */
+export interface LibraryTrack {
+  id: string; title: string; artist: string; artistUrl: string | null; sourceUrl: string | null;
+  tags: string[]; durationSeconds: number; licenseName: string; url: string; licenseUrl: string;
+}
+
+/** A library track as music admins see it. `usedBy`: how many trips chose it. */
+export interface AdminTrack extends LibraryTrack {
+  licenseFileName: string; sizeBytes: number; addedAt: string; updatedAt: string; usedBy: number;
+}
+
+/** The most tracks a trip can have. */
+export const TRACKS_PER_TRIP = 20;
 
 /** The address to send people: plays the album without signing in. */
 export const shareLink = (token: string) => `${location.origin}/slideshow.html?share=${encodeURIComponent(token)}`;
@@ -47,7 +63,7 @@ export const playLink = (album: { albumId: string } | { shareToken: string }) =>
 export type MissingData = 'date' | 'location';
 
 export interface MediaInfo {
-  id: string; fileName: string; kind: 'image' | 'video' | 'audio'; contentType: string; sizeBytes: number; uploadedAt: string;
+  id: string; fileName: string; kind: 'image' | 'video'; contentType: string; sizeBytes: number; uploadedAt: string;
   /** Local wall-clock capture time, "2026-07-04T09:31:05", or null. */
   taken: string | null;
   takenSource: 'exif' | 'video' | null;
@@ -62,17 +78,20 @@ export interface MediaInfo {
   url: string;
   /** Path of a small JPEG preview (photos only), or null. */
   thumbnailUrl: string | null;
+  /** Videos: running time in seconds, or null when unknown. */
+  durationSeconds: number | null;
 }
 
 export interface AlbumManifest {
   albumId: string; name: string; compiledAt: string; isStale: boolean;
   /** Playable photos and videos in play order. */
   slides: MediaInfo[];
-  music: MediaInfo[];
+  /** The trip's music, in play order. */
+  music: LibraryTrack[];
   excludedCount: number;
 }
 
-export type Collection = 'images' | 'music';
+export type Collection = 'images';
 
 const albums = '/api/v1/albums';
 const at = (id: string) => `${albums}/${encodeURIComponent(id)}`;
@@ -138,6 +157,43 @@ export const MediaApi = {
   download: (url: string) => api.blob(url),
 };
 
-/** Which collection a picked file belongs in. */
-export const collectionFor = (file: File): Collection =>
-  file.type === 'audio/mpeg' || file.name.toLowerCase().endsWith('.mp3') ? 'music' : 'images';
+/** The music library (no sign-in), and a trip's choice from it. */
+export const MusicApi = {
+  library: () => api.publicGet<LibraryTrack[]>('/api/v1/music'),
+  /** A track's MP3, by its `url` (no sign-in: shared slideshows play it too). */
+  download: (url: string) => api.publicBlob(url),
+  /** The full address of a library file, for an <audio> element or a link. */
+  address: (url: string) => apiBase() + url,
+  forTrip: (albumId: string) => api.get<LibraryTrack[]>(`${at(albumId)}/music`),
+  /** The trip's music, in play order; resolves with it as saved. */
+  setForTrip: (albumId: string, trackIds: string[]) => api.put<LibraryTrack[]>(`${at(albumId)}/music`, { trackIds }),
+};
+
+/** The details of a library track, as the admin form sends them (every field optional when changing a track). */
+export interface TrackFields {
+  title?: string; artist?: string; artistUrl?: string; sourceUrl?: string; tags?: string; licenseName?: string;
+  durationSeconds?: number;
+}
+
+/** Music admins only (the API's Music.Admin app role). */
+export const MusicAdminApi = {
+  /** Whether the signed-in user is a music admin. */
+  async isAdmin(): Promise<boolean> {
+    try { await api.get('/api/v1/admin/music/access', { noRedirect: true }); return true; }
+    catch { return false; }
+  },
+  list: () => api.get<AdminTrack[]>('/api/v1/admin/music'),
+  /** Adds a track (`id` null) or changes one; a new MP3 or license file replaces the old one. */
+  save(id: string | null, fields: TrackFields, files: { mp3?: File; license?: File }, onProgress?: (fraction: number) => void): Promise<AdminTrack> {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) if (value !== undefined) form.append(key, String(value));
+    if (files.mp3) form.append('file', files.mp3, files.mp3.name);
+    if (files.license) form.append('license', files.license, files.license.name);
+    return api.upload<AdminTrack>(id ? `/api/v1/admin/music/${encodeURIComponent(id)}` : '/api/v1/admin/music', form, onProgress);
+  },
+  remove: (id: string) => api.delete(`/api/v1/admin/music/${encodeURIComponent(id)}`),
+  /** The catalog as a JSON file (a backup; without the MP3s). */
+  exportFile: () => api.blob('/api/v1/admin/music/export'),
+};
+
+function apiBase(): string { return APP_CONFIG.services.slideshow; }

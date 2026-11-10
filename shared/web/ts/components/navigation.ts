@@ -47,7 +47,7 @@ export async function mountNavigation(): Promise<void> {
   }
 }
 
-/** The footer on every page with the header: the company and the legal pages. */
+/** The footer on every page with the header: the company, the legal pages and the music credits. */
 function mountFooter(): void {
   if (document.querySelector('.site-footer')) return;
   const footer = document.createElement('footer');
@@ -55,7 +55,8 @@ function mountFooter(): void {
   footer.innerHTML = `
     <span>© ${new Date().getFullYear()} FrontPack, Inc.</span>
     <a href="/terms.html">Terms of Use</a>
-    <a href="/privacy.html">Privacy Policy</a>`;
+    <a href="/privacy.html">Privacy Policy</a>
+    <a href="/music-credits.html">Music credits</a>`;
   for (const link of footer.querySelectorAll('a')) if (link.pathname === location.pathname) link.setAttribute('aria-current', 'page');
   document.body.append(footer);
 }

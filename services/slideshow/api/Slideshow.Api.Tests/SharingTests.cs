@@ -15,7 +15,8 @@ public sealed class SharingTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var album = await CreateAlbumAsync(owner, "Shared trip");
         var shown = await UploadAsync(owner, album, TestMedia.Jpeg(new DateTime(2026, 7, 1, 9, 0, 0), (45.4642, 9.19)), "milan.jpg");
         var hidden = await UploadAsync(owner, album, TestMedia.Jpeg(), "no-date-or-place.jpg"); // not in the slideshow
-        var track = await UploadAsync(owner, album, TestMedia.Mp3(), "song.mp3", "music");
+        var track = await MusicTests.AddTrackAsync(await factory.MusicAdminClientAsync(), "Shared song");
+        (await owner.PutAsJsonAsync($"/api/v1/albums/{album}/music", new { trackIds = new[] { FileId(track) } })).EnsureSuccessStatusCode();
         return (owner, album, shown, hidden, track);
     }
 

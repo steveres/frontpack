@@ -1,9 +1,10 @@
-// trip.html?id=…: one trip (an album) — upload files, see which will be shown, view them full size, select and
-// delete them, rename the trip, play, share, delete.
+// trip.html?id=…: one trip (an album) — upload photos and videos, see which will be shown, view them full size,
+// select and delete them, choose the music, rename the trip, play, share, delete.
 
-import { AlbumsApi, collectionFor, MediaApi, type AlbumInfo, type Collection, type MediaInfo } from '../api/albums-api.js';
+import { AlbumsApi, MediaApi, type AlbumInfo, type Collection, type MediaInfo } from '../api/albums-api.js';
 import { requireSignIn } from '../auth/session.js';
 import { createMediaViewer } from '../components/media-viewer.js';
+import { mountMusicPicker } from '../components/music-picker.js';
 import { mountNavigation } from '../components/navigation.js';
 import { mountSharePanel } from '../components/share-panel.js';
 import { thumbnail } from '../components/thumbnail.js';
@@ -26,15 +27,15 @@ let album: AlbumInfo | null = null;
 
 /** The checkboxes of one table, the "select all" box and the bar that acts on the selection. */
 function selectionFor(collection: Collection) {
-  const table = query(page, collection === 'images' ? '.album__images-table' : '.album__music-table');
-  const bar = query(page, collection === 'images' ? '.album__bulk--images' : '.album__bulk--music');
+  const table = query(page, '.album__images-table');
+  const bar = query(page, '.album__bulk--images');
   const all = query<HTMLInputElement>(table, '.media-table__select-all');
   const count = query(bar, '.bulk__count');
   const deleteButton = query<HTMLButtonElement>(bar, '.bulk__delete');
   const selected = new Set<string>();
   let boxes: HTMLInputElement[] = [];
   let anchor = -1; // last box clicked, for shift-click ranges
-  const noun = collection === 'images' ? ['photo or video', 'photos and videos'] : ['track', 'tracks'];
+  const noun = ['photo or video', 'photos and videos'];
 
   function refresh(): void {
     for (const box of boxes) {
@@ -102,7 +103,8 @@ function selectionFor(collection: Collection) {
   };
 }
 
-const selections = { images: selectionFor('images'), music: selectionFor('music') };
+const selections = { images: selectionFor('images') };
+const music = mountMusicPicker(query(page, '.music'), albumId);
 
 // ───────── Rendering ─────────
 
@@ -177,12 +179,6 @@ function imageRow(m: MediaInfo, list: MediaInfo[], index: number): HTMLTableRowE
   return tr;
 }
 
-function musicRow(m: MediaInfo): HTMLTableRowElement {
-  const tr = document.createElement('tr');
-  tr.append(selections.music.checkbox(m), cell(m.fileName, 'media-table__name'), cell(formatBytes(m.sizeBytes), 'media-table__size'), deleteCell(m, 'music'));
-  return tr;
-}
-
 /** Slideshow order first (by capture time), then the ones that won't be shown. */
 function slideshowOrder(a: MediaInfo, b: MediaInfo): number {
   if (a.playable !== b.playable) return a.playable ? -1 : 1;
@@ -218,29 +214,24 @@ function renderAlbum(a: AlbumInfo): void {
     : `${n} photos or videos won't be shown in the slideshow because they are missing a capture date or a location (GPS). They're marked below.`;
 }
 
-function renderList(collection: Collection, media: MediaInfo[]): void {
-  const images = collection === 'images';
-  const body = query(page, images ? '.album__images' : '.album__music');
-  if (images) {
-    const sorted = [...media].sort(slideshowOrder);
-    body.replaceChildren(...sorted.map((m, i) => imageRow(m, sorted, i)));
-  } else {
-    body.replaceChildren(...media.map(musicRow));
-  }
-  selections[collection].attach();
-  query(page, images ? '.album__images-table' : '.album__music-table').hidden = media.length === 0;
-  query(page, images ? '.album__none--images' : '.album__none--music').hidden = media.length > 0;
+function renderImages(media: MediaInfo[]): void {
+  const sorted = [...media].sort(slideshowOrder);
+  query(page, '.album__images').replaceChildren(...sorted.map((m, i) => imageRow(m, sorted, i)));
+  selections.images.attach();
+  query(page, '.album__images-table').hidden = media.length === 0;
+  query(page, '.album__none--images').hidden = media.length > 0;
+  music.setSlides(media);
 }
+
+let musicLoaded = false;
 
 async function load(): Promise<void> {
   try {
-    const [info, images, music] = await Promise.all([
-      AlbumsApi.info(albumId), MediaApi.list(albumId, 'images'), MediaApi.list(albumId, 'music'),
-    ]);
+    const [info, images] = await Promise.all([AlbumsApi.info(albumId), MediaApi.list(albumId, 'images')]);
     renderAlbum(info);
-    renderList('images', images);
-    renderList('music', music);
+    renderImages(images);
     query(page, '.album__body').hidden = false;
+    if (!musicLoaded) { musicLoaded = true; await music.load(); }
   } catch (err) {
     showError(err);
   } finally {
@@ -326,7 +317,7 @@ async function uploadAll(files: File[]): Promise<void> {
   const pending = files.map(file => ({ file, ui: queueItem(file) }));
   const worker = async () => {
     for (let next = pending.shift(); next; next = pending.shift()) {
-      try { next.ui.done(await MediaApi.upload(albumId, collectionFor(next.file), next.file, next.ui.progress)); }
+      try { next.ui.done(await MediaApi.upload(albumId, 'images', next.file, next.ui.progress)); }
       catch (err) { next.ui.failed(err); }
     }
   };
@@ -354,7 +345,7 @@ if (albumId) mountSharePanel(query(page, '.share'), query<HTMLButtonElement>(pag
 
 query<HTMLButtonElement>(page, '.album__delete').onclick = async () => {
   const name = query(page, '.album__name').textContent;
-  if (!confirm(`Delete the trip "${name}" and all its photos, videos and music? This can't be undone.`)) return;
+  if (!confirm(`Delete the trip "${name}" and all its photos and videos? This can't be undone.`)) return;
   try { await AlbumsApi.remove(albumId); location.assign('/trips.html'); }
   catch (err) { showError(err); }
 };

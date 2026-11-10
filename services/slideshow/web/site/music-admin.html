@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music library admin - FrontPack</title>
+    <meta name="robots" content="noindex">
+
+    <link rel="icon" type="image/png" href="/images/icon.png">
+
+    <link rel="stylesheet" href="/css/base/reset.css">
+    <link rel="stylesheet" href="/css/base/variables.css">
+    <link rel="stylesheet" href="/css/base/shared.css">
+    <link rel="stylesheet" href="/css/components/navigation.css">
+    <link rel="stylesheet" href="/css/components/trip.css">
+    <link rel="stylesheet" href="/css/components/music-admin.css">
+
+    <script type="module" src="/js/pages/music-admin-page.js"></script>
+</head>
+<body>
+    <div id="navigation-placeholder"></div>
+
+    <!-- Music admins only (the API's Music.Admin app role, given in Entra); the API checks every call. -->
+    <main class="main-content admin">
+        <a href="/trips.html" class="album__back">← Trip Pix</a>
+        <h1>Music library</h1>
+        <p class="admin__loading">Loading…</p>
+        <p class="notice notice--warning admin__denied" hidden>This page is for music admins. Ask the site owner for the Music admin role.</p>
+        <p class="form-error admin__error" role="alert" hidden></p>
+
+        <div class="admin__body" hidden>
+            <p class="admin__intro">Trips choose their music from these tracks. Only add tracks whose license lets FrontPack play them in slideshows, and keep each one's license certificate.</p>
+            <div class="admin__actions">
+                <button type="button" class="button button--primary admin__add">Add a track…</button>
+                <button type="button" class="button admin__export">Download a backup (JSON)</button>
+                <a class="button button--quiet" href="/music-credits.html">Music credits page</a>
+            </div>
+
+            <!-- Add or change a track -->
+            <form class="card admin__form" hidden novalidate>
+                <h2 class="admin__form-title">Add a track</h2>
+                <div class="admin__files">
+                    <div class="admin__file">
+                        <label class="field">MP3 <input class="admin__mp3" name="mp3" type="file" accept="audio/mpeg,.mp3"></label>
+                        <p class="admin__mp3-info"></p>
+                    </div>
+                    <div class="admin__file">
+                        <label class="field">License certificate (.txt) <input class="admin__license" name="license" type="file" accept="text/plain,.txt"></label>
+                        <p class="admin__license-info"></p>
+                    </div>
+                </div>
+                <div class="admin__fields">
+                    <label class="field">Title <input name="title" type="text" maxlength="200" required></label>
+                    <label class="field">Artist <input name="artist" type="text" maxlength="200" required></label>
+                    <label class="field">Artist's page <input name="artistUrl" type="url" maxlength="500" placeholder="https://…"></label>
+                    <label class="field">Where it was found <input name="sourceUrl" type="url" maxlength="500" placeholder="https://…"></label>
+                    <label class="field">Tags <input name="tags" type="text" maxlength="500" placeholder="e.g. folk, acoustic, upbeat" list="admin-tags"></label>
+                    <label class="field">License <input name="licenseName" type="text" maxlength="200" required value="Pixabay Content License"></label>
+                </div>
+                <datalist id="admin-tags"></datalist>
+                <p class="admin__tags-hint">Separate tags with commas. Tags in use: <span class="admin__tags-used">none yet</span>.</p>
+                <div class="admin__form-actions">
+                    <button type="submit" class="button button--primary admin__save">Save</button>
+                    <button type="button" class="button admin__cancel">Cancel</button>
+                    <progress class="admin__progress" max="1" value="0" hidden></progress>
+                </div>
+                <p class="form-error admin__form-error" role="alert" hidden></p>
+            </form>
+
+            <p class="admin__none" hidden>No tracks yet. Add the first one.</p>
+            <table class="media-table admin__table" hidden>
+                <thead><tr>
+                    <th><span class="visually-hidden">Preview</span></th><th>Title</th><th class="admin__col-artist">Artist</th><th class="admin__col-tags">Tags</th>
+                    <th class="admin__col-num">Length</th><th class="admin__col-num">Trips</th><th class="admin__col-license">License</th><th><span class="visually-hidden">Actions</span></th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </main>
+</body>
+</html>

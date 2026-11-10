@@ -13,7 +13,11 @@ export interface MediaItem {
   getFullFile?(): Promise<File>;
 }
 
-export interface Track { name: string; getFile(): Promise<File>; }
+/** A music track. `credit`: library tracks only (not a local folder's), shown while it plays and in Settings. */
+export interface Track {
+  name: string; getFile(): Promise<File>;
+  credit?: { title: string; artist: string; artistUrl: string | null; sourceUrl: string | null };
+}
 
 /** Everything a slideshow needs: the slides in play order and the background music. */
 export interface SlideshowContents { items: MediaItem[]; tracks: Track[]; }
