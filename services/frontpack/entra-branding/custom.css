@@ -27,6 +27,32 @@
 .ext-button.ext-primary:focus { outline: 2px solid #14181d; outline-offset: 2px; }
 .ext-button.ext-secondary { border-radius: 6px; }
 
+/* Google and Apple: the box under the sign-in box, as a matching rounded card holding the standard pill-shaped
+   "Continue with" buttons (white, thin grey border, logo and text centred). Entra has no ext-* class for the
+   buttons themselves; each is a <button> inside the box's list items:
+   .ext-promoted-fed-cred-box > [role=listitem] > [role=group] > button > (logo cell, text cell).
+   As uploaded (2026-11-07), Entra applies the box rule but drops the rules inside it, so the buttons keep
+   Microsoft's look. They're kept here in case Entra starts allowing them. */
+.ext-promoted-fed-cred-box {
+  margin-top: 12px; padding: 12px 24px 16px; border-radius: 10px; background: #fff;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .45);
+  display: flex; flex-direction: column; gap: 12px; /* space between the Google and Apple buttons */
+}
+.ext-promoted-fed-cred-box [role="listitem"], .ext-promoted-fed-cred-box [role="group"] { border: 0; margin: 0; padding: 0; background: transparent; }
+.ext-promoted-fed-cred-box button {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; box-sizing: border-box;
+  min-height: 46px; margin: 8px 0; padding: 0 20px; border: 1px solid #c9cfd6; border-radius: 999px;
+  background: #fff; color: #3c4043; cursor: pointer; transition: background-color .15s, border-color .15s;
+}
+.ext-promoted-fed-cred-box button:hover { background: #f6f7f8; border-color: #aab2bb; }
+.ext-promoted-fed-cred-box button:focus-visible { outline: 2px solid #14181d; outline-offset: 2px; }
+/* Inside: Entra lays the logo and the text out as table cells; let them sit side by side in the centre */
+.ext-promoted-fed-cred-box button > div {
+  display: block; width: auto; padding: 0; color: #3c4043; font-size: 15px; font-weight: 500; line-height: 20px;
+  text-align: center;
+}
+.ext-promoted-fed-cred-box button img, .ext-promoted-fed-cred-box button svg { display: block; width: 20px; height: 20px; }
+
 /* Footer, over the photo */
 .ext-footer { background: rgba(20, 24, 29, .75); }
 .ext-footer-links a, .ext-footer-item { color: #e9e4d8; }
