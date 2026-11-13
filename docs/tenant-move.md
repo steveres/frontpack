@@ -5,7 +5,7 @@ be renamed, so this means a new Entra External ID tenant. Signing in there gives
 their albums, files and share links are re-filed under it afterwards (`infra/move-accounts.mjs`). Google and Apple
 sign-in come after, in the new tenant.
 
-## 1. Set up the new tenant (you, about 30 minutes; nothing changes on the site yet)
+## 1. Set up the new tenant (you, about 30 minutes; nothing changes on the site yet; done)
 
 In the [Entra admin center](https://entra.microsoft.com), signed in to your Azure (workforce) tenant:
 
@@ -38,7 +38,7 @@ In the [Entra admin center](https://entra.microsoft.com), signed in to your Azur
 5. **Branding:** upload the kit in `services/frontpack/entra-branding` (see its README).
 6. **Send me the three IDs:** the tenant ID, the FrontPack API's client ID, and the FrontPack website's client ID.
 
-## 2. The switch (me, then you merge; sign-in is briefly reset)
+## 2. The switch (me, then you merge; sign-in is briefly reset; done)
 
 1. **Claude** opens a PR with the new values:
    - in both `services/*/infra/main.bicepparam`: `authAuthority = https://frontpack.ciamlogin.com/<tenant-id>/v2.0`,
@@ -50,7 +50,7 @@ In the [Entra admin center](https://entra.microsoft.com), signed in to your Azur
    - Signing in now goes to `frontpack.ciamlogin.com`, where each person **signs up again with the same email**.
    - Their albums look empty until step 3.
 
-## 3. Move the albums (both of us)
+## 3. Move the albums (both of us, done)
 
 1. **Both people sign in once** on www.thefrontpack.com, through the new tenant. That creates their new accounts.
 2. **You** give your user the data roles the script needs, then tell me:
@@ -64,7 +64,7 @@ In the [Entra admin center](https://entra.microsoft.com), signed in to your Azur
 4. **You** check the site: your albums, photos, playback, the account page's usage, and a share link.
 5. **Claude** runs with **`--delete-old`**. This removes the old copies and old accounts, but only items whose copy
    is confirmed.
-6. **You** remove the three data roles again.
+6. **You** remove the three data roles again. *(Done.)*
 
 If an old account has no email (the old tenant may not have put it in the token), the script says so. Pair those
 by hand with `--map <old-id>=<new-id>`. The old ID is the person's Object ID in the old tenant (Users); the new ID
@@ -72,6 +72,6 @@ is the one in the new tenant.
 
 ## 4. Afterwards
 
-- **Google and Apple sign-in** in the new tenant (separate steps).
+- **Google and Apple sign-in** in the new tenant (separate steps). *(Done.)*
 - **The old tenant** (`slideshowmap`, resource group `slideshow-identity`): delete it once nothing uses it. That
-  means removing its app registrations and users first; Entra then lets you delete it.
+  means removing its app registrations and users first; Entra then lets you delete it. *(Done.)*
