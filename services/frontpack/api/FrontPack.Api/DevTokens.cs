@@ -16,7 +16,8 @@ public static class DevTokens
     private static readonly TimeSpan Lifetime = TimeSpan.FromHours(8);
 
     /// <param name="MusicAdmin">Adds the Music.Admin app role (in Entra it's given in the portal), for trying the music admin page.</param>
-    public sealed record DevTokenRequest(string? Email, string? Name, bool MusicAdmin = false);
+    /// <param name="SiteAdmin">Adds the Site.Admin app role, for trying the overview page.</param>
+    public sealed record DevTokenRequest(string? Email, string? Name, bool MusicAdmin = false, bool SiteAdmin = false);
     public sealed record DevTokenResponse(string AccessToken, DateTime ExpiresAt, string UserId);
 
     public static void MapDevTokens(this WebApplication app)
@@ -49,7 +50,8 @@ public static class DevTokens
             {
                 ["oid"] = oid, ["sub"] = oid, ["name"] = name, ["email"] = email, ["scope"] = auth.Value.RequiredScope,
             };
-            if (body.MusicAdmin) claims["roles"] = new[] { "Music.Admin" }; // as Entra lists app roles
+            string[] roles = [.. body.MusicAdmin ? ["Music.Admin"] : Array.Empty<string>(), .. body.SiteAdmin ? ["Site.Admin"] : Array.Empty<string>()];
+            if (roles.Length > 0) claims["roles"] = roles; // as Entra lists app roles
             var token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
             {
                 Issuer = Issuer,

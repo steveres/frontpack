@@ -23,6 +23,7 @@ public sealed class SlideshowAccountData(ISlideshowStore store, IBlobStore blobs
             if (album.ShareToken is { } token) await store.DeleteShareAsync(token, ct);
             await store.DeleteAlbumAsync(userId, album.Id, ct);
         }
+        await store.DeleteActivityAsync(userId, null, ct); // last seen, and the trips' views
         await blobs.DeletePrefixAsync(BlobNames.UserPrefix(userId), ct);
     }
 }

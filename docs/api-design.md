@@ -190,6 +190,22 @@ Library files are blobs under `library/{trackId}/` in the media container (no ow
 When the API starts, `LibraryMigration` deletes music uploaded before the library and reads the running
 time of older videos (both find nothing once done).
 
+### Site admin overview
+Site admins are users given the API registration's **`Site.Admin`** app role. Nothing here changes anyone's
+data, and every response is `Cache-Control: private, no-store`.
+
+| Method & path | Result |
+|---|---|
+| `GET /admin/access` | Site admins: `200`; everyone else `403`. |
+| `GET /admin/overview` | `Overview`: totals, every user (name, email, joined, last seen, trips, photos, videos, bytes) and every trip (owner, counts, bytes, sharing, views). One scan each of Users, Albums, Media and Activity. |
+| `GET /admin/trips/{ownerId}/{albumId}` | Any trip's slideshow, built on the spot (the trip isn't compiled or touched); file URLs under the same path. Logged. |
+| `GET /admin/trips/{ownerId}/{albumId}/images/{id}?size=` | A photo or video of that trip. |
+
+Bytes are files as uploaded (as on the account page; smaller versions and previews aren't counted). The
+**Activity** table holds when each user last used Trip Pix (row `seen`, written at most hourly per API
+replica by the `/albums` routes) and each trip's views (row = album id; one per `GET /shared/{token}`, so
+owners playing their own trips don't count). Deleting a trip or account deletes its rows.
+
 ### Shapes
 ```jsonc
 // Account

@@ -102,6 +102,15 @@ public sealed class ApiFactory : IDisposable
         return client;
     }
 
+    /// <summary>A registered user with the Site.Admin app role (as Entra gives it).</summary>
+    public async Task<HttpClient> SiteAdminClientAsync()
+    {
+        var oid = Guid.NewGuid().ToString();
+        var client = ClientFor(oid, Token(oid, roles: ["Site.Admin"]));
+        (await client.PostAsync("/api/v1/account", null)).EnsureSuccessStatusCode();
+        return client;
+    }
+
     public static TimeSpan EntraBackdating => HostFactory<SlideshowHost>.EntraBackdating;
 
     public void Dispose()

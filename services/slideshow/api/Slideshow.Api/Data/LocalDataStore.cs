@@ -16,9 +16,12 @@ public sealed class LocalDataStore : ISlideshowStore
         public Dictionary<string, MediaFile> Media { get; set; } = [];    // key: owner/album/media
         public Dictionary<string, ShareRow> Shares { get; set; } = [];    // key: token
         public Dictionary<Guid, MusicTrack> Tracks { get; set; } = [];
+        public Dictionary<string, DateTime> LastSeen { get; set; } = [];  // key: user
+        public Dictionary<string, ViewsRow> Views { get; set; } = [];     // key: owner/album
     }
 
     private sealed record ShareRow(string OwnerId, Guid AlbumId);
+    private sealed record ViewsRow(string OwnerId, Guid AlbumId, long Count, DateTime LastViewedAt);
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly Lock _gate = new();
@@ -92,6 +95,9 @@ public sealed class LocalDataStore : ISlideshowStore
     public Task<IReadOnlyList<Album>> ListAlbumsWithMusicAsync(CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<Album>>(Read(s => s.Albums.Values.Where(a => a.MusicTrackIds.Count > 0).Select(a => a.Clone()).ToList()));
 
+    public Task<IReadOnlyList<Album>> ListAllAlbumsAsync(CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Album>>(Read(s => s.Albums.Values.Select(a => a.Clone()).ToList()));
+
     public Task<IReadOnlyList<MediaFile>> ListMediaAsync(string ownerId, Guid? albumId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<MediaFile>>(Read(s => s.Media.Values
             .Where(m => m.OwnerId == ownerId && (albumId is null || m.AlbumId == albumId))
@@ -156,4 +162,29 @@ public sealed class LocalDataStore : ISlideshowStore
 
     public Task DeleteShareAsync(string token, CancellationToken ct) =>
         Task.FromResult(Write(s => s.Shares.Remove(token)));
+
+    public Task SetLastSeenAsync(string userId, DateTime at, CancellationToken ct) =>
+        Task.FromResult(Write(s => s.LastSeen[userId] = at));
+
+    public Task RecordViewAsync(string ownerId, Guid albumId, DateTime at, CancellationToken ct) =>
+        Task.FromResult(Write(s =>
+        {
+            var key = AlbumKey(ownerId, albumId);
+            s.Views[key] = new ViewsRow(ownerId, albumId, (s.Views.GetValueOrDefault(key)?.Count ?? 0) + 1, at);
+            return 0;
+        }));
+
+    public Task<ActivitySnapshot> ReadActivityAsync(CancellationToken ct) =>
+        Task.FromResult(Read(s => new ActivitySnapshot(
+            new Dictionary<string, DateTime>(s.LastSeen),
+            s.Views.Values.ToDictionary(v => (v.OwnerId, v.AlbumId), v => new TripViews(v.Count, v.LastViewedAt)))));
+
+    public Task DeleteActivityAsync(string ownerId, Guid? albumId, CancellationToken ct) =>
+        Task.FromResult(Write(s =>
+        {
+            if (albumId is { } a) return s.Views.Remove(AlbumKey(ownerId, a));
+            s.LastSeen.Remove(ownerId);
+            foreach (var (key, v) in s.Views.ToList()) if (v.OwnerId == ownerId) s.Views.Remove(key);
+            return true;
+        }));
 }

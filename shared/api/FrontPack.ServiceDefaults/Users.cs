@@ -21,6 +21,8 @@ public sealed class User
 public interface IUserStore
 {
     Task<User?> GetUserAsync(string userId, CancellationToken ct);
+    /// <summary>Every account, in no particular order (the site admins' overview). Reads the whole table.</summary>
+    Task<IReadOnlyList<User>> ListUsersAsync(CancellationToken ct);
     /// <summary>Adds the user; false if one with that id already exists.</summary>
     Task<bool> TryAddUserAsync(User user, CancellationToken ct);
     /// <summary>Logout: tokens issued before `cutoff` are rejected. Nothing happens for an unknown user.</summary>

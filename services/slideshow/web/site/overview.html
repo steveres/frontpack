@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overview - FrontPack</title>
+    <meta name="robots" content="noindex">
+
+    <link rel="icon" type="image/png" href="/images/icon.png">
+
+    <link rel="stylesheet" href="/css/base/reset.css">
+    <link rel="stylesheet" href="/css/base/variables.css">
+    <link rel="stylesheet" href="/css/base/shared.css">
+    <link rel="stylesheet" href="/css/components/navigation.css">
+    <link rel="stylesheet" href="/css/components/trip.css">
+    <link rel="stylesheet" href="/css/components/music-admin.css">
+    <link rel="stylesheet" href="/css/components/overview.css">
+
+    <script type="module" src="/js/pages/overview-page.js"></script>
+</head>
+<body>
+    <div id="navigation-placeholder"></div>
+
+    <!-- Site admins only (the API's Site.Admin app role, given in Entra); the API checks every call. -->
+    <main class="main-content admin overview">
+        <a href="/trips.html" class="album__back">← Trip Pix</a>
+        <h1>Overview</h1>
+        <p class="admin__loading">Loading…</p>
+        <p class="notice notice--warning admin__denied" hidden>This page is for site admins. Ask the site owner for the Site admin role.</p>
+        <p class="form-error admin__error" role="alert" hidden></p>
+
+        <div class="admin__body" hidden>
+            <p class="overview__updated"><span class="overview__time"></span> <button type="button" class="button button--quiet overview__refresh">Refresh</button></p>
+            <ul class="overview__tiles"></ul>
+
+            <section class="overview__section">
+                <div class="overview__head">
+                    <h2>Users</h2>
+                    <input type="search" class="overview__filter overview__users-filter" placeholder="Search name or email" aria-label="Search users">
+                    <span class="overview__count overview__users-count"></span>
+                </div>
+                <p class="overview__note">Last seen is when they last used Trip Pix, to the hour. It's blank for anyone who hasn't used it since it started being recorded. Storage is their photos and videos as uploaded, against the quota.</p>
+                <div class="overview__scroll"><table class="media-table overview__table overview__users"></table></div>
+            </section>
+
+            <section class="overview__section">
+                <div class="overview__head">
+                    <h2>Trips</h2>
+                    <input type="search" class="overview__filter overview__trips-filter" placeholder="Search trip, owner or email" aria-label="Search trips">
+                    <select class="overview__trips-show" aria-label="Which trips">
+                        <option value="all">All trips</option>
+                        <option value="shared">Shared by link or public</option>
+                        <option value="public">Public only</option>
+                    </select>
+                    <span class="overview__count overview__trips-count"></span>
+                </div>
+                <p class="overview__note">Views are openings of the trip's share link (owners playing their own trips don't count). "Left out" photos and videos have no date or location: no slideshow shows them, View included. Opening a trip is logged.</p>
+                <div class="overview__scroll"><table class="media-table overview__table overview__trips"></table></div>
+            </section>
+        </div>
+    </main>
+</body>
+</html>

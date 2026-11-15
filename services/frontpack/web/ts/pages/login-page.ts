@@ -45,7 +45,7 @@ function showSignIn(): void {
       button.disabled = true;
       try {
         await (auth as DevAuthProvider).signInAs(email.value.trim(), query<HTMLInputElement>(form, '[name=name]').value.trim(),
-          query<HTMLInputElement>(form, '[name=musicAdmin]').checked);
+          query<HTMLInputElement>(form, '[name=musicAdmin]').checked, query<HTMLInputElement>(form, '[name=siteAdmin]').checked);
         await finish();
       } catch (err) {
         showError(err);

@@ -27,3 +27,4 @@
 
 /* Music admins: a link to the music library admin page */
 .albums__admin { margin: calc(-1 * var(--spacing-md)) 0 var(--spacing-lg); font-size: .9rem; }
+.albums__admin:not([hidden]) { display: flex; flex-wrap: wrap; gap: var(--spacing-md); }
