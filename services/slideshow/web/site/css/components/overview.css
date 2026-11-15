@@ -1,0 +1,32 @@
+/* css/components/overview.css — the site admins' overview (with trip.css for the tables, music-admin.css for the admin page parts) */
+
+.overview__updated { display: flex; align-items: center; gap: var(--spacing-sm); color: var(--color-muted); margin: 0 0 var(--spacing-md); }
+
+.overview__tiles { list-style: none; margin: 0 0 var(--spacing-lg); padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--spacing-sm); }
+.overview__tile { display: grid; gap: 2px; padding: var(--spacing-md); background: var(--color-panel); border: 1px solid var(--color-line); border-radius: var(--radius-md); }
+.overview__tile-value { font: 400 1.7rem var(--font-display); font-variant-numeric: tabular-nums; }
+.overview__tile-label { font-weight: 500; }
+.overview__tile-detail { color: var(--color-muted); font-size: .85rem; }
+.overview__tile--warning { border-color: var(--color-lamp); }
+.overview__tile--warning .overview__tile-value { color: var(--color-lamp); }
+
+.overview__section { margin-bottom: var(--spacing-xl); }
+.overview__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm) var(--spacing-md); }
+.overview__head h2 { margin: 0; margin-right: auto; }
+.overview__filter, .overview__trips-show { min-width: 0; padding: 6px 10px; border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-field); color: var(--color-paper); font: inherit; }
+.overview__filter { width: min(260px, 100%); }
+.overview__count { color: var(--color-muted); font-size: .9rem; font-variant-numeric: tabular-nums; }
+.overview__note { color: var(--color-muted); font-size: .85rem; max-width: 80ch; }
+
+.overview__scroll { overflow-x: auto; }
+.overview__table th { white-space: nowrap; }
+.overview__sort { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+.overview__sort:hover, .overview__sort:focus-visible { color: var(--color-paper); }
+.overview__table th[aria-sort] .overview__sort { color: var(--color-paper); }
+.overview__table th[aria-sort="ascending"] .overview__sort::after { content: " ↑"; }
+.overview__table th[aria-sort="descending"] .overview__sort::after { content: " ↓"; }
+.overview__table td { white-space: nowrap; }
+.overview__trip { display: grid; white-space: normal; min-width: 12ch; overflow-wrap: anywhere; }
+.overview__description, .overview__muted { color: var(--color-muted); font-size: .85rem; }
+.overview__link { padding: 0; border: 0; background: none; font: inherit; color: var(--color-lamp); cursor: pointer; text-decoration: underline; }
+.overview__view { padding: 4px 12px; }

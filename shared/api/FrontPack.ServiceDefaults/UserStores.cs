@@ -86,6 +86,14 @@ public sealed class TableUserStore : IUserStore
         return r.HasValue ? ToUser(r.Value!) : null;
     }
 
+    public async Task<IReadOnlyList<User>> ListUsersAsync(CancellationToken ct)
+    {
+        var list = new List<User>();
+        await foreach (var e in _users.QueryAsync<TableEntity>(TableClient.CreateQueryFilter($"RowKey eq {UserRow}"), cancellationToken: ct))
+            list.Add(ToUser(e));
+        return list;
+    }
+
     public async Task<bool> TryAddUserAsync(User user, CancellationToken ct)
     {
         try { await _users.AddEntityAsync(ToEntity(user), ct); return true; }
@@ -156,6 +164,9 @@ public sealed class LocalUserStore : IUserStore
 
     public Task<User?> GetUserAsync(string userId, CancellationToken ct) =>
         Task.FromResult(Read(u => u.GetValueOrDefault(userId)?.Clone()));
+
+    public Task<IReadOnlyList<User>> ListUsersAsync(CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<User>>(Read(u => u.Values.Select(x => x.Clone()).ToList()));
 
     public Task<bool> TryAddUserAsync(User user, CancellationToken ct) =>
         Task.FromResult(Write(u => u.TryAdd(user.Id, user.Clone())));

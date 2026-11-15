@@ -131,6 +131,32 @@ public sealed record PublicAlbumDto(
 /// <summary>What anonymous viewers of a share link get: the slideshow only, with file URLs under /api/v1/shared/{token}.</summary>
 public sealed record SharedAlbumDto(string Name, bool ShowMap, IReadOnlyList<MediaInfoDto> Slides, IReadOnlyList<TrackDto> Music);
 
+/// <summary>The site admins' overview: totals, every user and every trip.</summary>
+/// <param name="QuotaBytesPerUser">How much each user may store (their photos and videos as uploaded).</param>
+public sealed record OverviewDto(DateTime GeneratedAt, long QuotaBytesPerUser, OverviewTotalsDto Totals,
+    IReadOnlyList<OverviewUserDto> Users, IReadOnlyList<OverviewTripDto> Trips);
+
+/// <param name="ActiveUsers30Days">Users seen in the last 30 days.</param>
+/// <param name="Bytes">Photos and videos as uploaded (their smaller versions and previews aren't counted).</param>
+/// <param name="ResizeFailures">Photos whose smaller versions couldn't be made (they play full size).</param>
+public sealed record OverviewTotalsDto(int Users, int NewUsers30Days, int ActiveUsers30Days, int Trips, int SharedTrips, int PublicTrips,
+    int Photos, int Videos, long Bytes, long Views, int ResizeFailures);
+
+/// <param name="Name">Null for trips whose owner has no account row any more (shouldn't happen; shown so nothing is hidden).</param>
+/// <param name="LastSeenAt">When they last used Trip Pix (to the hour); null if not since this was recorded.</param>
+public sealed record OverviewUserDto(string Id, string? Name, string? Email, DateTime? CreatedAt, DateTime? LastSeenAt,
+    int TripCount, int PhotoCount, int VideoCount, long Bytes);
+
+/// <param name="ExcludedCount">Photos and videos the slideshow leaves out (no date or no location); the admin view doesn't show them either.</param>
+/// <param name="Views">Openings of its share link.</param>
+public sealed record OverviewTripDto(Guid Id, string OwnerId, string? OwnerName, string? OwnerEmail, string Name, string? Description,
+    DateTime CreatedAt, DateTime UpdatedAt, int PhotoCount, int VideoCount, int ExcludedCount, long Bytes,
+    bool IsShared, bool IsPublic, long Views, DateTime? LastViewedAt);
+
+/// <summary>Any trip's slideshow, for a site admin: file URLs under /api/v1/admin/trips/{ownerId}/{albumId}.</summary>
+public sealed record AdminTripDto(Guid Id, string Name, string OwnerId, string? OwnerName, string? OwnerEmail,
+    IReadOnlyList<MediaInfoDto> Slides, IReadOnlyList<TrackDto> Music, int ExcludedCount);
+
 /// <summary>Writes "taken" as local wall-clock time with no zone ("2026-07-04T09:31:05"), as it was recorded.</summary>
 public sealed class LocalDateTimeConverter : JsonConverter<DateTime?>
 {

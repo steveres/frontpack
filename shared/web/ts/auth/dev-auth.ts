@@ -24,8 +24,8 @@ function load(): StoredSession | null {
 
 export interface DevAuthProvider extends AuthProvider {
   readonly mode: 'dev';
-  /** Signs in as `email` (used by the login page's form); `musicAdmin` adds the Music.Admin app role. */
-  signInAs(email: string, name: string, musicAdmin?: boolean): Promise<void>;
+  /** Signs in as `email` (used by the login page's form); `musicAdmin` and `siteAdmin` add the Music.Admin and Site.Admin app roles. */
+  signInAs(email: string, name: string, musicAdmin?: boolean, siteAdmin?: boolean): Promise<void>;
 }
 
 export function createDevAuth(): DevAuthProvider {
@@ -42,11 +42,11 @@ export function createDevAuth(): DevAuthProvider {
       location.assign(loginUrl(returnTo));
     },
 
-    async signInAs(email, name, musicAdmin = false) {
+    async signInAs(email, name, musicAdmin = false, siteAdmin = false) {
       const res = await fetch(`${APP_CONFIG.services.frontpack}/dev/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, musicAdmin }),
+        body: JSON.stringify({ email, name, musicAdmin, siteAdmin }),
       });
       if (res.status === 404) throw new Error('Development sign-in is not available. Is the API running in Development, and has `dotnet user-jwts create` been run once?');
       if (!res.ok) {

@@ -139,6 +139,10 @@ public static partial class SharingEndpoints
         if (manifest is null) return NotShared(); // deleted meanwhile
         manifest = await AlbumEndpoints.WithCurrentSizesAsync(store, queue, log, album, manifest, ct);
 
+        // One view per opening of the link (the photos it then loads aren't counted). Never fails the slideshow.
+        try { await store.RecordViewAsync(album.OwnerId, album.Id, DateTime.UtcNow, ct); }
+        catch (Exception e) when (e is not OperationCanceledException) { log.LogWarning(e, "Couldn't count a view of album {AlbumId}", album.Id); }
+
         var showMap = !album.ShareHideMap;
         MediaInfoDto Shared(MediaInfoDto m, string segment) => m with
         {

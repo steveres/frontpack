@@ -145,6 +145,15 @@ Done in the [Microsoft Entra admin center](https://entra.microsoft.com).
    - The person signs out and in again (or waits for the next token), then sees **Music library admin** on
      the Trip Pix page. Removing the assignment takes effect when their current token expires (about an hour).
    - Locally (development sign-in), tick **Music admin** on the sign-in form.
+7. **Site admins** (who see every user and trip, and can play any trip, on `overview.html`): another app
+   role on the **API** registration, set up the same way as Music admin.
+   - App roles → Create app role: display name *Site admin*, allowed member types *Users/Groups*, value
+     **`Site.Admin`**, description "Can see all users and trips, and play any trip", enabled.
+   - Enterprise applications → FrontPack API → Users and groups → assign it (directly, not by group) only
+     to the people who moderate content: it shows everyone's email address and private photos.
+   - They see **Overview** on the Trip Pix page after signing in again. Each trip they open is logged
+     ("Site admin … opened trip …" in Application Insights).
+   - Locally, tick **Site admin** on the development sign-in form.
 
 ## Deploy to Azure
 

@@ -1,7 +1,7 @@
 // trips.html (Trip Pix): the Slideshow app's start page. Everyone's public trips; signed in, your own trips
 // first (and creating a new one). Both lists come newest first from the API. Last, playing a folder (hidden for now).
 
-import { AlbumsApi, MusicAdminApi, playLink, SharingApi, type AlbumInfo, type PublicAlbum } from '../api/albums-api.js';
+import { AlbumsApi, MusicAdminApi, playLink, SharingApi, SiteAdminApi, type AlbumInfo, type PublicAlbum } from '../api/albums-api.js';
 import { getAuth, loginUrl } from '../auth/auth.js';
 import { mountNavigation } from '../components/navigation.js';
 import { thumbnail } from '../components/thumbnail.js';
@@ -134,7 +134,12 @@ async function load(): Promise<void> {
 const form = query<HTMLFormElement>(page, '.albums__new');
 if (signedIn) {
   form.hidden = false;
-  void MusicAdminApi.isAdmin().then(admin => { query(page, '.albums__admin').hidden = !admin; }); // music admins only
+  // Admin links: the Overview for site admins, the music library for music admins.
+  void Promise.all([SiteAdminApi.isAdmin(), MusicAdminApi.isAdmin()]).then(([site, music]) => {
+    query(page, '.albums__admin-overview').hidden = !site;
+    query(page, '.albums__admin-music').hidden = !music;
+    query(page, '.albums__admin').hidden = !site && !music;
+  });
   form.onsubmit = async e => {
     e.preventDefault();
     errorEl.hidden = true;

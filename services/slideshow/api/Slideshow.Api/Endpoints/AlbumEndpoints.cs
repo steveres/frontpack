@@ -27,8 +27,13 @@ public static class AlbumEndpoints
         MusicEndpoints.MapAlbumMusic(g); // chosen from the music library: users can't upload music
     }
 
-    public static async ValueTask<object?> RequireRegistered(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next) =>
-        ctx.HttpContext.Account() is null ? Problems.NotRegistered() : await next(ctx);
+    /// <summary>Only callers with a FrontPack account get through; their use of Trip Pix is noted (see <see cref="LastSeenTracker"/>).</summary>
+    public static async ValueTask<object?> RequireRegistered(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next)
+    {
+        if (ctx.HttpContext.Account() is not { } user) return Problems.NotRegistered();
+        await ctx.HttpContext.RequestServices.GetRequiredService<LastSeenTracker>().SeenAsync(user.Id, ctx.HttpContext.RequestAborted);
+        return await next(ctx);
+    }
 
     private static AlbumInfoDto Info(Album a, IReadOnlyCollection<MediaFile> media, IReadOnlyDictionary<Guid, MusicTrack> library)
     {
@@ -181,6 +186,13 @@ public static class AlbumEndpoints
             : SlideshowProblems.AlbumNotFound();
     }
 
+    /// <summary>The photos and videos the slideshow shows (those with a date and a location), in the order it plays them.</summary>
+    internal static IEnumerable<MediaFile> PlayOrder(IEnumerable<MediaFile> images) =>
+        images.Where(m => MediaInfoDto.MissingFor(m).Count == 0)
+            .OrderBy(m => m.TakenAt)
+            .ThenBy(m => m.FileName, NaturalStringComparer.Instance)
+            .ThenBy(m => m.Id);
+
     /// <summary>Orders the album's playable slides and stores the manifest; null if the album was deleted meanwhile.</summary>
     internal static async Task<AlbumManifestDto?> CompileAsync(ISlideshowStore store, IBlobStore blobs, Album album, CancellationToken ct)
     {
@@ -191,12 +203,7 @@ public static class AlbumEndpoints
 
         // Only photos/videos with a date and a location are shown: the slideshow plays in date order along a route.
         var images = media.Where(m => m.Collection == MediaCollection.Images).ToList();
-        var slides = images.Where(m => MediaInfoDto.MissingFor(m).Count == 0)
-            .OrderBy(m => m.TakenAt)
-            .ThenBy(m => m.FileName, NaturalStringComparer.Instance)
-            .ThenBy(m => m.Id)
-            .Select(m => MediaInfoDto.From(m, MediaEndpoints.ContentUrl(albumId, "images", m.Id)))
-            .ToList();
+        var slides = PlayOrder(images).Select(m => MediaInfoDto.From(m, MediaEndpoints.ContentUrl(albumId, "images", m.Id))).ToList();
 
         // The music isn't stored with the slides: it's the album's chosen tracks at the time it's played.
         var now = DateTime.UtcNow;
@@ -217,6 +224,7 @@ public static class AlbumEndpoints
         // (Its music is library tracks, which stay in the library.)
         await store.DeleteAllMediaAsync(ownerId, albumId, ct);
         if (album.ShareToken is { } token) await store.DeleteShareAsync(token, ct);
+        await store.DeleteActivityAsync(ownerId, albumId, ct); // its views
         if (!await store.DeleteAlbumAsync(ownerId, albumId, ct)) return SlideshowProblems.AlbumNotFound(); // deleted concurrently
 
         try { await blobs.DeletePrefixAsync(BlobNames.AlbumPrefix(ownerId, albumId), ct); }

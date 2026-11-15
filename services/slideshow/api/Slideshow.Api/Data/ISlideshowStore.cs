@@ -19,6 +19,8 @@ public interface ISlideshowStore
     Task<IReadOnlyList<Album>> ListPublicAlbumsAsync(CancellationToken ct);
     /// <summary>Every album that has music, across owners (music admin: how many trips use each track).</summary>
     Task<IReadOnlyList<Album>> ListAlbumsWithMusicAsync(CancellationToken ct);
+    /// <summary>Every album, across owners (the site admins' overview).</summary>
+    Task<IReadOnlyList<Album>> ListAllAlbumsAsync(CancellationToken ct);
 
     /// <summary>The owner's media, all of it or one album's, in no particular order.</summary>
     Task<IReadOnlyList<MediaFile>> ListMediaAsync(string ownerId, Guid? albumId, CancellationToken ct);
@@ -33,7 +35,7 @@ public interface ISlideshowStore
     Task SetResizeStateAsync(string ownerId, Guid albumId, Guid mediaId, ResizeState state, IReadOnlyList<int> sizes, CancellationToken ct);
     /// <summary>Records a video's running time. Nothing happens if it has been deleted.</summary>
     Task SetDurationAsync(string ownerId, Guid albumId, Guid mediaId, double seconds, CancellationToken ct);
-    /// <summary>Everyone's media of one kind or collection, across owners (LibraryMigration's one-off jobs).</summary>
+    /// <summary>Everyone's media of one kind or collection, across owners (LibraryMigration's one-off jobs; the site admins' overview).</summary>
     Task<IReadOnlyList<MediaFile>> ListMediaAcrossOwnersAsync(MediaCollection? collection, MediaKind? kind, CancellationToken ct);
 
     /// <summary>The music library, in no particular order.</summary>
@@ -49,6 +51,15 @@ public interface ISlideshowStore
     /// <summary>Claims a share code for the album; false if the code is already taken.</summary>
     Task<bool> TryAddShareAsync(string token, string ownerId, Guid albumId, CancellationToken ct);
     Task DeleteShareAsync(string token, CancellationToken ct);
+
+    /// <summary>Records that the user used Trip Pix at `at` (callers write it at most hourly per user).</summary>
+    Task SetLastSeenAsync(string userId, DateTime at, CancellationToken ct);
+    /// <summary>Counts one opening of the trip's share link.</summary>
+    Task RecordViewAsync(string ownerId, Guid albumId, DateTime at, CancellationToken ct);
+    /// <summary>Everyone's last-seen times and trip views (the site admins' overview).</summary>
+    Task<ActivitySnapshot> ReadActivityAsync(CancellationToken ct);
+    /// <summary>Forgets one trip's views, or (albumId null) all the user's activity.</summary>
+    Task DeleteActivityAsync(string ownerId, Guid? albumId, CancellationToken ct);
 }
 
 public static class DataStoreExtensions

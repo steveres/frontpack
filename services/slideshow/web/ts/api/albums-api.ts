@@ -1,5 +1,5 @@
 // /api/v1/albums and their images (photos + videos), the music library they choose their music from
-// (/api/v1/music), and its admin side (/api/v1/admin/music).
+// (/api/v1/music), its admin side (/api/v1/admin/music), and the site admins' overview (/api/v1/admin).
 
 import { apiFor, ApiError } from './api-client.js';
 import { APP_CONFIG } from '../config.js';
@@ -194,6 +194,59 @@ export const MusicAdminApi = {
   remove: (id: string) => api.delete(`/api/v1/admin/music/${encodeURIComponent(id)}`),
   /** The catalog as a JSON file (a backup; without the MP3s). */
   exportFile: () => api.blob('/api/v1/admin/music/export'),
+};
+
+/** The site admins' overview: totals, every user and every trip. Storage is files as uploaded. */
+export interface Overview {
+  generatedAt: string;
+  quotaBytesPerUser: number;
+  totals: {
+    users: number; newUsers30Days: number; activeUsers30Days: number;
+    trips: number; sharedTrips: number; publicTrips: number;
+    photos: number; videos: number; bytes: number; views: number;
+    /** Photos whose smaller versions couldn't be made. */
+    resizeFailures: number;
+  };
+  users: OverviewUser[];
+  trips: OverviewTrip[];
+}
+
+/** `lastSeenAt`: when they last used Trip Pix (to the hour); null if not since it was recorded. */
+export interface OverviewUser {
+  id: string; name: string | null; email: string | null; createdAt: string | null; lastSeenAt: string | null;
+  tripCount: number; photoCount: number; videoCount: number; bytes: number;
+}
+
+/** `views`: openings of its share link. `excludedCount`: photos/videos the slideshow leaves out. */
+export interface OverviewTrip {
+  id: string; ownerId: string; ownerName: string | null; ownerEmail: string | null; name: string; description: string | null;
+  createdAt: string; updatedAt: string; photoCount: number; videoCount: number; excludedCount: number; bytes: number;
+  isShared: boolean; isPublic: boolean; views: number; lastViewedAt: string | null;
+}
+
+/** Any trip's slideshow, as a site admin sees it. */
+export interface AdminTrip {
+  id: string; name: string; ownerId: string; ownerName: string | null; ownerEmail: string | null;
+  slides: MediaInfo[]; music: LibraryTrack[]; excludedCount: number;
+}
+
+/** Where a site admin plays someone's trip. */
+export const adminPlayLink = (trip: { ownerId: string; id: string }) =>
+  `/slideshow.html?admin=${encodeURIComponent(trip.id)}&owner=${encodeURIComponent(trip.ownerId)}`;
+
+/** Site admins only (the API's Site.Admin app role). */
+export const SiteAdminApi = {
+  /** Whether the signed-in user is a site admin. */
+  async isAdmin(): Promise<boolean> {
+    try { await api.get('/api/v1/admin/access', { noRedirect: true }); return true; }
+    catch { return false; }
+  },
+  overview: () => api.get<Overview>('/api/v1/admin/overview'),
+  /** Any trip's slideshow (the API logs who opened it). */
+  trip: (ownerId: string, albumId: string) =>
+    api.get<AdminTrip>(`/api/v1/admin/trips/${encodeURIComponent(ownerId)}/${encodeURIComponent(albumId)}`),
+  /** A file of that trip, by the `url` the API gave for it. */
+  download: (url: string) => api.blob(url),
 };
 
 function apiBase(): string { return APP_CONFIG.services.slideshow; }

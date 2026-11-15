@@ -58,6 +58,7 @@ Pages:
 | `trips.html` | Slideshow start page (the nav's **Trip Pix**): your trips, then everyone's public trips, with cover photos and Play; create a trip. `albums.html` redirects here |
 | `trip.html?id=…` | One trip (an album in the API): upload photos and videos (drag and drop); file list with previews, showing which files the slideshow will show; choose its music from the music library (search, sort, tags, preview; play order; how long the slideshow runs at 1–5 s per photo against the music); play; delete. `album.html?id=…` forwards here |
 | `music-admin.html` | Music admins only (the `Music.Admin` app role): add, change and delete music library tracks, each with its MP3 and license certificate; download a backup. Linked from Trip Pix for admins |
+| `overview.html` | Site admins only (the `Site.Admin` app role): totals, every user (last seen, trips, storage) and every trip (owner, storage, sharing, share-link views), sortable and searchable; **View** plays any trip for checking reported photos (logged). Linked from Trip Pix for admins |
 | `music-credits.html` | Every library track with its artist, source and license; linked from the footer |
 | `slideshow.html?album=…` | Play a trip (compiles it first if it changed) |
 | `slideshow.html?share=…` | Play a shared trip: anyone with the link, no sign-in (trip page → **Share…**) |

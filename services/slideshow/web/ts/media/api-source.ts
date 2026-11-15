@@ -1,9 +1,9 @@
-// Slideshow contents from the API: a compiled album (signed in) or a shared album (share link, no
+// Slideshow contents from the API: a compiled album (signed in), anyone's trip (site admins) or a shared album (share link, no
 // sign-in). Files are downloaded when the player asks for them, and the few most recent are kept so
 // prefetching pays off. Photos come in the size that suits the screen and connection (photo-size.ts);
 // zooming in fetches the original.
 
-import { MediaApi, MusicApi, SharingApi, type LibraryTrack, type MediaInfo } from '../api/albums-api.js';
+import { MediaApi, MusicApi, SharingApi, SiteAdminApi, type LibraryTrack, type MediaInfo } from '../api/albums-api.js';
 import type { MediaItem, SlideshowContents, Track } from './media-types.js';
 import { photoSize } from './photo-size.js';
 
@@ -63,3 +63,7 @@ export const contentsFromManifest = (manifest: { slides: MediaInfo[]; music: Lib
 /** A shared album, played from its share link without signing in. */
 export const contentsFromSharedAlbum = (shared: { slides: MediaInfo[]; music: LibraryTrack[] }): SlideshowContents =>
   contents(shared.slides, shared.music, SharingApi.download);
+
+/** Anyone's trip, played by a site admin. */
+export const contentsFromAdminTrip = (trip: { slides: MediaInfo[]; music: LibraryTrack[] }): SlideshowContents =>
+  contents(trip.slides, trip.music, SiteAdminApi.download);

@@ -7,16 +7,18 @@ using Microsoft.Extensions.Options;
 namespace Slideshow.Api.Data;
 
 /// <summary>
-/// Azure Table Storage (or Azurite). Four tables, each partitioned so a query reads one partition:
-/// Albums (owner / album), Media (owner / "album_media"), Shares (code / "share"), MusicTracks ("track" / track).
-/// (Users: FrontPack's.) The exceptions look across all owners: the public albums, the albums with music
-/// (music admin), and LibraryMigration's one-off jobs.
+/// Azure Table Storage (or Azurite). Five tables, each partitioned so a query reads one partition:
+/// Albums (owner / album), Media (owner / "album_media"), Shares (code / "share"), MusicTracks ("track" / track),
+/// Activity (user / "seen" for when they last used Trip Pix, or / album for its views). (Users: FrontPack's.)
+/// The exceptions look across all owners: the public albums, the albums with music (music admin), the site
+/// admins' overview, and LibraryMigration's one-off jobs.
 /// </summary>
 public sealed class TableDataStore : ISlideshowStore
 {
     private const string ShareRow = "share";
     private const string TrackPartition = "track";
-    private readonly TableClient _albums, _media, _shares, _tracks;
+    private const string SeenRow = "seen";
+    private readonly TableClient _albums, _media, _shares, _tracks, _activity;
 
     /// <param name="credential">Signs in to Azure (not used with a connection string, i.e. Azurite).</param>
     public TableDataStore(IOptions<TablesOptions> options, TokenCredential credential)
@@ -29,12 +31,13 @@ public sealed class TableDataStore : ISlideshowStore
         _media = service.GetTableClient("Media");
         _shares = service.GetTableClient("Shares");
         _tracks = service.GetTableClient("MusicTracks");
+        _activity = service.GetTableClient("Activity");
     }
 
     /// <summary>Creates the tables if missing (the local emulator; in Azure, main.bicep creates them).</summary>
     public async Task EnsureTablesAsync(CancellationToken ct)
     {
-        foreach (var table in new[] { _albums, _media, _shares, _tracks }) await table.CreateIfNotExistsAsync(ct);
+        foreach (var table in new[] { _albums, _media, _shares, _tracks, _activity }) await table.CreateIfNotExistsAsync(ct);
     }
 
     /// <summary>Ids as text, comma-separated: a list can't be a table property.</summary>
@@ -148,6 +151,10 @@ public sealed class TableDataStore : ISlideshowStore
     /// <summary>Scans every partition of Albums, like the public list.</summary>
     public async Task<IReadOnlyList<Album>> ListAlbumsWithMusicAsync(CancellationToken ct) =>
         (await QueryAsync(_albums, TableClient.CreateQueryFilter($"HasMusic eq {true}"), ct)).Select(ToAlbum).ToList();
+
+    /// <summary>Scans every partition of Albums, like the public list.</summary>
+    public async Task<IReadOnlyList<Album>> ListAllAlbumsAsync(CancellationToken ct) =>
+        (await QueryAsync(_albums, "", ct)).Select(ToAlbum).ToList();
 
     // ───────── Media ─────────
 
@@ -301,4 +308,50 @@ public sealed class TableDataStore : ISlideshowStore
         TryAddAsync(_shares, new TableEntity(token, ShareRow) { ["OwnerId"] = ownerId, ["AlbumId"] = albumId }, ct);
 
     public Task DeleteShareAsync(string token, CancellationToken ct) => DeleteAsync(_shares, token, ShareRow, ct);
+
+    // ───────── Activity ─────────
+
+    public async Task SetLastSeenAsync(string userId, DateTime at, CancellationToken ct) =>
+        await _activity.UpsertEntityAsync(new TableEntity(userId, SeenRow) { ["LastSeenAt"] = Utc(at) }, TableUpdateMode.Merge, ct);
+
+    /// <summary>Read, add one, write back if unchanged meanwhile; two viewers at once just take turns.</summary>
+    public async Task RecordViewAsync(string ownerId, Guid albumId, DateTime at, CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var row = await GetAsync(_activity, ownerId, Key(albumId), ct);
+            if (row is null)
+            {
+                if (await TryAddAsync(_activity, new TableEntity(ownerId, Key(albumId)) { ["Views"] = 1L, ["LastViewedAt"] = Utc(at) }, ct)) return;
+                continue; // someone else added it first
+            }
+            row["Views"] = (row.GetInt64("Views") ?? 0) + 1;
+            row["LastViewedAt"] = Utc(at);
+            try { await _activity.UpdateEntityAsync(row, row.ETag, TableUpdateMode.Replace, ct); return; }
+            catch (RequestFailedException e) when (Is(e, 412) || Is(e, 404)) { } // changed or deleted meanwhile: again
+        }
+        throw new InvalidOperationException($"Trip {albumId}'s view count kept changing; gave up counting one.");
+    }
+
+    /// <summary>Scans the whole table: one row per user and per viewed trip.</summary>
+    public async Task<ActivitySnapshot> ReadActivityAsync(CancellationToken ct)
+    {
+        var seen = new Dictionary<string, DateTime>();
+        var views = new Dictionary<(string, Guid), TripViews>();
+        foreach (var e in await QueryAsync(_activity, "", ct))
+        {
+            if (e.RowKey == SeenRow) { if (Utc(e, "LastSeenAt") is { } t) seen[e.PartitionKey] = t; }
+            else if (Guid.TryParseExact(e.RowKey, "N", out var albumId))
+                views[(e.PartitionKey, albumId)] = new TripViews(e.GetInt64("Views") ?? 0, Utc(e, "LastViewedAt"));
+        }
+        return new ActivitySnapshot(seen, views);
+    }
+
+    public async Task DeleteActivityAsync(string ownerId, Guid? albumId, CancellationToken ct)
+    {
+        if (albumId is { } a) { await DeleteAsync(_activity, ownerId, Key(a), ct); return; }
+        var rows = await QueryAsync(_activity, TableClient.CreateQueryFilter($"PartitionKey eq {ownerId}"), ct, select: ["PartitionKey", "RowKey"]);
+        foreach (var chunk in rows.Chunk(100))
+            await _activity.SubmitTransactionAsync(chunk.Select(e => new TableTransactionAction(TableTransactionActionType.Delete, e, ETag.All)), ct);
+    }
 }

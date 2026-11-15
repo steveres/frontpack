@@ -154,7 +154,7 @@ resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-05-0
   name: 'default'
 }
 
-resource tables 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' = [for name in ['Albums', 'Media', 'Shares', 'MusicTracks']: {
+resource tables 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' = [for name in ['Albums', 'Media', 'Shares', 'MusicTracks', 'Activity']: {
   parent: tableService
   name: name
 }]

@@ -44,20 +44,25 @@ public static class SlideshowApi
         services.AddAuthorizationBuilder().AddPolicy(MusicEndpoints.AdminPolicy, p => p.RequireClaim("roles", MusicEndpoints.AdminRole));
         services.AddHostedService<LibraryMigration>(); // one-off: deletes uploaded music, times older videos
 
+        // The site admins' overview (the Site.Admin app role in Entra), and when each user last used Trip Pix for it.
+        services.AddAuthorizationBuilder().AddPolicy(AdminEndpoints.SiteAdminPolicy, p => p.RequireClaim("roles", AdminEndpoints.SiteAdminRole));
+        services.AddSingleton<LastSeenTracker>();
+
         // Slideshow's part of an account: usage on the account page, and what deleting the account deletes.
         services.AddScoped<IServiceAccountData, SlideshowAccountData>();
         return services;
     }
 
     /// <summary>
-    /// The routes: /api/v1/albums and /api/v1/admin/music (signed in), /api/v1/shared, /api/v1/public-albums
-    /// and /api/v1/music (anyone).
+    /// The routes: /api/v1/albums, /api/v1/admin/music (music admins) and /api/v1/admin (site admins), all signed
+    /// in; /api/v1/shared, /api/v1/public-albums and /api/v1/music (anyone).
     /// </summary>
     public static WebApplication MapSlideshow(this WebApplication app, RouteGroupBuilder api)
     {
         var limits = app.Services.GetRequiredService<IOptions<LimitsOptions>>().Value;
         api.MapAlbums(limits.MaxUploadBytes);
         api.MapMusicAdmin(limits.MaxMusicBytes);
+        api.MapSiteAdmin();
         app.MapGroup("/api/v1/shared").AllowAnonymous().MapShared(); // share links: no sign-in
         app.MapGroup("/api/v1/public-albums").AllowAnonymous().MapPublicAlbums(); // the albums anyone can watch
         app.MapGroup("/api/v1/music").AllowAnonymous().MapMusic(); // the library, played by shared slideshows too

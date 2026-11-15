@@ -100,3 +100,14 @@ public sealed class MusicTrack
 
     internal MusicTrack Clone() => (MusicTrack)MemberwiseClone();
 }
+
+/// <summary>How often a trip's share link was opened (owners playing their own trips don't count).</summary>
+public sealed record TripViews(long Count, DateTime? LastViewedAt);
+
+/// <summary>
+/// What the site admins' overview reads of activity: when each user last used Trip Pix (at most an hour out)
+/// and each trip's views. Kept apart from accounts and albums so counting never conflicts with their changes.
+/// </summary>
+public sealed record ActivitySnapshot(
+    IReadOnlyDictionary<string, DateTime> LastSeen,
+    IReadOnlyDictionary<(string OwnerId, Guid AlbumId), TripViews> Views);
