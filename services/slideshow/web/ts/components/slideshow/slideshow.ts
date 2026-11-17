@@ -187,7 +187,7 @@ export function mountSlideshow(root: HTMLElement, options: SlideshowOptions = {}
 
   // Auto-hide: after a few seconds without input, fade out the overlays (and the cursor over the photo).
   // They stay while paused, while the settings panel is open, and while the pointer or keyboard focus is on one.
-  const OVERLAYS = '.controls, .timeline, .settings__toggle, .settings__panel, .slideshow__back, .slideshow__credit';
+  const OVERLAYS = '.controls, .timeline, .settings__toggle, .settings__panel, .slideshow__share, .slideshow__back, .slideshow__credit';
   let idleTimer: number | undefined;
   let pointerOnOverlay = false;
   function wake(): void {

@@ -1,6 +1,6 @@
 // Entry point for slideshow.html.
-//   slideshow.html?album=<id>    plays one of your albums (compiling it first if it has changed)
-//   slideshow.html?share=<code>  plays a shared album: anyone with the link, no sign-in
+//   slideshow.html?album=<id>    plays one of your albums (compiling it first if it has changed); Share once it's shared
+//   slideshow.html?share=<code>  plays a shared album: anyone with the link, no sign-in; Share passes on the link
 //   slideshow.html?admin=<id>&owner=<user id>  plays anyone's trip, for site admins (from the Overview page)
 //   slideshow.html?folder        plays a folder from this computer (hidden for now: nothing links to it)
 //   slideshow.html               nothing to play: goes to the Trip Pix page
@@ -8,6 +8,7 @@
 import { AlbumsApi, SharingApi, SiteAdminApi } from '../api/albums-api.js';
 import { requireSignIn } from '../auth/session.js';
 import { mountFolderPicker } from '../components/slideshow/folder-picker.js';
+import { showShareButton } from '../components/slideshow/share-button.js';
 import { mountSlideshow } from '../components/slideshow/slideshow.js';
 import { contentsFromAdminTrip, contentsFromManifest, contentsFromSharedAlbum } from '../media/api-source.js';
 import { query } from '../utils/dom.js';
@@ -43,6 +44,7 @@ async function playShared(code: string): Promise<void> {
     if (!shared.slides.length) { message.textContent = 'This slideshow has no photos to show yet.'; return; }
     const slideshow = mountSlideshow(root, { mapAllowed: shared.showMap });
     start.hidden = true;
+    showShareButton(root, code, shared.name); // so viewers pass on the share link, not this page's address
     slideshow.play(contentsFromSharedAlbum(shared));
   } catch (err) {
     message.textContent = errorMessage(err);
@@ -108,6 +110,11 @@ async function playAlbum(id: string): Promise<void> {
     }
     start.hidden = true;
     slideshow.play(contentsFromManifest(manifest));
+    // Your own trip: Share too, once it has a share link (turned on from the trip page's Share panel).
+    const tripName = manifest.name;
+    void SharingApi.get(id)
+      .then(s => { if (s.enabled && s.token) showShareButton(root, s.token, tripName); })
+      .catch(() => undefined); // no button; the slideshow plays on
   } catch (err) {
     showMessage(errorMessage(err));
   }

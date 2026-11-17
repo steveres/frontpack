@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Slideshow</title>
 
+    <!-- Link previews when someone shares this page's own address (apps don't run the script that fills in
+         the trip). Share links (s.thefrontpack.com/<code>) preview with the trip's name and cover instead;
+         the Share button hands those out. The image must be an absolute address. -->
+    <meta name="description" content="A trip slideshow on FrontPack: photos and videos with the route on a map.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="FrontPack">
+    <meta property="og:title" content="Trip Pix slideshow">
+    <meta property="og:description" content="A trip slideshow on FrontPack: photos and videos with the route on a map.">
+    <meta property="og:image" content="https://www.thefrontpack.com/images/icon.png">
+    <meta property="og:image:alt" content="FrontPack">
+    <meta name="twitter:card" content="summary">
+
     <!-- Favicon (browser tab, bookmarks, phone home screen) -->
     <link rel="icon" type="image/png" href="/images/icon.png">
     <link rel="apple-touch-icon" href="/images/icon.png">
@@ -84,6 +96,15 @@
 
         <!-- Way out: to the trip (or the Trip Pix page); the page sets the target and label -->
         <a class="slideshow__back" href="/trips.html"><span aria-hidden="true">←</span> <span class="slideshow__back-label">Trip Pix</span></a>
+
+        <!-- Share: the trip's share link (shared slideshows, and your own trip once it's shared); the page shows it -->
+        <button class="slideshow__share" aria-label="Share this slideshow" title="Share this slideshow" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 15V3M7.5 7.5 12 3l4.5 4.5"/>
+                <path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/>
+            </svg>
+        </button>
+        <p class="slideshow__share-note" role="status" hidden></p>
 
         <!-- Settings -->
         <button class="settings__toggle" aria-label="Settings" aria-expanded="false" aria-controls="slideshow-settings">

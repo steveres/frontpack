@@ -88,6 +88,7 @@
 .slideshow--idle .controls,
 .slideshow--idle .timeline,
 .slideshow--idle .settings__toggle,
+.slideshow--idle .slideshow__share,
 .slideshow--idle .slideshow__back,
 .slideshow--idle .slideshow__credit { opacity: 0 !important; pointer-events: none; transition: opacity .6s; }
 .slideshow--idle .slideshow__photos { cursor: none; }
