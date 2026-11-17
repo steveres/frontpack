@@ -89,6 +89,11 @@ function Connect-ShareDomain($Outputs, [string]$CertificateId) {
   $app = $Outputs.appName.value
   $environmentId = Invoke-Az containerapp show --name $app --resource-group $SlideshowResourceGroup --query properties.managedEnvironmentId --output tsv
   try {
+    # Azure issues the certificate only for a hostname already on an app in the environment: add it first (unbound).
+    $hostnames = Invoke-Az containerapp hostname list --name $app --resource-group $SlideshowResourceGroup --output json | ConvertFrom-Json
+    if (-not @($hostnames | Where-Object { $_.name -eq $domain }).Count) {
+      Invoke-Az containerapp hostname add --hostname $domain --name $app --resource-group $SlideshowResourceGroup --output none | Out-Null
+    }
     Invoke-Az containerapp hostname bind --hostname $domain --name $app --resource-group $SlideshowResourceGroup `
       --environment $environmentId --validation-method CNAME --output none | Out-Null
     return "https://$domain"

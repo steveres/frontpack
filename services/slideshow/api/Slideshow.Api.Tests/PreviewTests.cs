@@ -51,7 +51,8 @@ public sealed class PreviewTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Contains(CoverAddress(token, first) + "\">", html);
         Assert.Contains($"/slideshow.html?share={token}\"", html); // where browsers go on to
         Assert.Contains("script-src 'sha256-", res.Headers.GetValues("Content-Security-Policy").Single());
-        Assert.Contains("<script>location.replace(", html); // browsers go straight on
+        Assert.Contains("<script>location.replace(", html); // browsers go straight on…
+        Assert.True(html.IndexOf("id=\"watch\"") < html.IndexOf("<script>"), "the script runs after the link it follows exists");
 
         // Apps previewing the link (Messages calls itself facebookexternalhit) get the tags without the redirect.
         var previewer = factory.CreateClient();
