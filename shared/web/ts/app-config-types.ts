@@ -6,6 +6,8 @@ export type ServiceName = 'frontpack' | 'slideshow';
 export interface AppConfig {
   /** Where each service's API runs, without a trailing slash, e.g. { "frontpack": "http://localhost:5160" } */
   services: Record<ServiceName, string>;
+  /** Where share links point, without a trailing slash (e.g. https://s.thefrontpack.com); absent: the Slideshow API's address. */
+  shareUrl?: string;
   auth: DevAuthConfig | EntraAuthConfig;
   /** The site's menu, gathered by build.mjs from each service's service.json, in order. */
   nav: NavLink[];

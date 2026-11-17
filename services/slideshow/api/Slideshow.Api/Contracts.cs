@@ -23,18 +23,23 @@ public sealed record CreateAlbumRequest(string? Name, string? Description);
 /// <summary>Rename an album or change its description. Omitted fields stay as they are; an empty description removes it.</summary>
 public sealed record UpdateAlbumRequest(string? Name, string? Description);
 
+/// <summary>The trip's cover: a photo the slideshow shows, or null to have it chosen automatically.</summary>
+public sealed record SetCoverRequest(Guid? MediaId);
+
 /// <summary>Several files of one collection to delete at once (at most <see cref="Limits.DeleteBatch"/>).</summary>
 public sealed record DeleteMediaRequest(IReadOnlyList<Guid>? Ids);
 /// <param name="Deleted">How many of the files existed and were deleted.</param>
 public sealed record DeleteMediaResult(int Deleted);
 
 /// <param name="ExcludedCount">Photos/videos the slideshow leaves out because they have no date or no location.</param>
-/// <param name="CoverId">The photo shown on the album's card: the first in slideshow order, else the first uploaded.</param>
+/// <param name="CoverId">The photo shown on the album's card and in its link previews: the one the owner chose, else the
+/// first in slideshow order, else (none in the slideshow) the first uploaded.</param>
+/// <param name="CoverChosen">Whether the owner chose the cover (false: it's chosen automatically).</param>
 public sealed record AlbumInfoDto(
     Guid Id, string Name, string? Description, DateTime CreatedAt, DateTime UpdatedAt,
     int ImageCount, int VideoCount, int MusicCount, int ExcludedCount, long TotalBytes, DateTime? CompiledAt, bool IsStale,
     bool IsShared, bool IsPublic,
-    [property: JsonIgnore] Guid? CoverId)
+    Guid? CoverId, bool CoverChosen)
 {
     public string? CoverThumbnailUrl => CoverId is { } c ? $"/api/v1/albums/{Id}/images/{c}/thumbnail" : null;
 }

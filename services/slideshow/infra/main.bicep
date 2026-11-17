@@ -33,6 +33,12 @@ param apiScope string = 'FrontPack.Access'
 @description('The website\'s custom domain (on the platform\'s Static Web App), allowed to call the API. Empty: none.')
 param customDomain string = ''
 
+@description('Domain of the share links (e.g. s.thefrontpack.com), served by this API. Empty: share links use the API address.')
+param shareDomain string = ''
+
+@description('Managed certificate for shareDomain, in the platform environment; empty until it exists. deploy-services.ps1 finds it, and has it made once the DNS records are in place.')
+param shareCertificateId string = ''
+
 @description('Extra origins allowed to call the API from a browser (the website is always allowed), e.g. http://localhost:3000')
 param allowedOrigins array = []
 
@@ -208,6 +214,9 @@ var customOrigin = empty(customDomain) ? '' : 'https://${customDomain}'
 var extraOrigins = concat(empty(customOrigin) ? [] : [customOrigin], allowedOrigins)
 var extraCorsEnv = [for (origin, i) in extraOrigins: { name: 'Cors__AllowedOrigins__${i + 1}', value: origin }]
 var corsEnv = concat([{ name: 'Cors__AllowedOrigins__0', value: webOrigin }], extraCorsEnv)
+// Share links' preview pages send people on to the slideshow on the website (its custom domain when it has one).
+var shareEnv = [{ name: 'Sharing__SiteOrigin', value: empty(customOrigin) ? webOrigin : customOrigin }]
+var shareBound = !empty(shareDomain) && !empty(shareCertificateId)
 
 var appEnv = concat([
   { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId } // the managed identity the API signs in to storage as
@@ -228,7 +237,7 @@ var appEnv = concat([
   { name: 'Auth__Audiences__0', value: apiClientId }
   { name: 'Auth__Audiences__1', value: 'api://${apiClientId}' }
   { name: 'Auth__RequiredScope', value: apiScope }
-], corsEnv)
+], corsEnv, shareEnv)
 
 resource app 'Microsoft.App/containerApps@2025-01-01' = if (!empty(containerImage)) {
   name: names.app
@@ -246,6 +255,8 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = if (!empty(containerImag
         targetPort: 8080
         transport: 'auto'
         allowInsecure: false
+        // Share links: https://<shareDomain>/<code>, once its certificate exists (see shareCertificateId).
+        customDomains: shareBound ? [{ name: shareDomain, bindingType: 'SniEnabled', certificateId: shareCertificateId }] : []
         additionalPortMappings: [
           { external: false, targetPort: internalPort, exposedPort: internalPort }
         ]
@@ -292,3 +303,8 @@ output identityClientId string = identity.properties.clientId
 output identityPrincipalId string = identity.properties.principalId
 output storageName string = storage.name
 output apiUrl string = empty(containerImage) ? '' : 'https://${app!.properties.configuration.ingress.fqdn}'
+// For the share domain's DNS records: a CNAME to the API's own address, and a TXT asuid.<name> with this id.
+output appName string = names.app
+output shareDomain string = shareDomain
+output apiFqdn string = empty(containerImage) ? '' : app!.properties.configuration.ingress.fqdn
+output domainVerificationId string = environment.properties.customDomainConfiguration.customDomainVerificationId

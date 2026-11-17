@@ -57,6 +57,12 @@
 .media-table__delete { color: var(--color-muted); }
 .media-table__delete:hover { color: var(--color-danger); }
 
+/* The cover photo: its badge, or a button on the other photos the slideshow shows */
+.cover { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 6px; }
+.badge--cover { color: var(--color-lamp); background: rgba(242, 184, 75, .14); }
+.cover__button { padding: 2px 8px; font-size: .8rem; color: var(--color-muted); }
+.cover__button:hover { color: var(--color-lamp); }
+
 /* Edit name and description */
 .album__edit { display: grid; gap: var(--spacing-md); margin-bottom: var(--spacing-lg); }
 .album__edit textarea { font: inherit; color: var(--color-paper); background: var(--color-field); border: 1px solid var(--color-line-strong); border-radius: var(--radius-sm); padding: 10px 12px; resize: vertical; }

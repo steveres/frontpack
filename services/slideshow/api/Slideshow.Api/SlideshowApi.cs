@@ -18,6 +18,7 @@ public static class SlideshowApi
         services.AddOptions<StorageOptions>().BindConfiguration("Storage");
         services.AddOptions<LimitsOptions>().BindConfiguration("Limits");
         services.AddOptions<ResizeOptions>().BindConfiguration("Resize");
+        services.AddOptions<SharingOptions>().BindConfiguration("Sharing");
 
         // Albums and media details: Azure Table Storage in the cloud, memory (saved to a file) locally and in tests.
         services.AddSingleton<ISlideshowStore>(sp =>
@@ -55,7 +56,7 @@ public static class SlideshowApi
 
     /// <summary>
     /// The routes: /api/v1/albums, /api/v1/admin/music (music admins) and /api/v1/admin (site admins), all signed
-    /// in; /api/v1/shared, /api/v1/public-albums and /api/v1/music (anyone).
+    /// in; /api/v1/shared, /api/v1/public-albums, /api/v1/music and the share links, /{code} (anyone).
     /// </summary>
     public static WebApplication MapSlideshow(this WebApplication app, RouteGroupBuilder api)
     {
@@ -66,6 +67,7 @@ public static class SlideshowApi
         app.MapGroup("/api/v1/shared").AllowAnonymous().MapShared(); // share links: no sign-in
         app.MapGroup("/api/v1/public-albums").AllowAnonymous().MapPublicAlbums(); // the albums anyone can watch
         app.MapGroup("/api/v1/music").AllowAnonymous().MapMusic(); // the library, played by shared slideshows too
+        app.MapGroup("").AllowAnonymous().MapSharePreviews(); // share links themselves: /{code}, previewed by other apps
         return app;
     }
 

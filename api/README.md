@@ -192,7 +192,8 @@ What gets created:
     - a private `media` container for files and compiled manifests
     - tables `Albums`, `Media` and `Shares`
     - queue `resize`
-  - `slideshow-api` (in the platform's environment, with internal port 8081)
+  - `slideshow-api` (in the platform's environment, with internal port 8081), which also serves the share
+    links at `s.thefrontpack.com` (see *Share links' domain*)
   - its managed identity
 
 Both storage accounts have shared keys off and 7-day soft delete. Each identity has exactly the roles it
@@ -205,6 +206,28 @@ Notes
 - The first request after an idle period is slow: the app scales from zero. Set `apiMinReplicas = 1`
   in a service's `main.bicepparam` to keep one instance warm (costs more).
 - Restrict the Google Maps key to the website's address in the Google Cloud console.
+
+### Share links' domain
+
+Share links look like `https://s.thefrontpack.com/<code>`. That address is a small page served by
+`slideshow-api`, with the trip's name, description and cover photo in its preview tags (LinkedIn, Messages,
+Slack etc. read those without running scripts). The page then sends the browser on to the slideshow on
+the website. The domain is `shareDomain` in
+[services/slideshow/infra/main.bicepparam](../services/slideshow/infra/main.bicepparam).
+
+Set it up once by adding two records at the domain's DNS host. `deploy-services.ps1` prints them with
+their values until it finds them:
+
+| Type | Name | Value |
+|---|---|---|
+| CNAME | `s` | `slideshow-api`'s own address (`slideshow-api.<…>.azurecontainerapps.io`) |
+| TXT | `asuid.s` | the Container Apps environment's domain verification id |
+
+On the next deploy after the records exist, the script has Azure issue a free certificate for the domain
+and attach it to `slideshow-api` (a few minutes, once). Azure renews the certificate itself. Until then,
+share links use the API's own address, and they still work.
+
+Links shared before this change (`/slideshow.html?share=<code>`) still play, but their previews stay plain.
 
 ### Deploy automatically from GitHub
 
@@ -284,6 +307,7 @@ If the **Azure login** step fails:
 | `Resize:Provider` (`Memory`/`AzureQueue`), `Resize:QueueServiceUri` or `Resize:ConnectionString`, `Resize:QueueName`, `Resize:MaxAttempts` | queue of photos waiting for their smaller versions |
 | `Limits:*` | per-kind file size (`MaxMusicBytes`: a music library track), per-user quota, files per album, albums per user, requests per minute |
 | `Cors:AllowedOrigins` | SPA origins |
+| `Sharing:SiteOrigin` | the website, where a share link's page sends people to watch (default: the first CORS origin) |
 
 Environment variables use `__` for `:` (e.g. `Tables__Provider`).
 

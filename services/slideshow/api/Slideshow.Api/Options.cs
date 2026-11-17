@@ -53,3 +53,13 @@ public sealed class LimitsOptions
     /// <summary>The largest photo or video a trip upload can be.</summary>
     public long MaxUploadBytes => Math.Max(MaxImageBytes, MaxVideoBytes);
 }
+
+/// <summary>"Sharing" section: share links' preview pages.</summary>
+public sealed class SharingOptions
+{
+    /// <summary>
+    /// The website (e.g. https://www.thefrontpack.com), where a share link's preview page sends people to watch;
+    /// empty: the first of the API's allowed origins (Cors:AllowedOrigins).
+    /// </summary>
+    public string? SiteOrigin { get; set; }
+}

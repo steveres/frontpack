@@ -15,8 +15,12 @@ export interface AlbumInfo {
   compiledAt: string | null;
   /** Never compiled, or changed since. */
   isStale: boolean;
-  /** Preview of the album's first photo (in slideshow order), or null. */
+  /** Preview of the album's cover photo, or null. */
   coverThumbnailUrl: string | null;
+  /** The cover photo: the one the owner chose, else the first in slideshow order (else the first uploaded); null with no photos. */
+  coverId: string | null;
+  /** Whether the owner chose the cover (false: it's chosen automatically). */
+  coverChosen: boolean;
   /** Anyone with the link can watch. */
   isShared: boolean;
   /** Listed on the Albums page for everyone (always shared too). */
@@ -52,8 +56,12 @@ export interface AdminTrack extends LibraryTrack {
 /** The most tracks a trip can have. */
 export const TRACKS_PER_TRIP = 20;
 
-/** The address to send people: plays the album without signing in. */
-export const shareLink = (token: string) => `${location.origin}/slideshow.html?share=${encodeURIComponent(token)}`;
+/**
+ * The address to send people: plays the album without signing in. It's the Slideshow API's preview page
+ * (APP_CONFIG.shareUrl, e.g. https://s.thefrontpack.com, else the API's own address), so apps that preview
+ * links show the trip's name and cover; it sends browsers on to slideshow.html?share=<code>.
+ */
+export const shareLink = (token: string) => `${APP_CONFIG.shareUrl ?? APP_CONFIG.services.slideshow}/${encodeURIComponent(token)}`;
 
 /** Where Play goes: your own album, or a shared one by its code. */
 export const playLink = (album: { albumId: string } | { shareToken: string }) => 'albumId' in album
@@ -105,6 +113,8 @@ export const AlbumsApi = {
   remove: (id: string) => api.delete(at(id)),
   /** Rename, or change the description (an empty one removes it). Omitted fields stay as they are. */
   update: (id: string, changes: { name?: string; description?: string }) => api.patch<AlbumInfo>(at(id), changes),
+  /** Make a photo the slideshow shows the trip's cover; null: choose it automatically again. */
+  setCover: (id: string, mediaId: string | null) => api.put<AlbumInfo>(`${at(id)}/cover`, { mediaId }),
   async compile(id: string): Promise<AlbumManifest> {
     return (await api.post<AlbumManifest>(`${at(id)}/compile`))!;
   },
