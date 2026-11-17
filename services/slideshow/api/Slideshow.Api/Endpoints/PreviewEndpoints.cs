@@ -56,6 +56,8 @@ public static partial class PreviewEndpoints
         var image = cover is null ? $"{site}/images/icon.png" : $"{self}/cover.jpg?v={cover.Id.ToString("N")[..12]}";
 
         string E(string s) => WebUtility.HtmlEncode(s);
+        // After the link it follows: run sooner, it would find nothing.
+        var redirect = LinkPreviewer().IsMatch(http.Request.Headers.UserAgent.ToString()) ? "" : $"<script>{Redirect}</script>";
         var html = $"""
             <!DOCTYPE html>
             <html lang="en">
@@ -73,9 +75,11 @@ public static partial class PreviewEndpoints
             <meta property="og:image:alt" content="{E(album is null ? "FrontPack" : $"A photo from {album.Name}")}">
             <meta name="twitter:card" content="{(cover is null ? "summary" : "summary_large_image")}">
             <style>body{"{"}font:18px system-ui,sans-serif;margin:3rem 1rem;text-align:center{"}"}</style>
-            {(LinkPreviewer().IsMatch(http.Request.Headers.UserAgent.ToString()) ? "" : $"<script>{Redirect}</script>")}
             </head>
-            <body><p><a id="watch" href="{E(watch)}">Watch “{E(title)}”</a></p></body>
+            <body>
+            <p><a id="watch" href="{E(watch)}">Watch “{E(title)}”</a></p>
+            {redirect}
+            </body>
             </html>
             """;
 
