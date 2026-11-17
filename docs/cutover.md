@@ -1,6 +1,6 @@
 # Cut-over: from the single API to the platform and services (done 2026-11-01)
 
-A record of how it was done. The single-API template, `deploy.ps1` and the combined host it mentions are gone.
+**Status: done.** Every step below, including the cleanup, is complete. A record of how it was done. The single-API template, `deploy.ps1` and the combined host it mentions are gone.
 
 Moves www.thefrontpack.com from the single API in `slideshow-rg` to:
 - the FrontPack platform in `frontpack-rg`
