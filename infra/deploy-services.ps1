@@ -98,6 +98,16 @@ function Connect-ShareDomain($Outputs, [string]$CertificateId) {
   }
 }
 
+# With -SkipSlideshow: the share links' address if a domain is already bound to the running Slideshow API, so a
+# website-only deploy keeps it; '' when none is (or there's no Slideshow resource group yet, before the cut-over).
+function Find-BoundShareUrl {
+  try {
+    $domains = @(Invoke-Az containerapp list --resource-group $SlideshowResourceGroup `
+      --query '[].properties.configuration.ingress.customDomains[].name' --output json | ConvertFrom-Json)
+  } catch { return '' }
+  if ($domains.Count -gt 0 -and $domains[0]) { return "https://$($domains[0])" } else { return '' }
+}
+
 # Builds a host's image with the .NET SDK (no Docker needed), pushes it, and returns its reference.
 function Publish-Image([string]$HostProject, [string]$Repository, [string]$Registry, [string]$LoginServer) {
   $tag = (Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmmss')
@@ -141,7 +151,7 @@ $frontpackApiUrl = $platform.apiUrl.value
 if ($SkipSlideshow) {
   Write-Host "3/4 Skipping Slideshow (-SkipSlideshow): the website uses $SlideshowApiUrl."
   $slideshowApiUrl = $SlideshowApiUrl
-  $shareUrl = ''
+  $shareUrl = Find-BoundShareUrl
 } else {
   Write-Host "3/4 Slideshow ($SlideshowResourceGroup)..."
   Invoke-Az group create --name $SlideshowResourceGroup --location $Location --output none | Out-Null

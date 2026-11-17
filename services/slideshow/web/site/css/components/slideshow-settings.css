@@ -29,6 +29,17 @@
 @media (orientation: landscape) and (max-height: 500px) {
   .slideshow:not(.slideshow--no-map) .settings__toggle,
   .slideshow:not(.slideshow--no-map) .settings__panel { right: calc(var(--edge) + var(--map-width) + 10px); }
+  .slideshow:not(.slideshow--no-map) .slideshow__share,
+  .slideshow:not(.slideshow--no-map) .slideshow__share-note { right: calc(var(--edge) + var(--map-width) + 64px); }
 }
 
-@media (prefers-reduced-motion: reduce) { .slideshow .settings__toggle { transition: none; } }
+/* Share: just left of the gear, styled like it; "Link copied" shows under it for a moment */
+.slideshow .slideshow__share { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 68px; width: 44px; height: 44px; padding: 10px; border: 0; border-radius: 50%; background: rgba(20, 24, 29, .55); opacity: .4; transition: opacity .2s; }
+.slideshow .slideshow__share[hidden] { display: none; }
+.slideshow .slideshow__share:hover,
+.slideshow .slideshow__share:focus-visible { opacity: 1; }
+.slideshow__share svg { display: block; width: 100%; height: 100%; }
+.slideshow__share-note { position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 54px); right: 68px; margin: 0; padding: 4px 12px; border-radius: 999px; background: rgba(20, 24, 29, .85); color: var(--color-paper); font-size: 13px; white-space: nowrap; pointer-events: none; }
+.slideshow__share-note[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) { .slideshow .settings__toggle, .slideshow .slideshow__share { transition: none; } }
