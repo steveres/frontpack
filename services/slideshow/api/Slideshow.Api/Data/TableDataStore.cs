@@ -98,6 +98,7 @@ public sealed class TableDataStore : ISlideshowStore
         ["IsPublic"] = a.IsPublic,
         ["MusicTrackIds"] = IdsText(a.MusicTrackIds),
         ["HasMusic"] = a.MusicTrackIds.Count > 0, // so the albums with music can be found
+        ["CoverMediaId"] = a.CoverMediaId,
     };
 
     private static Album ToAlbum(TableEntity e) => new()
@@ -115,6 +116,7 @@ public sealed class TableDataStore : ISlideshowStore
         ShareHideMap = e.GetBoolean("ShareHideMap") ?? false,
         IsPublic = e.GetBoolean("IsPublic") ?? false,
         MusicTrackIds = Ids(e.GetString("MusicTrackIds")),
+        CoverMediaId = e.GetGuid("CoverMediaId"),
         ETag = e.ETag.ToString(),
     };
 

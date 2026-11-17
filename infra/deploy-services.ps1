@@ -4,7 +4,8 @@
     2. The platform (frontpack-rg): registry, Container Apps environment, monitoring, accounts, website; then
        FrontPack's API image (hosts\FrontPack.Host) and the frontpack-api container app.
     3. Slideshow (slideshow-rg): storage and identity; then its image (hosts\Slideshow.Host) and the
-       slideshow-api container app in the platform's environment.
+       slideshow-api container app in the platform's environment, with the share links' domain
+       (shareDomain in its main.bicepparam) once that domain's DNS records are in place.
     4. Packages the website with each API's address and uploads it to the platform's Static Web App.
   Usage:   .\infra\deploy-services.ps1                     everything
            .\infra\deploy-services.ps1 -SkipSlideshow -SlideshowApiUrl https://<current slideshow-api>
@@ -47,14 +48,54 @@ function Invoke-Native([string]$Exe, [string[]]$Arguments) {
 function Invoke-Az { return Invoke-Native 'az' $args }
 
 # Deploys a service's template (services\<name>\infra) and returns its outputs.
-function Deploy-Template([string]$ResourceGroup, [string]$Service, [string]$DeploymentName, [string]$Image = '') {
+function Deploy-Template([string]$ResourceGroup, [string]$Service, [string]$DeploymentName, [string]$Image = '', [string[]]$Parameters = @()) {
   $dir = Join-Path $root "services\$Service\infra"
   $extra = if ($Image) { @('--parameters', "containerImage=$Image") } else { @() }
+  foreach ($p in $Parameters) { $extra += @('--parameters', $p) }
   if ($SkipCustomDomain -and $Service -eq 'frontpack') { $extra += @('--parameters', 'customDomain=') }
   $arguments = @('deployment', 'group', 'create', '--resource-group', $ResourceGroup, '--name', $DeploymentName,
     '--template-file', (Join-Path $dir 'main.bicep'), '--parameters', (Join-Path $dir 'main.bicepparam')) + $extra +
     @('--query', 'properties.outputs', '--output', 'json')
   return Invoke-Native 'az' $arguments | ConvertFrom-Json
+}
+
+# The share links' domain (e.g. s.thefrontpack.com) has an Azure-managed certificate in the platform's environment
+# once it's been set up: its id, so the template keeps the domain on slideshow-api; '' before then.
+function Find-ShareCertificate([string]$Domain, [string]$Environment) {
+  if (-not $Domain) { return '' }
+  $certificates = Invoke-Az containerapp env certificate list --name $Environment --resource-group $PlatformResourceGroup --managed-certificates-only --output json | ConvertFrom-Json
+  $found = @($certificates | Where-Object { $_.properties.subjectName -eq $Domain -and $_.properties.provisioningState -eq 'Succeeded' })
+  if ($found.Count -gt 0) { return $found[0].id } else { return '' }
+}
+
+# Puts the share links' domain on slideshow-api with a free managed certificate, the first time its DNS records
+# are found (Azure checks them; the certificate takes a few minutes). Returns the share links' address, or ''
+# (share links then use the API's own address) with the records to add.
+function Connect-ShareDomain($Outputs, [string]$CertificateId) {
+  $domain = $Outputs.shareDomain.value
+  if (-not $domain) { return '' }
+  if ($CertificateId) { return "https://$domain" }
+  $fqdn = $Outputs.apiFqdn.value
+  $verification = $Outputs.domainVerificationId.value
+  $cname = Resolve-DnsName -Name $domain -Type CNAME -DnsOnly -ErrorAction SilentlyContinue | Where-Object { $_.NameHost -eq $fqdn }
+  $txt = Resolve-DnsName -Name "asuid.$domain" -Type TXT -DnsOnly -ErrorAction SilentlyContinue | Where-Object { $_.Strings -contains $verification }
+  if (-not ($cname -and $txt)) {
+    Write-Host "  Share links use the API's own address until these DNS records exist for $domain (then deploy again):" -ForegroundColor Yellow
+    Write-Host "    CNAME  $domain  ->  $fqdn" -ForegroundColor Yellow
+    Write-Host "    TXT    asuid.$domain  =  $verification" -ForegroundColor Yellow
+    return ''
+  }
+  Write-Host "  Share links: certificate for $domain (a few minutes)..."
+  $app = $Outputs.appName.value
+  $environmentId = Invoke-Az containerapp show --name $app --resource-group $SlideshowResourceGroup --query properties.managedEnvironmentId --output tsv
+  try {
+    Invoke-Az containerapp hostname bind --hostname $domain --name $app --resource-group $SlideshowResourceGroup `
+      --environment $environmentId --validation-method CNAME --output none | Out-Null
+    return "https://$domain"
+  } catch {
+    Write-Host "  Couldn't set up $domain yet ($_); share links use the API's own address. Deploy again to retry." -ForegroundColor Yellow
+    return ''
+  }
 }
 
 # Builds a host's image with the .NET SDK (no Docker needed), pushes it, and returns its reference.
@@ -100,13 +141,16 @@ $frontpackApiUrl = $platform.apiUrl.value
 if ($SkipSlideshow) {
   Write-Host "3/4 Skipping Slideshow (-SkipSlideshow): the website uses $SlideshowApiUrl."
   $slideshowApiUrl = $SlideshowApiUrl
+  $shareUrl = ''
 } else {
   Write-Host "3/4 Slideshow ($SlideshowResourceGroup)..."
   Invoke-Az group create --name $SlideshowResourceGroup --location $Location --output none | Out-Null
-  Deploy-Template $SlideshowResourceGroup 'slideshow' 'slideshow-infra' | Out-Null
+  $slideshowInfra = Deploy-Template $SlideshowResourceGroup 'slideshow' 'slideshow-infra'
+  $shareCertificate = Find-ShareCertificate $slideshowInfra.shareDomain.value $platform.environmentName.value
   $image = Publish-Image 'Slideshow.Host' 'slideshow-api' $registry $loginServer
-  $slideshow = Deploy-Template $SlideshowResourceGroup 'slideshow' 'slideshow-api' $image
+  $slideshow = Deploy-Template $SlideshowResourceGroup 'slideshow' 'slideshow-api' $image @("shareCertificateId=$shareCertificate")
   $slideshowApiUrl = $slideshow.apiUrl.value
+  $shareUrl = Connect-ShareDomain $slideshow $shareCertificate
 }
 
 $webName = $platform.webName.value
@@ -116,6 +160,7 @@ Write-Host "4/4 Website -> $webUrl ..."
 $staging = Join-Path ([IO.Path]::GetTempPath()) 'frontpack-web-package'
 $siteConfig = Get-Content (Join-Path $web 'app.config.azure.json') -Raw | ConvertFrom-Json
 $siteConfig | Add-Member -NotePropertyName services -NotePropertyValue ([ordered]@{ frontpack = $frontpackApiUrl; slideshow = $slideshowApiUrl }) -Force
+if ($shareUrl) { $siteConfig | Add-Member -NotePropertyName shareUrl -NotePropertyValue $shareUrl -Force }
 $env:APP_CONFIG = $siteConfig | ConvertTo-Json -Depth 5 -Compress
 Push-Location $web
 try {
@@ -132,6 +177,7 @@ Write-Host ''
 Write-Host "Website:          $webUrl"
 Write-Host "FrontPack API:    $frontpackApiUrl"
 Write-Host "Slideshow API:    $slideshowApiUrl"
+Write-Host "Share links:      $(if ($shareUrl) { $shareUrl } else { $slideshowApiUrl })/<code>"
 Write-Host "Sign-in redirect: $webUrl/login.html  (must be listed on the 'FrontPack' website app registration)"
 Write-Host "Maps key:         $webUrl/*  (must be allowed on the Google Maps key)"
 if ($customUrl) { Write-Host "Custom domain:    $customUrl" }

@@ -22,6 +22,7 @@ const errorEl = query(page, '.album__error');
 const showError = (err: unknown) => { errorEl.textContent = errorMessage(err); errorEl.hidden = false; };
 const viewer = createMediaViewer();
 let album: AlbumInfo | null = null;
+let images: MediaInfo[] = [];
 
 // ───────── Selecting files ─────────
 
@@ -133,6 +134,43 @@ function deleteCell(m: MediaInfo, collection: Collection): HTMLTableCellElement 
   return td;
 }
 
+/**
+ * The cover photo (shown on the trip's card and in previews of its share link): "Cover" on it, and on the
+ * other photos the slideshow shows, a button to make it the cover instead.
+ */
+function coverControl(m: MediaInfo): HTMLElement | null {
+  if (!album || m.kind !== 'image' || !m.playable || !m.thumbnailUrl) return null;
+  const wrap = document.createElement('span');
+  wrap.className = 'cover';
+  const choose = async (button: HTMLButtonElement, mediaId: string | null) => {
+    button.disabled = true;
+    try {
+      renderAlbum(await AlbumsApi.setCover(albumId, mediaId));
+      renderImages(images);
+    } catch (err) { showError(err); button.disabled = false; }
+  };
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'button button--quiet cover__button';
+  if (album.coverId === m.id) {
+    const badge = document.createElement('span');
+    badge.className = 'badge badge--cover';
+    badge.textContent = album.coverChosen ? '★ Cover' : '★ Cover (automatic)';
+    badge.title = "Shown on the trip's card and when its share link is posted or texted.";
+    wrap.append(badge);
+    if (!album.coverChosen) return wrap;
+    button.textContent = 'Use automatic';
+    button.title = "Go back to using the slideshow's first photo as the cover.";
+    button.onclick = () => choose(button, null);
+  } else {
+    button.textContent = 'Make cover';
+    button.setAttribute('aria-label', `Make ${m.fileName} the trip's cover photo`);
+    button.onclick = () => choose(button, m.id);
+  }
+  wrap.append(button);
+  return wrap;
+}
+
 const missingText = (missing: MediaInfo['missing']) =>
   missing.length === 2 ? 'No date or location' : missing[0] === 'date' ? 'No capture date' : 'No location';
 
@@ -166,6 +204,8 @@ function imageRow(m: MediaInfo, list: MediaInfo[], index: number): HTMLTableRowE
   badge.className = m.playable ? 'badge badge--ok' : 'badge badge--warning';
   badge.textContent = m.playable ? 'Shown' : `Not shown: ${missingText(m.missing)}`;
   status.append(badge);
+  const cover = coverControl(m);
+  if (cover) status.append(cover);
 
   tr.append(
     selections.images.checkbox(m),
@@ -215,6 +255,7 @@ function renderAlbum(a: AlbumInfo): void {
 }
 
 function renderImages(media: MediaInfo[]): void {
+  images = media;
   const sorted = [...media].sort(slideshowOrder);
   query(page, '.album__images').replaceChildren(...sorted.map((m, i) => imageRow(m, sorted, i)));
   selections.images.attach();

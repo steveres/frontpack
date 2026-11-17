@@ -9,5 +9,9 @@ param apiClientId = '8bb70d3f-c621-497f-a1a9-0be9c0d6aac4'   // "FrontPack API" 
 param customDomain = 'www.thefrontpack.com'
 param allowedOrigins = []
 
+// Share links (https://s.thefrontpack.com/<code>), served by this API with an Azure-managed certificate. Needs two DNS
+// records at the domain's DNS host; deploy-services.ps1 prints them until they're in place.
+param shareDomain = 's.thefrontpack.com'
+
 // 0 = free, but the first request after ~5 idle minutes waits about 20 s; 1 = always instant, about US$10/month.
 param apiMinReplicas = 1

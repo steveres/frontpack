@@ -120,6 +120,7 @@ public sealed class ThumbnailTests(ApiFactory factory) : IClassFixture<ApiFactor
         var list = await client.GetFromJsonAsync<JsonElement[]>("/api/v1/albums");
         var card = list!.Single(a => a.GetProperty("id").GetString() == album);
         Assert.Equal(first.GetProperty("thumbnailUrl").GetString(), card.GetProperty("coverThumbnailUrl").GetString());
-        Assert.False(card.TryGetProperty("coverId", out _)); // internal
+        Assert.Equal(first.GetProperty("id").GetString(), card.GetProperty("coverId").GetString()); // the trip page marks it
+        Assert.False(card.GetProperty("coverChosen").GetBoolean());
     }
 }

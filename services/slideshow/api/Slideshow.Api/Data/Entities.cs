@@ -21,6 +21,8 @@ public sealed class Album
     public bool IsPublic { get; set; }
     /// <summary>The slideshow's music: tracks from the music library, in play order. Ids no longer in the library are skipped.</summary>
     public IReadOnlyList<Guid> MusicTrackIds { get; set; } = [];
+    /// <summary>The photo the owner chose for the trip's cover (cards, link previews); null: chosen automatically.</summary>
+    public Guid? CoverMediaId { get; set; }
 
     /// <summary>The stored row's version when read; an update fails if the row changed since (not stored itself).</summary>
     public string? ETag { get; set; }

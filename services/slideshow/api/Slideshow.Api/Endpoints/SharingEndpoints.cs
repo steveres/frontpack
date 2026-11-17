@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Slideshow.Api.Data;
+using Slideshow.Api.Media;
 using Slideshow.Api.Storage;
 
 namespace Slideshow.Api.Endpoints;
@@ -118,10 +119,10 @@ public static partial class SharingEndpoints
     private static partial Regex TokenFormat();
 
     /// <summary>A wrong, revoked or malformed code all look the same: not found.</summary>
-    private static IResult NotShared() => Problems.Of(404, "share_not_found", "This slideshow isn't shared, or the link is wrong.");
+    internal static IResult NotShared() => Problems.Of(404, "share_not_found", "This slideshow isn't shared, or the link is wrong.");
 
     /// <summary>The album the code points to, if the album still has that code (a turned-off link finds nothing).</summary>
-    private static async Task<Album?> SharedAlbum(ISlideshowStore store, string token, CancellationToken ct)
+    internal static async Task<Album?> SharedAlbum(ISlideshowStore store, string token, CancellationToken ct)
     {
         if (!TokenFormat().IsMatch(token) || await store.ResolveShareAsync(token, ct) is not { } share) return null;
         var album = await store.GetAlbumAsync(share.OwnerId, share.AlbumId, ct);
@@ -202,8 +203,7 @@ public static partial class SharingEndpoints
     {
         var token = a.ShareToken!;
         var slides = media.Where(m => m.Collection == MediaCollection.Images && MediaInfoDto.MissingFor(m).Count == 0).ToList();
-        var cover = slides.Where(m => m.Kind == MediaKind.Image && m.ThumbnailState != ThumbnailState.Unavailable)
-            .OrderBy(m => m.TakenAt).ThenBy(m => m.FileName, StringComparer.Ordinal).Select(m => (Guid?)m.Id).FirstOrDefault();
+        var cover = Covers.For(a, slides)?.Id;
         return new PublicAlbumDto(
             a.Id, a.Name, a.Description, a.CreatedAt, a.UpdatedAt,
             slides.Count(m => m.Kind == MediaKind.Image),

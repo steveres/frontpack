@@ -19,6 +19,7 @@ public static class AlbumEndpoints
         g.MapGet("/{albumId:guid}", Get).WithSummary("The compiled, playable album (manifest).");
         g.MapGet("/{albumId:guid}/info", GetInfo).WithSummary("Album details and counts.");
         g.MapPatch("/{albumId:guid}", Update).WithSummary("Rename an album or change its description.");
+        g.MapPut("/{albumId:guid}/cover", SetCover).WithSummary("Choose the trip's cover photo (one the slideshow shows), or null to have it chosen automatically.");
         g.MapPost("/{albumId:guid}/compile", Compile).WithSummary("Order the slides by date taken and store the manifest.");
         g.MapDelete("/{albumId:guid}", Delete).WithSummary("Delete the album with its photos and videos.");
         SharingEndpoints.MapOwner(g);
@@ -38,11 +39,10 @@ public static class AlbumEndpoints
     private static AlbumInfoDto Info(Album a, IReadOnlyCollection<MediaFile> media, IReadOnlyDictionary<Guid, MusicTrack> library)
     {
         media = media.Where(m => m.Collection == MediaCollection.Images).ToList(); // (music uploaded before the library, until it's deleted)
-        var photos = media.Where(m => m.Kind == MediaKind.Image && m.ThumbnailState != ThumbnailState.Unavailable).ToList();
-        // Cover: first photo in slideshow order, else the first photo uploaded.
-        var cover = photos.Where(m => MediaInfoDto.MissingFor(m).Count == 0)
-                        .OrderBy(m => m.TakenAt).ThenBy(m => m.FileName, StringComparer.Ordinal).Select(m => (Guid?)m.Id).FirstOrDefault()
-                    ?? photos.OrderBy(m => m.UploadedAt).Select(m => (Guid?)m.Id).FirstOrDefault();
+        // Cover: the chosen one, else the first photo in slideshow order; with none in the slideshow, the first photo uploaded.
+        var cover = Covers.For(a, media)?.Id
+                    ?? media.Where(m => m.Kind == MediaKind.Image && m.ThumbnailState != ThumbnailState.Unavailable)
+                        .OrderBy(m => m.UploadedAt).Select(m => (Guid?)m.Id).FirstOrDefault();
         return new AlbumInfoDto(
             a.Id, a.Name, a.Description, a.CreatedAt, a.UpdatedAt,
             media.Count(m => m.Kind == MediaKind.Image),
@@ -53,7 +53,7 @@ public static class AlbumEndpoints
             a.CompiledAt,
             a.CompiledVersion == null || a.CompiledVersion != a.ContentVersion,
             a.ShareToken != null, a.IsPublic,
-            cover);
+            cover, cover is not null && cover == a.CoverMediaId);
     }
 
     private static async Task<IResult> List(HttpContext http, ISlideshowStore store, MusicLibrary library, CancellationToken ct)
@@ -97,7 +97,7 @@ public static class AlbumEndpoints
         var now = DateTime.UtcNow;
         var album = new Album { Id = Guid.CreateVersion7(), OwnerId = ownerId, Name = name!, Description = description, CreatedAt = now, UpdatedAt = now };
         await store.AddAlbumAsync(album, ct);
-        var info = new AlbumInfoDto(album.Id, album.Name, album.Description, now, now, 0, 0, 0, 0, 0, null, true, false, false, null);
+        var info = new AlbumInfoDto(album.Id, album.Name, album.Description, now, now, 0, 0, 0, 0, 0, null, true, false, false, null, false);
         return Results.Created($"/api/v1/albums/{album.Id}/info", info);
     }
 
@@ -114,6 +114,21 @@ public static class AlbumEndpoints
             if (description is not null) a.Description = description.Length == 0 ? null : description;
             a.UpdatedAt = DateTime.UtcNow;
         }, ct);
+        return album is null ? SlideshowProblems.AlbumNotFound()
+            : Results.Ok(Info(album, await store.ListMediaAsync(ownerId, albumId, ct), await library.GetAsync(ct)));
+    }
+
+    private static async Task<IResult> SetCover(Guid albumId, SetCoverRequest body, HttpContext http, ISlideshowStore store, MusicLibrary library, CancellationToken ct)
+    {
+        var ownerId = http.User.UserId();
+        if (await store.GetAlbumAsync(ownerId, albumId, ct) is null) return SlideshowProblems.AlbumNotFound();
+        if (body.MediaId is { } mediaId)
+        {
+            var media = await store.GetMediaAsync(ownerId, albumId, mediaId, ct);
+            if (media is null || media.Collection != MediaCollection.Images) return SlideshowProblems.MediaNotFound();
+            if (!Covers.CanBeCover(media)) return Problems.Validation("The cover has to be a photo the slideshow shows (one with a capture date and a location).");
+        }
+        var album = await store.UpdateAlbumAsync(ownerId, albumId, a => a.CoverMediaId = body.MediaId, ct);
         return album is null ? SlideshowProblems.AlbumNotFound()
             : Results.Ok(Info(album, await store.ListMediaAsync(ownerId, albumId, ct), await library.GetAsync(ct)));
     }
