@@ -21,3 +21,4 @@ TestResults/
 
 # Legal drafts and review notes (local only; the published text is terms.html / privacy.html)
 docs/legal/
+.vscode/
