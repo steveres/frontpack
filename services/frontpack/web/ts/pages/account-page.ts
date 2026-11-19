@@ -4,7 +4,7 @@ import { AccountApi, type AccountInfo } from '../api/account-api.js';
 import { requireSignIn, signOut } from '../auth/session.js';
 import { getAuth } from '../auth/auth.js';
 import { mountNavigation } from '../components/navigation.js';
-import { query } from '../utils/dom.js';
+import { query, showBusy } from '../utils/dom.js';
 import { errorMessage, formatBytes, formatDay } from '../utils/format.js';
 
 await requireSignIn();
@@ -38,7 +38,7 @@ try {
 }
 
 const signOutBtn = query<HTMLButtonElement>(page, '.account__sign-out');
-signOutBtn.onclick = async () => { signOutBtn.disabled = true; await signOut(); };
+signOutBtn.onclick = async () => { showBusy(signOutBtn, 'Signing out…'); await signOut(); };
 
 // Delete: a second, explicit confirmation step.
 const confirmBox = query(page, '.account__confirm');

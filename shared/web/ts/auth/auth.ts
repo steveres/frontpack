@@ -17,8 +17,11 @@ export interface AuthProvider {
   signIn(returnTo?: string): Promise<void>;
   /** Forgets the sign-in on this browser (and, for Entra, at the identity provider). */
   signOut(): Promise<void>;
-  /** A valid access token for the API; throws NotSignedInError when there is none. */
-  getAccessToken(): Promise<string>;
+  /**
+   * A valid access token for the API; throws NotSignedInError when there is none. When a new one needs a trip to
+   * the identity provider, `interactive` (the default) goes there and comes back; false throws instead.
+   */
+  getAccessToken(interactive?: boolean): Promise<string>;
   /** Why the sign-in this page load returned from failed (e.g. the identity provider refused it), if it did. */
   readonly signInError?: unknown;
 }

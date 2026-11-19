@@ -5,7 +5,7 @@
 import { APP_CONFIG } from '../config.js';
 import { getAuth, loginUrl } from '../auth/auth.js';
 import { signOut } from '../auth/session.js';
-import { query } from '../utils/dom.js';
+import { query, showBusy } from '../utils/dom.js';
 
 export async function mountNavigation(): Promise<void> {
   const placeholder = document.getElementById('navigation-placeholder');
@@ -40,7 +40,7 @@ export async function mountNavigation(): Promise<void> {
     accountLink.textContent = account.name;
     accountLink.hidden = false;
     signOutBtn.hidden = false;
-    signOutBtn.onclick = async () => { signOutBtn.disabled = true; await signOut(); };
+    signOutBtn.onclick = async () => { showBusy(signOutBtn, 'Signing out…'); await signOut(); };
   } else if (location.pathname !== '/login.html') {
     signIn.href = loginUrl();
     signIn.hidden = false;

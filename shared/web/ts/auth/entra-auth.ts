@@ -69,7 +69,16 @@ export async function createEntraAuth(): Promise<AuthProvider> {
   const ours = (a: AccountInfo | null) => a && (!tenant || a.tenantId?.toLowerCase() === tenant || a.homeAccountId.toLowerCase().endsWith(`.${tenant}`)) ? a : null;
   const current = (): AccountInfo | null => ours(app.getActiveAccount()) ?? app.getAllAccounts().find(a => ours(a)) ?? null;
   const scopes = [config.apiScope];
-  let redirecting = false; // a token redirect has started: further requests just wait for it
+  let redirect: Promise<never> | undefined; // a token redirect has started: further requests wait for it too
+
+  /**
+   * Getting a new token needs a trip to Entra. MSAL's own fallback is a hidden frame to Entra, which browsers that
+   * block third-party cookies (Safari, Firefox, Chrome with them blocked) answer with the sign-in page: it never
+   * returns, and after 10 s the request fails with "timed_out". So that fallback is off (cacheLookupPolicy below),
+   * and these mean "go to Entra": no refresh token (SPA ones last 24 hours), or Entra wants a sign-in.
+   */
+  const needsEntra = (err: unknown) => err instanceof msal.InteractionRequiredAuthError
+    || (err instanceof msal.AuthError && ['token_refresh_required', 'timed_out'].includes(err.errorCode));
 
   return {
     mode: 'entra',
@@ -94,17 +103,17 @@ export async function createEntraAuth(): Promise<AuthProvider> {
       await app.logoutRedirect(account ? { account } : undefined);
     },
 
-    async getAccessToken() {
+    async getAccessToken(interactive = true) {
       const account = current();
       if (!account) throw new NotSignedInError();
       try {
-        return (await app.acquireTokenSilent({ scopes, account })).accessToken;
+        return (await app.acquireTokenSilent({ scopes, account, cacheLookupPolicy: msal.CacheLookupPolicy.AccessTokenAndRefreshToken })).accessToken;
       } catch (err) {
-        if (err instanceof msal.InteractionRequiredAuthError && !redirecting) {
-          redirecting = true;
-          await app.acquireTokenRedirect({ scopes, account }); // comes back to this page
-        }
-        throw err;
+        if (!interactive || !needsEntra(err)) throw err;
+        // Still signed in to Entra (its own cookie): it comes straight back to this page, with a token. Every
+        // request waiting meanwhile waits for that, rather than failing and showing the page as if signed out.
+        redirect ??= app.acquireTokenRedirect({ scopes, account }).then(() => new Promise<never>(() => {}));
+        return redirect;
       }
     },
   };
