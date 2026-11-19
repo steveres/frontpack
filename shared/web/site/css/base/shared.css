@@ -44,3 +44,8 @@ a { color: var(--color-lamp); }
 
 /* Text for screen readers only */
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Busy: a small spinning ring before the text of something under way ("Signing out…") */
+.spinner { display: inline-block; width: 1em; height: 1em; flex: none; vertical-align: -.15em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spinner-turn .8s linear infinite; }
+@keyframes spinner-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }

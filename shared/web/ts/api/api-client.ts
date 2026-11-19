@@ -25,7 +25,7 @@ interface RequestOptions {
 async function token(noRedirect = false): Promise<string> {
   const auth = await getAuth();
   try {
-    return await auth.getAccessToken();
+    return await auth.getAccessToken(!noRedirect); // noRedirect: no trip to Entra for a new token either
   } catch (err) {
     if (err instanceof NotSignedInError && !noRedirect) await auth.signIn(currentPath());
     throw err;
